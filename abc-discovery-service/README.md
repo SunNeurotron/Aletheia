@@ -34,7 +34,7 @@ El servicio sigue una arquitectura de microservicios distribuida, desacoplada y 
     La primera vez que se ejecute, puede tardar varios minutos en descargar y construir todo.
 
 3.  **Acceder a los Servicios:**
-    Once que todos los contenedores estén en funcionamiento, puede acceder a los diferentes componentes del sistema:
+    Una vez que todos los contenedores estén en funcionamiento, puede acceder a los diferentes componentes del sistema:
 
     -   **Dashboard Interactivo:** Abra su navegador y vaya a `http://localhost:8501`
     -   **Documentación de la API:** Abra su navegador y vaya a `http://localhost:8000/docs`
