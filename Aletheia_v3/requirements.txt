@@ -1,0 +1,49 @@
+# Core Application & API
+fastapi[all]>=0.100.0 # Includes uvicorn, pydantic, etc.
+sqlalchemy>=2.0.0
+psycopg2-binary # PostgreSQL adapter
+
+# Asynchronous Tasks (Celery)
+celery>=5.3.0
+redis[hiredis]>=4.0.0 # For Celery broker and backend
+
+# AI & Scientific Computing
+scikit-optimize>=0.9.0 # For Bayesian Optimization
+numpy>=1.20.0 # Often a dependency of scikit-optimize, good to have explicit
+pandas>=1.3.0 # For data handling, used in dashboard
+
+# Dashboard
+streamlit>=1.25.0
+requests>=2.25.0 # For dashboard to call API
+plotly>=5.0.0 # For interactive plots in dashboard
+
+# Testing Suite
+pytest>=7.0.0
+pytest-asyncio>=0.20.0 # For testing async FastAPI code
+httpx>=0.24.0 # Asynchronous HTTP client for testing FastAPI endpoints
+
+# Security & Authentication
+python-jose[cryptography]>=3.3.0 # For JWT handling
+passlib[bcrypt]>=1.7.4 # For password hashing
+
+# Experiment Tracking
+mlflow>=2.5.0 # For ML experiment tracking
+# boto3 # Add if using S3 for MLflow artifacts (as in docker-compose example)
+# psycopg2-binary is already listed, MLflow can use it for backend store
+
+# Linters and Formatters (Development Dependencies - often in a separate dev-requirements.txt)
+# flake8
+# black
+# mypy
+# isort
+
+# Notes:
+# - Specify versions to ensure reproducible builds. Use `pip freeze > requirements.txt`
+#   from a working virtual environment as a starting point.
+# - `fastapi[all]` includes `uvicorn` for serving and `pydantic` for data validation.
+# - `redis[hiredis]` includes the C Hiredis parser for better performance with Redis.
+# - `python-jose[cryptography]` installs `cryptography` which is needed for certain JWT algorithms.
+# - `psycopg2-binary` is easier to install than `psycopg2` as it comes with precompiled binaries.
+# - `boto3` would be needed if MLflow's artifact store is S3. If using local storage or DB for artifacts, it's not strictly required.
+#   The example docker-compose.yml for mlflow mentions s3://my-mlflow-bucket, so boto3 would be needed if that's used.
+#   For now, I'll keep it commented out; it can be added if S3 artifact storage is actively implemented.
