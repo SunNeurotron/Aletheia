@@ -72,6 +72,12 @@ El servicio sigue una arquitectura de microservicios distribuida, desacoplada y 
     ```
     Este comando detendrá y eliminará los contenedores, pero los datos en la base de datos persistirán en un volumen de Docker (`postgres_data`), por lo que no perderá sus descubrimientos entre sesiones.
 
+## Licencia y Descargo de Responsabilidad
+
+Este proyecto se distribuye bajo la Licencia Apache 2.0. Puede encontrar el texto completo de la licencia en el archivo [LICENSE](LICENSE).
+
+Por favor, revise también el archivo [DISCLAIMER.md](DISCLAIMER.md) para entender las limitaciones y responsabilidades asociadas con el uso de este software.
+
 ## Próximos Pasos y Posibles Mejoras
 
 Este proyecto es una base sólida. Las futuras mejoras podrían incluir:
