@@ -1,0 +1,10 @@
+fastapi[all]
+sqlalchemy
+celery
+redis[hiredis]
+psycopg2-binary
+streamlit
+requests
+pandas
+plotly
+scikit-optimize

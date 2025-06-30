@@ -1,0 +1,54 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: abc_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=abc_db
+  redis:
+    image: redis:7-alpine
+    container_name: abc_redis
+  api:
+    build: .
+    container_name: abc_api
+    command: uvicorn api_server:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DB_HOST=db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=abc_db
+  worker:
+    build: .
+    container_name: abc_worker
+    command: celery -A celery_worker.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+    environment:
+      - DB_HOST=db
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=abc_db
+  dashboard:
+    build: .
+    container_name: abc_dashboard
+    command: streamlit run dashboard.py --server.port 8501 --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+volumes:
+  postgres_data:
