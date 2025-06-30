@@ -1,0 +1,169 @@
+version: '3.8'
+
+# Define named volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  mlflow_data: # For MLflow server (if it were to store artifacts locally, not recommended for prod)
+    driver: local # Or use an external S3/MinIO for artifact_root
+
+# Define common environment variables to be reused across services
+x-common-env: &common-env
+  POSTGRES_USER: ${POSTGRES_USER:-user}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  POSTGRES_DB: ${POSTGRES_DB:-aletheia_db} # Changed DB name
+  DB_HOST: db
+  DB_PORT: 5432
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  # SECRET_KEY for JWT should be set in a .env file or environment
+  SECRET_KEY: ${SECRET_KEY:-a-very-secret-key-that-should-be-changed-and-be-very-long}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+
+services:
+  # PostgreSQL Database Service
+  db:
+    image: postgres:15-alpine
+    container_name: aletheia_postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-aletheia_db}
+    ports:
+      - "5433:5432" # Expose on 5433 locally to avoid conflict if local Postgres runs on 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis Service (for Celery Broker/Backend)
+  redis:
+    image: redis:7-alpine
+    container_name: aletheia_redis
+    ports:
+      - "6379:6379" # Standard Redis port
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # FastAPI Application Service (API)
+  # This service runs the uvicorn server for the FastAPI app.
+  api:
+    build:
+      context: . # Build from the current directory (Aletheia_v3)
+      dockerfile: Dockerfile
+    container_name: aletheia_api
+    # The command is passed to entrypoint.sh
+    # entrypoint.sh will execute: uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - .:/opt/aletheia # Mount current directory to /opt/aletheia in container for live code changes
+    ports:
+      - "8000:8000" # Map port 8000 of container to 8000 on host
+    environment:
+      <<: *common-env # Inherit common environment variables
+      # Any API-specific environment variables can be added here
+    depends_on:
+      db:
+        condition: service_healthy # Wait for DB to be healthy
+      redis:
+        condition: service_healthy # Wait for Redis to be healthy
+    restart: unless-stopped
+    # healthcheck: (Optional: define a specific healthcheck for the API via an endpoint)
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+
+  # Celery Worker Service
+  # This service runs the Celery worker process.
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aletheia_worker
+    # The command is passed to entrypoint.sh
+    # entrypoint.sh will execute: celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker -l info -P eventlet
+    # Using eventlet for I/O bound tasks, adjust concurrency as needed.
+    command: celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker -l info -P eventlet -c 2 # Example concurrency
+    volumes:
+      - .:/opt/aletheia
+    environment:
+      <<: *common-env
+      # C_FORCE_ROOT is sometimes needed if Celery runs as root (default in Docker unless user is changed)
+      C_FORCE_ROOT: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api: # Worker might depend on API if it makes calls back, or for consistent startup order
+        condition: service_started # Or service_healthy if API has a healthcheck
+    restart: unless-stopped
+
+  # Streamlit Dashboard Service
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aletheia_dashboard
+    # The command is passed to entrypoint.sh
+    # entrypoint.sh will execute: streamlit run Aletheia_v3/dashboard/dashboard.py --server.port 8501 --server.address 0.0.0.0
+    command: streamlit run Aletheia_v3/dashboard/dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS=false --server.enableXsrfProtection=false
+    volumes:
+      - .:/opt/aletheia
+    ports:
+      - "8501:8501"
+    environment:
+      <<: *common-env
+      API_BASE_URL: http://api:8000 # URL for dashboard to call the API service
+      MLFLOW_UI_URL: http://mlflow:5000
+    depends_on:
+      api: # Dashboard needs API to be running
+        condition: service_started # Or service_healthy if API has a healthcheck
+    restart: unless-stopped
+
+  # MLflow Tracking Server Service
+  mlflow:
+    # Using a standard python image to run mlflow server, could also build a custom one.
+    # For a more robust MLflow setup, consider official MLflow Docker images or Helm charts.
+    image: python:3.11-slim
+    container_name: aletheia_mlflow_server
+    # Command to install mlflow and start the server.
+    # Backend store URI points to the PostgreSQL 'db' service. Schema 'aletheia_db' will be used.
+    # Default artifact root: In a production setup, this should be S3, MinIO, Azure Blob, etc.
+    # For local testing, a Docker volume can be used, but it's stored inside the container's FS or a Docker volume.
+    # Using `file:///mlflow_artifacts` which maps to the `mlflow_data` volume.
+    command: >
+      sh -c "pip install mlflow psycopg2-binary boto3 sqlalchemy &&
+             mkdir -p /mlflow_artifacts &&
+             mlflow server
+             --host 0.0.0.0
+             --port 5000
+             --backend-store-uri postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:${DB_PORT:-5432}/${POSTGRES_DB:-aletheia_db}
+             --default-artifact-root file:///mlflow_artifacts"
+             # Replace `file:///mlflow_artifacts` with `s3://your-mlflow-s3-bucket/` for S3
+    ports:
+      - "5000:5000" # MLflow UI port
+    volumes:
+      - mlflow_data:/mlflow_artifacts # Persist MLflow artifacts
+    environment:
+      <<: *common-env # For DB connection details
+      # AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-} # Needed if using S3 for artifacts
+      # AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-}
+    depends_on:
+      db:
+        condition: service_healthy # MLflow server needs DB to be ready
+    restart: unless-stopped
+```
