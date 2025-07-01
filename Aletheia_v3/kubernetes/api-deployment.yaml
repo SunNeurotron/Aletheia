@@ -20,10 +20,15 @@ spec:
       containers:
       - name: aletheia-api
         image: your-docker-registry/aletheia-platform:latest # Replace with your actual image path
-        # The command for the API service is defined in the Dockerfile's entrypoint + docker-compose
-        # For K8s, we might override the CMD part of the entrypoint.sh call here or rely on Docker image's default.
-        # Assuming entrypoint.sh handles "uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000"
-        # No explicit command override needed here if Docker image's CMD is suitable or entrypoint handles it.
+        # entrypoint.sh will receive these arguments
+        args:
+        - "uvicorn"
+        - "Aletheia_v3.api.api_server:app"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "8000"
+        # --reload flag removed for production-like config
         ports:
         - containerPort: 8000
           name: http

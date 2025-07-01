@@ -1,0 +1,83 @@
+# Aletheia_v3/kubernetes/ingress.yaml
+# This file defines conceptual Ingress resources for exposing Aletheia services.
+# Actual implementation depends on the Ingress controller used in the Kubernetes cluster
+# (e.g., Nginx Ingress, Traefik, GKE Ingress, etc.) and DNS configuration.
+
+# --- Common Annotations (Example for Nginx Ingress Controller) ---
+# These would typically be set globally or per Ingress resource.
+# Adjust based on your Ingress controller.
+# metadata:
+#   annotations:
+#     kubernetes.io/ingress.class: "nginx"
+#     nginx.ingress.kubernetes.io/rewrite-target: / # If paths need rewriting
+#     cert-manager.io/cluster-issuer: "letsencrypt-prod" # If using cert-manager for TLS
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aletheia-ingress
+  labels:
+    app: aletheia
+  annotations:
+    # Example: Use Nginx ingress controller
+    kubernetes.io/ingress.class: "nginx"
+    # Example: Enable SSL redirect (assumes TLS termination at Ingress)
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # Example: Basic rewrite rule if services don't expect a path prefix
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2 # If path is like /api(/|$)(.*)
+spec:
+  # tls: # Optional: Define TLS termination
+  # - hosts:
+  #   - api.aletheia.example.com
+  #   - dashboard.aletheia.example.com
+  #   - mlflow.aletheia.example.com
+  #   secretName: aletheia-tls-secret # K8s secret containing TLS cert and key
+  rules:
+  - host: api.aletheia.example.com # Replace with your actual domain
+    http:
+      paths:
+      - path: / # Route all paths for this host to the API service
+        pathType: Prefix # Or ImplementationSpecific / Exact
+        backend:
+          service:
+            name: aletheia-api-service # Matches Service name for API
+            port:
+              number: 80 # Matches Service port for API (which targets container 8000)
+  - host: dashboard.aletheia.example.com # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aletheia-dashboard-service # Matches Service name for Dashboard
+            port:
+              number: 80 # Matches Service port for Dashboard (targets container 8501)
+  - host: mlflow.aletheia.example.com # Replace with your actual domain
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aletheia-mlflow-service # Matches Service name for MLflow
+            port:
+              number: 80 # Matches Service port for MLflow (targets container 5000)
+
+# --- Notes on this Ingress Definition ---
+# 1. Hostnames: `api.aletheia.example.com`, etc., are placeholders. You need to configure
+#    DNS to point these hostnames to your Ingress controller's external IP/load balancer.
+# 2. TLS: The `tls` section is commented out. For HTTPS, you would uncomment it and create
+#    a Kubernetes Secret (`aletheia-tls-secret`) containing your TLS certificate and private key.
+#    Alternatively, use cert-manager with ClusterIssuers (like Let's Encrypt) to automate TLS.
+# 3. Ingress Controller: This example assumes an Nginx Ingress controller via the annotation
+#    `kubernetes.io/ingress.class: "nginx"`. If you use a different controller (Traefik, HAProxy,
+#    cloud-provider specific), annotations and possibly the spec structure might change.
+# 4. Path Routing: This example uses host-based routing. All traffic for a given host goes to
+#    one service. You can also do path-based routing within a single host if needed
+#    (e.g., `aletheia.example.com/api/*` -> api-service, `aletheia.example.com/dashboard/*` -> dashboard-service).
+#    This often requires `rewrite-target` annotations for services that don't expect the path prefix.
+#    The current setup (separate subdomains) is cleaner if subdomains are available.
+# 5. Service Ports: The backend service ports (80 in these examples) must match the
+#    `port` defined in the corresponding Kubernetes `Service` manifest (not the `targetPort`).
+```

@@ -20,12 +20,20 @@ spec:
       containers:
       - name: aletheia-worker
         image: your-docker-registry/aletheia-platform:latest # Replace with your actual image path
-        # Command for Celery worker, passed to entrypoint.sh
-        # Example: celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker -l info -P eventlet -c 1
-        # This should be configured via the Docker image or overridden here if needed.
-        # For K8s, often the command from docker-compose is adapted.
-        # args: ["celery", "-A", "Aletheia_v3.infrastructure.celery_worker.celery_app", "worker", "-l", "info", "-P", "eventlet", "-c", "1"]
-        # Assuming entrypoint.sh handles "celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker ..."
+        # entrypoint.sh will receive these arguments
+        args:
+        - "celery"
+        - "-A"
+        - "Aletheia_v3.infrastructure.celery_worker.celery_app"
+        - "worker"
+        - "-l"
+        - "info"
+        - "-Q"
+        - "math_heavy,default" # Explicitly consume from math_heavy and default queues
+        - "-P"
+        - "eventlet" # Concurrency pool
+        - "-c"
+        - "2" # Example concurrency per worker pod
         envFrom:
         - configMapRef:
             name: aletheia-configmap
@@ -41,5 +49,22 @@ spec:
           limits:
             memory: "1Gi"
             cpu: "1"
+        livenessProbe: # Basic liveness probe for Celery
+          exec:
+            command:
+            - celery
+            - "-A"
+            - "Aletheia_v3.infrastructure.celery_worker.celery_app"
+            - "status"
+          initialDelaySeconds: 60 # Give time for worker to start and connect
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        # Readiness probe could check connection to Redis, or a custom health check if implemented
+        # readinessProbe:
+        #   exec:
+        #     command: ["redis-cli", "-h", "$(REDIS_HOST)", "-p", "$(REDIS_PORT)", "ping"]
+        #   initialDelaySeconds: 20
+        #   periodSeconds: 15
       # imagePullSecrets:
       # - name: your-registry-secret
