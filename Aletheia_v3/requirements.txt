@@ -31,6 +31,10 @@ mlflow>=2.5.0 # For ML experiment tracking
 # boto3 # Add if using S3 for MLflow artifacts (as in docker-compose example)
 # psycopg2-binary is already listed, MLflow can use it for backend store
 
+# Phase 1: Core Mathematical Engine Enhancements
+cypari2>=2.1.2 # Interface to PARI/GP
+numba>=0.57.0   # For JIT compilation
+
 # Linters and Formatters (Development Dependencies - often in a separate dev-requirements.txt)
 # flake8
 # black
