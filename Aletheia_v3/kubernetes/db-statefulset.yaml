@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aletheia-db-configmap
+  labels:
+    app: aletheia
+    service: db
+data:
+  POSTGRES_DB: "aletheia_db" # Default from common-env, can be overridden
+  # Other non-sensitive PG configurations can go here
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aletheia-db-secret # Name referenced in StatefulSet
+  labels:
+    app: aletheia
+    service: db
+type: Opaque
+data:
+  # Values should be base64 encoded. Example: echo -n "user" | base64 -> dXNlcg==
+  POSTGRES_USER: "dXNlcg==" # "user"
+  POSTGRES_PASSWORD: "cGFzc3dvcmQ=" # "password"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim # Define a PVC for PostgreSQL data
+metadata:
+  name: aletheia-db-pvc
+  labels:
+    app: aletheia
+    service: db
+spec:
+  accessModes:
+    - ReadWriteOnce # Suitable for a single DB instance
+  resources:
+    requests:
+      storage: 5Gi # Example storage size, adjust as needed
+  # storageClassName: "your-storage-class" # Optional: specify if not using default
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: aletheia-db
+  labels:
+    app: aletheia
+    service: db
+spec:
+  serviceName: "aletheia-db-headless"
+  replicas: 1 # PostgreSQL typically runs as a single primary, HA is more complex
+  selector:
+    matchLabels:
+      app: aletheia
+      service: db
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: db
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres-client
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: aletheia-db-configmap
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: aletheia-db-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: aletheia-db-secret
+              key: POSTGRES_PASSWORD
+        - name: PGDATA # Data directory within the container
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage # Mount the PVC
+          mountPath: /var/lib/postgresql/data/pgdata
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "$(POSTGRES_USER)", "-d", "$(POSTGRES_DB)"]
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
+      volumes: # This defines the volume that can be claimed by PVC
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: aletheia-db-pvc # Claim the PVC defined above
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aletheia-db-service # For client connections
+  labels:
+    app: aletheia
+    service: db
+spec:
+  ports:
+  - port: 5432
+    targetPort: postgres-client
+    name: postgres
+  selector:
+    app: aletheia
+    service: db
+---
+apiVersion: v1
+kind: Service # Headless service for StatefulSet
+metadata:
+  name: aletheia-db-headless
+  labels:
+    app: aletheia
+    service: db
+spec:
+  ports:
+  - port: 5432
+    name: postgres-client
+  clusterIP: None
+  selector:
+    app: aletheia
+    service: db

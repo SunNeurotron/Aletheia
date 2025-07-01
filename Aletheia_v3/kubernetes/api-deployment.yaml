@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aletheia-api-deployment
+  labels:
+    app: aletheia
+    service: api
+spec:
+  replicas: 2 # Example: start with 2 replicas
+  selector:
+    matchLabels:
+      app: aletheia
+      service: api
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: api
+    spec:
+      containers:
+      - name: aletheia-api
+        image: your-docker-registry/aletheia-platform:latest # Replace with your actual image path
+        # The command for the API service is defined in the Dockerfile's entrypoint + docker-compose
+        # For K8s, we might override the CMD part of the entrypoint.sh call here or rely on Docker image's default.
+        # Assuming entrypoint.sh handles "uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000"
+        # No explicit command override needed here if Docker image's CMD is suitable or entrypoint handles it.
+        ports:
+        - containerPort: 8000
+          name: http
+        envFrom:
+        - configMapRef:
+            name: aletheia-configmap # Common config
+        - secretRef:
+            name: aletheia-secrets  # Common secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      # imagePullSecrets: # If using a private registry
+      # - name: your-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aletheia-api-service
+  labels:
+    app: aletheia
+    service: api
+spec:
+  type: LoadBalancer # Or ClusterIP if only internal, NodePort for specific node access
+  selector:
+    app: aletheia
+    service: api
+  ports:
+  - protocol: TCP
+    port: 80 # External port for LoadBalancer
+    targetPort: 8000 # Container port
+    name: http

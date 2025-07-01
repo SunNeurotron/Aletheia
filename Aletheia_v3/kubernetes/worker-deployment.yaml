@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment # Could be a StatefulSet if workers need stable identities or persistent storage per replica
+metadata:
+  name: aletheia-worker-deployment
+  labels:
+    app: aletheia
+    service: worker
+spec:
+  replicas: 3 # Example: start with 3 Celery worker replicas
+  selector:
+    matchLabels:
+      app: aletheia
+      service: worker
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: worker
+    spec:
+      containers:
+      - name: aletheia-worker
+        image: your-docker-registry/aletheia-platform:latest # Replace with your actual image path
+        # Command for Celery worker, passed to entrypoint.sh
+        # Example: celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker -l info -P eventlet -c 1
+        # This should be configured via the Docker image or overridden here if needed.
+        # For K8s, often the command from docker-compose is adapted.
+        # args: ["celery", "-A", "Aletheia_v3.infrastructure.celery_worker.celery_app", "worker", "-l", "info", "-P", "eventlet", "-c", "1"]
+        # Assuming entrypoint.sh handles "celery -A Aletheia_v3.infrastructure.celery_worker.celery_app worker ..."
+        envFrom:
+        - configMapRef:
+            name: aletheia-configmap
+        - secretRef:
+            name: aletheia-secrets
+        env:
+        - name: C_FORCE_ROOT # Often needed for Celery in Docker
+          value: "true"
+        resources:
+          requests:
+            memory: "512Mi" # Workers might need more memory
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+      # imagePullSecrets:
+      # - name: your-registry-secret

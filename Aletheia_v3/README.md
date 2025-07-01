@@ -104,6 +104,17 @@ graph TD
     ```
     This will stop and remove the containers. Data in the PostgreSQL database and MLflow (if configured with a volume or external backend) will persist across sessions due to Docker volumes.
 
+## Advanced Deployment & Scalability (Phase 2 Concepts)
+
+The platform is designed with scalability in mind. The following concepts and configurations are part of ongoing or planned enhancements for large-scale deployment:
+
+*   **Kubernetes:** Basic deployment configurations for running Aletheia services (API, Celery Workers, Dashboard, Database, Redis, MLflow) on Kubernetes can be found in the `kubernetes/` directory. These provide a starting point for scalable, orchestrated deployments.
+*   **Celery Worker Scaling:** Strategies for scaling Celery workers, including task routing to specialized queues (e.g., `math_heavy`) and conceptual use of Kubernetes Horizontal Pod Autoscalers (HPAs), are outlined in `docs/celery_scaling_and_parallel_bayes_opt.md`.
+*   **Database Optimization:** For handling massive datasets of mathematical results, advanced PostgreSQL optimizations such as table partitioning and specialized indexing are crucial. Example SQL commands and strategies are documented in `infrastructure/db_optimizations.sql`.
+*   **HPC Adaptation:** For leveraging traditional High-Performance Computing clusters, conceptual SLURM submission scripts and MPI-based parallel processing examples are provided in `docs/HPC_ADAPTATION.md`.
+
+These advanced features represent the direction for scaling Aletheia to handle increasingly complex and large-scale mathematical research.
+
 ## License and Disclaimer
 
 This project is distributed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

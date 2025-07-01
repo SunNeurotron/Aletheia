@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aletheia-dashboard-deployment
+  labels:
+    app: aletheia
+    service: dashboard
+spec:
+  replicas: 1 # Dashboard is usually not heavily replicated unless under extreme load
+  selector:
+    matchLabels:
+      app: aletheia
+      service: dashboard
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: dashboard
+    spec:
+      containers:
+      - name: aletheia-dashboard
+        image: your-docker-registry/aletheia-platform:latest # Replace with your actual image path
+        # Command for Streamlit dashboard, passed to entrypoint.sh
+        # Example: streamlit run Aletheia_v3/dashboard/dashboard.py --server.port 8501 --server.address 0.0.0.0
+        # Assuming entrypoint.sh handles this.
+        ports:
+        - containerPort: 8501
+          name: http
+        envFrom:
+        - configMapRef:
+            name: aletheia-configmap
+        # Dashboard might not need DB secrets directly if it only talks to API
+        env:
+          - name: API_BASE_URL # Ensure dashboard knows how to reach the API service
+            value: "http://aletheia-api-service:80" # K8s service DNS name for the API
+          - name: MLFLOW_UI_URL
+            value: "http://aletheia-mlflow-service:5000" # K8s service DNS name for MLflow
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "400m"
+        readinessProbe:
+          httpGet:
+            path: /healthz # Streamlit's default health check endpoint
+            port: 8501
+          initialDelaySeconds: 10
+          periodSeconds: 15
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8501
+          initialDelaySeconds: 25
+          periodSeconds: 30
+      # imagePullSecrets:
+      # - name: your-registry-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aletheia-dashboard-service
+  labels:
+    app: aletheia
+    service: dashboard
+spec:
+  type: LoadBalancer # Or ClusterIP/NodePort
+  selector:
+    app: aletheia
+    service: dashboard
+  ports:
+  - protocol: TCP
+    port: 80 # External port
+    targetPort: 8501 # Container port
+    name: http
