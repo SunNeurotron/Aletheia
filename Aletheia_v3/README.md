@@ -16,9 +16,9 @@ This version integrates features developed across several focused phases, transf
 *   *(Numba JIT compilation was considered but deferred as PARI/GP addressed primary bottlenecks).*
 
 **2. Distributed Computing & Scalability (Phase 2 - Conceptual Designs & Initial Configs):**
-*   **Kubernetes Readiness:** Initial Kubernetes deployment and service configurations (`kubernetes/`) created for all platform components (API, Celery Workers, Dashboard, DB, Redis, MLflow), providing a blueprint for orchestrated, scalable deployments.
-*   **Advanced Celery Worker Management:** Implemented task routing in `infrastructure/celery_worker.py` (e.g., to `math_heavy` queue). Conceptual designs for worker scaling using Kubernetes HPAs and KEDA are documented in `docs/celery_scaling_and_parallel_bayes_opt.md`.
-*   **Database Scalability Strategies:** `infrastructure/db_optimizations.sql` provides SQL examples for PostgreSQL optimizations like table partitioning and specialized indexing, crucial for managing massive datasets of mathematical results.
+*   **Kubernetes Readiness:** Kubernetes deployment and service configurations in the `kubernetes/` directory have been refined for increased robustness (e.g., explicit command arguments for containers, verified environment variable sourcing, appropriate probes). A conceptual `ingress.yaml` has been added to illustrate how services would be exposed externally. These provide a more detailed blueprint for orchestrated, scalable deployments.
+*   **Advanced Celery Worker Management:** Implemented task routing in `infrastructure/celery_worker.py` (e.g., to `math_heavy` queue). Conceptual designs for worker scaling using Kubernetes HPAs and KEDA are documented in `docs/celery_scaling_and_parallel_bayes_opt.md`. Worker Kubernetes deployment (`kubernetes/worker-deployment.yaml`) now includes explicit command arguments and a basic liveness probe.
+*   **Database Scalability Strategies:** `infrastructure/db_optimizations.sql` provides SQL examples for PostgreSQL optimizations like table partitioning and specialized indexing, crucial for managing massive datasets of mathematical results. Kubernetes configurations for the database (`kubernetes/db-*.yaml`) have been reviewed for correctness.
 *   **HPC Adaptation Concepts:** `docs/HPC_ADAPTATION.md` includes example SLURM scripts and MPI (`mpi4py`) code snippets, illustrating how Aletheia's core could be adapted for traditional High-Performance Computing environments.
 
 **3. Advanced AI & Extensibility (Phase 3):**
