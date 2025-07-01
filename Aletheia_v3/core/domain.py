@@ -1,18 +1,26 @@
 # core/domain.py
 import math
 from dataclasses import dataclass
+from functools import lru_cache
 
-def gcd(a, b):
+from cypari2 import Pari # For PARI/GP integration
+pari = Pari() # Initialize PARI/GP instance
+
+# Numba for JIT compilation - will be used where appropriate
+# import numba
+
+def gcd(a: int, b: int) -> int:
     """
-    Computes the greatest common divisor (GCD) of two integers a and b.
+    Computes the greatest common divisor (GCD) of two integers a and b
+    using PARI/GP via cypari2.
 
     @param a: The first integer.
     @param b: The second integer.
     @returns: The greatest common divisor of a and b.
     """
-    while b:
-        a, b = b, a % b
-    return abs(a)
+    # PARI's gcd is very efficient and handles large numbers.
+    # It returns a PARI GEN object, so convert to Python int.
+    return int(pari.gcd(a, b))
 
 @dataclass(frozen=True)
 class ABCTriple:
@@ -68,28 +76,55 @@ def get_quality(a: int, b: int) -> float:
 
     c = a + b
 
+    # Cache results of _radical to avoid re-computation for the same number
+    @lru_cache(maxsize=1024) # Adjust maxsize based on expected unique numbers
     def _radical(n_val: int) -> int:
-        """Computes the radical of an integer n."""
-        if n_val == 0: return 0
-        n_abs = abs(n_val)
-        if n_abs == 1: return 1
+        """
+        Computes the radical (square-free kernel) of an integer 'n' using PARI/GP (via cypari2)
+        for prime factorization. The radical of 'n' is the product of its distinct prime factors.
+        This function is cached using functools.lru_cache.
 
-        r = 1
-        d = 2
-        temp_n = n_abs
-        while d * d <= temp_n:
-            if temp_n % d == 0:
-                r *= d
-                while temp_n % d == 0:
-                    temp_n //= d
-            d += 1
-        if temp_n > 1: # Remaining temp_n is a prime
-            r *= temp_n
-        return r
+        Example: rad(72) = rad(2^3 * 3^2) = 2 * 3 = 6.
+
+        @param n_val: The integer for which to compute the radical.
+        @returns: The radical of n_val. Returns 0 if n_val is 0, 1 if n_val is +/-1.
+        """
+        if n_val == 0:
+            return 0
+        if abs(n_val) == 1:
+            return 1
+
+        try:
+            # pari.factor() returns a Factorization object (matrix-like).
+            # Column 0 contains prime factors, Column 1 contains their exponents.
+            # Example: pari.factor(72) -> [2, 3; 3, 2] (means 2^3 * 3^2)
+            factors_matrix = pari.factor(abs(n_val))
+
+            # The distinct prime factors are in the first column of the matrix.
+            distinct_primes = factors_matrix[0]
+
+            # Calculate the product of these distinct primes.
+            radical_val = 1
+            if len(distinct_primes) > 0: # Check if there are any prime factors
+                for p in distinct_primes:
+                    radical_val *= int(p) # Convert PARI prime to int before multiplying
+            else: # Should not happen for abs(n_val) > 1
+                radical_val = abs(n_val) if abs(n_val) > 1 else 1
+
+
+            return radical_val
+        except Exception as e:
+            # Handle potential errors from PARI/GP, though it's robust.
+            # This might occur for extremely large numbers beyond PARI's limits or config.
+            # For now, re-raise or log, or fall back to a simpler method if critical.
+            print(f"Error during PARI/GP factorization of {n_val}: {e}")
+            # As a fallback, could use a simple Python version, but it would be slow.
+            # For now, let it propagate or return a value indicating error.
+            raise # Or return a specific error indicator if preferred by calling logic
 
     rad_abc = _radical(a * b * c)
 
-    if rad_abc == 0 or rad_abc >= c : # log(rad_abc) would be undefined or quality <=1
+    if rad_abc == 0 or rad_abc >= c : # log(rad_abc) would be undefined or quality <=1 or rad_abc is 0
         return 0.0
 
     # Ensure rad_abc is not 1 if c > 1 to avoid log(1)=0 in denominator
