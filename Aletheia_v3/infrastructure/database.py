@@ -49,8 +49,11 @@ def init_db():
     # it's often better to ensure models are imported where init_db is called.
     # For this project structure, models.py will import Base from here.
     from .models import JobDB, HitDB # Ensure models are known to Base
-    Base.metadata.create_all(bind=engine)
-    print("Database tables created (if they didn't exist).")
+    Base.metadata.create_all(bind=engine) # Creates tables based on SQLAlchemy models
+    print("Database tables created/verified by SQLAlchemy (if they didn't exist).")
+    print("Note: Advanced optimizations like table partitioning defined in")
+    print("'infrastructure/db_optimizations.sql' need to be applied manually by a DBA")
+    print("or through a database migration tool like Alembic for production environments.")
 
 # If you need to run init_db from a script or command line:
 if __name__ == "__main__":

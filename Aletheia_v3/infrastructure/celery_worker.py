@@ -36,17 +36,39 @@ if experiment is None:
 mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
 
 
+from kombu import Queue, Exchange
+
 # Optional Celery configuration (can also be in a separate celeryconfig.py)
+# Define default and example custom queues
+default_exchange = Exchange('default', type='direct')
+math_exchange = Exchange('math_ops', type='direct')
+
+CELERY_TASK_QUEUES = (
+    Queue('default', default_exchange, routing_key='default'),
+    Queue('math_heavy', math_exchange, routing_key='math.heavy'),
+    Queue('math_light', math_exchange, routing_key='math.light')
+)
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_DEFAULT_EXCHANGE = 'default'
+CELERY_TASK_DEFAULT_ROUTING_KEY = 'default'
+
 celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],  # Ensure tasks accept JSON content
     result_serializer='json',
     timezone='UTC',
     enable_utc=True,
-    # More advanced settings can be added here, e.g., task routing, rate limits.
+    task_queues=CELERY_TASK_QUEUES,
+    task_default_queue=CELERY_TASK_DEFAULT_QUEUE,
+    task_default_exchange=CELERY_TASK_DEFAULT_EXCHANGE,
+    task_default_routing_key=CELERY_TASK_DEFAULT_ROUTING_KEY,
+    # Example: Route specific tasks if not specified in @task decorator
+    # task_routes={
+    #     'Aletheia_v3.infrastructure.celery_worker.new_example_task': {'queue': 'math_light'}
+    # },
 )
 
-@celery_app.task(name="intelligent_discovery_task") # Explicit task name
+@celery_app.task(name="intelligent_discovery_task", queue="math_heavy") # Route this to math_heavy queue
 def intelligent_discovery_task(job_id: str, n_calls: int):
     """
     Celery task to perform intelligent discovery for abc-triples.

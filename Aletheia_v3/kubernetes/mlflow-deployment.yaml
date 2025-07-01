@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aletheia-mlflow-pvc
+  labels:
+    app: aletheia
+    service: mlflow
+spec:
+  accessModes:
+    - ReadWriteOnce # Assuming MLflow server runs as a single instance
+  resources:
+    requests:
+      storage: 2Gi # Storage for MLflow artifacts (if local) and backend DB (if SQLite)
+  # storageClassName: "your-storage-class" # Optional
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aletheia-mlflow-deployment
+  labels:
+    app: aletheia
+    service: mlflow
+spec:
+  replicas: 1 # MLflow server typically runs as a single instance
+  selector:
+    matchLabels:
+      app: aletheia
+      service: mlflow
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: mlflow
+    spec:
+      containers:
+      - name: aletheia-mlflow
+        image: python:3.11-slim # Same base as used in docker-compose for mlflow
+        command: ["/bin/sh", "-c"]
+        args:
+        - >
+          pip install mlflow psycopg2-binary boto3 sqlalchemy &&
+          mkdir -p /mlflow_artifacts &&
+          mlflow server
+          --host 0.0.0.0
+          --port 5000
+          --backend-store-uri postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@aletheia-db-service:5432/$(POSTGRES_DB)
+          --default-artifact-root file:///mlflow_artifacts
+        ports:
+        - containerPort: 5000
+          name: http
+        envFrom: # Get DB credentials from the common secrets/configmaps
+        - configMapRef:
+            name: aletheia-db-configmap # For POSTGRES_DB
+        - secretRef:
+            name: aletheia-db-secret    # For POSTGRES_USER, POSTGRES_PASSWORD
+        # Add AWS credentials if using S3 for artifacts
+        # - name: AWS_ACCESS_KEY_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: aws-secrets
+        #       key: aws_access_key_id
+        # - name: AWS_SECRET_ACCESS_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: aws-secrets
+        #       key: aws_secret_access_key
+        volumeMounts:
+        - name: mlflow-storage
+          mountPath: /mlflow_artifacts # Mount local artifact storage
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /health # MLflow has a health endpoint (or use /api/2.0/mlflow/experiments/list)
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+      volumes:
+      - name: mlflow-storage
+        persistentVolumeClaim:
+          claimName: aletheia-mlflow-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aletheia-mlflow-service
+  labels:
+    app: aletheia
+    service: mlflow
+spec:
+  type: LoadBalancer # Or ClusterIP/NodePort
+  selector:
+    app: aletheia
+    service: mlflow
+  ports:
+  - protocol: TCP
+    port: 80 # External port for LoadBalancer (if exposing mlflow directly)
+    targetPort: 5000 # MLflow container port
+    name: http

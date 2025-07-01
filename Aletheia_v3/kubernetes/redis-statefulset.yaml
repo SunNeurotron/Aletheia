@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet # Redis is often run as a StatefulSet for stable network ID and persistent storage if needed
+metadata:
+  name: aletheia-redis
+  labels:
+    app: aletheia
+    service: redis
+spec:
+  serviceName: "aletheia-redis-headless" # Required for StatefulSet
+  replicas: 1 # For a simple setup; for HA Redis, use Redis Cluster or Sentinel setup (more complex)
+  selector:
+    matchLabels:
+      app: aletheia
+      service: redis
+  template:
+    metadata:
+      labels:
+        app: aletheia
+        service: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+          name: redis-client
+        # volumeMounts: # If persistence is needed for Redis (e.g. AOF/RDB)
+        # - name: redis-data
+        #   mountPath: /data
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 15
+          periodSeconds: 20
+  # volumeClaimTemplates: # If persistence is needed
+  # - metadata:
+  #     name: redis-data
+  #   spec:
+  #     accessModes: [ "ReadWriteOnce" ]
+  #     resources:
+  #       requests:
+  #         storage: 1Gi # Example size
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aletheia-redis-service # Standard service for clients
+  labels:
+    app: aletheia
+    service: redis
+spec:
+  ports:
+  - port: 6379
+    targetPort: redis-client
+    name: redis
+  selector:
+    app: aletheia
+    service: redis
+---
+apiVersion: v1
+kind: Service # Headless service for StatefulSet discovery
+metadata:
+  name: aletheia-redis-headless
+  labels:
+    app: aletheia
+    service: redis
+spec:
+  ports:
+  - port: 6379
+    name: redis-client
+  clusterIP: None # Headless
+  selector:
+    app: aletheia
+    service: redis
