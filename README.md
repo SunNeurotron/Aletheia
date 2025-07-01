@@ -253,6 +253,23 @@ The platform is designed with scalability in mind. The following concepts and co
 *   **Database Optimization:** For handling massive datasets of mathematical results, advanced PostgreSQL optimizations such as table partitioning and specialized indexing are crucial. Example SQL commands and strategies are documented in `infrastructure/db_optimizations.sql`.
 These enhancements, built upon the initial MDU structure, significantly advance Aletheia's capabilities for sophisticated mathematical exploration and collaborative research. Refer to the respective module/document paths for detailed information on each feature.
 
+---
 
+## Additional Modules & Tools
+
+### Aletheia-Stats Module
+
+-   **Purpose**: Provides a dedicated statistical analysis service, including t-tests with normality checks, confidence intervals, and integration with MLflow for experiment tracking.
+-   **Architecture**: Developed following the MDU principles with a hexagonal-scientific architecture.
+-   **Functionality**: Offers a FastAPI interface for performing statistical analyses.
+-   **Details**: For comprehensive information on its setup, API, and scientific methods, please refer to its dedicated documentation: [`aletheia_stats/README.md`](aletheia_stats/README.md).
+-   **To Run Aletheia-Stats (Docker)**:
+    ```bash
+    cd aletheia_stats
+    docker-compose up --build
+    ```
+    The module will typically run on `http://localhost:8000` (API) and `http://localhost:5001` (MLflow), but check `aletheia_stats/.env.example` and `aletheia_stats/docker-compose.yml` for specific port configurations to avoid conflicts with the main Aletheia platform services.
+
+---
 
 *(Note: The `LICENSE` and `DISCLAIMER.md` files are expected to be in the `Aletheia_v3` root, carried over from the previous version or added if missing).*
