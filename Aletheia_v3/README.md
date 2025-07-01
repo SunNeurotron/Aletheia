@@ -144,3 +144,6 @@ This project is distributed under the Apache License 2.0. See the [LICENSE](LICE
 Please also review the [DISCLAIMER.md](DISCLAIMER.md) file for important limitations and responsibilities associated with the use of this software.
 
 *(Note: The `LICENSE` and `DISCLAIMER.md` files are expected to be in the `Aletheia_v3` root, carried over from the previous version or added if missing).*
+
+---
+Author: Alant - 01/07/2025
