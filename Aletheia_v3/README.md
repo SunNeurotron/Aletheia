@@ -113,6 +113,11 @@ The platform is designed with scalability in mind. The following concepts and co
 *   **Database Optimization:** For handling massive datasets of mathematical results, advanced PostgreSQL optimizations such as table partitioning and specialized indexing are crucial. Example SQL commands and strategies are documented in `infrastructure/db_optimizations.sql`.
 *   **HPC Adaptation:** For leveraging traditional High-Performance Computing clusters, conceptual SLURM submission scripts and MPI-based parallel processing examples are provided in `docs/HPC_ADAPTATION.md`.
 
+Further enhancements in **Phase 3 (Advanced AI & Extensibility)** include:
+*   **Custom Acquisition Functions:** Development of heuristic-guided acquisition functions (see `core/custom_acquisitions.py`) to tailor Bayesian Optimization more specifically to the ABC conjecture search space.
+*   **Plugin Architecture:** A flexible plugin system (interfaces defined in `plugins/plugin_interfaces.py` and managed by `plugins/manager.py`) allows for extending search strategies, quality evaluation, and data processing. An example plugin is in `plugins/available/example_quality_evaluator.py`.
+*   **Dask Integration Concepts:** Exploration of Dask for large-scale parallel data processing and complex task graphs, documented with examples in `docs/DASK_INTEGRATION.md`.
+
 These advanced features represent the direction for scaling Aletheia to handle increasingly complex and large-scale mathematical research.
 
 ## License and Disclaimer

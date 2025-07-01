@@ -35,6 +35,9 @@ mlflow>=2.5.0 # For ML experiment tracking
 cypari2>=2.1.2 # Interface to PARI/GP
 numba>=0.57.0   # For JIT compilation
 
+# Phase 3: Advanced AI & Extensibility (Dask for conceptual examples/future use)
+dask[complete]>=2023.9.0 # For parallel computing (includes dataframe, array, distributed)
+
 # Linters and Formatters (Development Dependencies - often in a separate dev-requirements.txt)
 # flake8
 # black
