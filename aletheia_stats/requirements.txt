@@ -1,0 +1,38 @@
+# Core FastAPI and Server
+fastapi==0.103.0
+uvicorn[standard]==0.23.2
+
+# Database
+sqlalchemy==2.0.20
+psycopg2-binary==2.9.6
+alembic==1.12.0
+
+# ML/Stats
+mlflow==2.7.1
+scipy==1.13.1
+numpy==1.26.0
+
+# Pydantic (often a direct FastAPI dependency, but good to pin)
+pydantic==2.4.2
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+httpx==0.25.0 # For TestClient in FastAPI
+hypothesis==6.82.0
+
+# Code Quality & Linting (these will be driven by root pre-commit, but listed here for module setup)
+black==23.7.0
+isort==5.12.0
+flake8==6.1.0
+mypy==1.5.1
+types-sqlalchemy # For SQLAlchemy stubs with MyPy
+types-psycopg2
+# types-requests # Only if requests is used directly
+
+# Pre-commit (tool itself, if managing hooks at module level, but root level is preferred)
+# pre-commit==3.3.3

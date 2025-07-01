@@ -1,0 +1,171 @@
+name: Main CI Pipeline
+
+on:
+  push:
+    branches:
+      - main # Or your primary development branch
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # Job for general repository checks (if any, like root linters, docs build, etc.)
+  # general_checks:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.10'
+  #     # Add steps for general checks if needed
+
+  aletheia_stats_module_checks:
+    name: Aletheia-Stats Module Checks
+    runs-on: ubuntu-latest
+    # Set a default working directory if most commands are run from there
+    # defaults:
+    #   run:
+    #     working-directory: ./aletheia_stats
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10' # Match the version used in Dockerfile and development
+
+      - name: Install Poetry (if project uses Poetry for root dependencies)
+        # If pre-commit or other root tools are managed by Poetry
+        # run: |
+        #   pip install poetry
+        #   poetry install --no-root --only main,dev # Adjust as per your Poetry setup
+
+      - name: Install pre-commit and project dependencies
+        run: |
+          pip install pre-commit
+          # Install dependencies for the aletheia_stats module for pre-commit hooks like mypy
+          # This assumes pre-commit is run from the root and checks files in aletheia_stats/
+          # Hooks like mypy might need types installed that are specific to aletheia_stats
+          pip install -r aletheia_stats/requirements.txt
+          # If you have dev requirements for linters at root level:
+          # pip install -r requirements-dev.txt
+
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+      # Docker and Docker Compose are usually available on GitHub-hosted runners.
+      # If not, or for self-hosted runners, you might need:
+      # - name: Set up Docker Buildx
+      #   uses: docker/setup-buildx-action@v3
+      # - name: Set up QEMU
+      #   uses: docker/setup-qemu-action@v3
+
+
+      - name: Start services for Aletheia-Stats integration tests
+        working-directory: ./aletheia_stats # Important: run docker-compose from its directory
+        run: docker-compose -f docker-compose.yml up --build -d db mlflow
+        # We only bring up db and mlflow. The API itself will be tested via TestClient against local code.
+
+      - name: Wait for PostgreSQL to be healthy
+        working-directory: ./aletheia_stats
+        run: |
+          echo "Waiting for PostgreSQL to be healthy..."
+          # The healthcheck is defined in docker-compose.yml.
+          # This loop waits for the service to report as healthy.
+          # Adjust timeout and sleep duration as needed.
+          timeout_seconds=120
+          start_time=$(date +%s)
+          while ! docker-compose ps db | grep -q '(healthy)'; do
+            current_time=$(date +%s)
+            if [ $((current_time - start_time)) -ge $timeout_seconds ]; then
+              echo "Timeout waiting for PostgreSQL."
+              docker-compose logs db
+              exit 1
+            fi
+            echo -n "."
+            sleep 5
+          done
+          echo "PostgreSQL is healthy."
+          docker-compose ps
+
+      - name: Wait for MLflow to be ready (basic check)
+        working-directory: ./aletheia_stats
+        run: |
+          echo "Waiting for MLflow service to be available..."
+          # This is a simpler check, just waits for the port to be open.
+          # For MLflow, this might be sufficient if it doesn't have a complex healthcheck.
+          # Adjust timeout and sleep duration.
+          timeout_seconds=60
+          start_time=$(date +%s)
+          # Use curl or netcat to check if the port is responding
+          # MLFLOW_PORT_HOST is 5001 by default in docker-compose.yml
+          while ! curl -s http://localhost:5001 > /dev/null; do
+            current_time=$(date +%s)
+            if [ $((current_time - start_time)) -ge $timeout_seconds ]; then
+              echo "Timeout waiting for MLflow."
+              docker-compose logs mlflow
+              exit 1
+            fi
+            echo -n "."
+            sleep 3
+          done
+          echo "MLflow service seems to be up."
+
+
+      - name: Apply database migrations for Aletheia-Stats
+        working-directory: ./aletheia_stats
+        env:
+          # These must match the credentials used by the db service in docker-compose.yml
+          # and what alembic/env.py expects (or what init_db.py uses if it sets sqlalchemy.url)
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/aletheia_stats_db"
+        run: |
+          # Ensure alembic is installed if not covered by root requirements.txt
+          # pip install alembic sqlalchemy psycopg2-binary (already in aletheia_stats/requirements.txt)
+          # The init_db.py script should handle applying migrations.
+          python scripts/init_db.py # This script calls 'alembic upgrade head'
+
+      - name: Run Aletheia-Stats module tests
+        env:
+          # Environment variables needed by the tests/application code
+          # These should point to the services started by docker-compose
+          DATABASE_URL: "postgresql://user:pass@localhost:5432/aletheia_stats_db"
+          MLFLOW_TRACKING_URI: "http://localhost:5001/mlflow/" # Match docker-compose mlflow service
+          JWT_SECRET_KEY: "test-ci-secret-key"
+          RANDOM_SEED: "42"
+          LOG_LEVEL: "DEBUG" # More verbose logs during CI tests
+          APP_ENVIRONMENT: "test_ci"
+          # API_PORT_HOST: 8000 # TestClient doesn't use host port
+        # Run pytest from the root, targeting the module's test directory
+        run: pytest ./aletheia_stats/tests/ --cov=./aletheia_stats/aletheia_stats --cov-report=xml --cov-report=term-missing -vv
+
+      - name: Upload Aletheia-Stats coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} # Optional: if your repo is private or you want specific features
+          files: ./coverage.xml # Default path for coverage.xml from pytest-cov
+          # flags: aletheia_stats # Optional: flag for Codecov UI to distinguish reports
+          name: codecov-aletheia-stats-module # Optional: A name for the report
+          # working-directory: ./ # Ensure this is relative to repo root if coverage.xml is there
+        # If the action fails, don't fail the whole CI job (optional)
+        # continue-on-error: true
+
+      - name: Stop services for Aletheia-Stats
+        if: always() # Ensure services are stopped even if tests fail
+        working-directory: ./aletheia_stats
+        run: |
+          echo "Stopping Aletheia-Stats services..."
+          docker-compose down -v # -v to remove volumes too, for a clean slate next time
+          echo "Services stopped."
+
+    # Add other jobs for other modules or aspects of SunNeurotron/Aletheia as needed
+    # another_module_checks:
+    #   name: Another Module Checks
+    #   runs-on: ubuntu-latest
+    #   steps:
+    #     ...

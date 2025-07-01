@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # Aletheia-Stats API Service
+  api:
+    build:
+      context: . # Build from the current directory (aletheia_stats/)
+      dockerfile: Dockerfile
+    container_name: aletheia_stats_api
+    # If you need to mount the current directory for live code reloading during development:
+    # volumes:
+    #   - .:/app # Mounts the content of aletheia_stats/ to /app in the container
+    ports:
+      # Exposes port 8000 of the container to port 8000 on the host machine.
+      # Format: "HOST_PORT:CONTAINER_PORT"
+      # Use a different host port if 8000 is already in use on your system.
+      - "${API_PORT_HOST:-8000}:${API_PORT_CONTAINER:-8000}"
+    environment:
+      # These variables will be passed to the container.
+      # Values from .env file in this directory (aletheia_stats/.env) will override these defaults if loaded.
+      # Ensure your FastAPI app reads these environment variables (e.g., os.getenv).
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5001/mlflow/} # Adjusted port, added /mlflow/ path
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-default-super-secret-key-for-docker-compose}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - RANDOM_SEED=${RANDOM_SEED:-42}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - API_PORT_CONTAINER=${API_PORT_CONTAINER:-8000} # For CMD in Dockerfile if it uses this
+      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-development}
+    depends_on:
+      db:
+        condition: service_healthy # Wait for DB to be healthy
+      mlflow:
+        condition: service_started # Wait for MLflow to start (basic check)
+    networks:
+      - aletheia_stats_network
+    restart: unless-stopped # Or 'always', 'on-failure'
+
+  # PostgreSQL Database Service
+  db:
+    image: postgres:14-alpine # Using alpine for a smaller image
+    container_name: aletheia_stats_db
+    environment:
+      - POSTGRES_USER=${DB_USER:-user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-pass}
+      - POSTGRES_DB=${DB_NAME:-aletheia_stats_db}
+    volumes:
+      # Persists database data across container restarts.
+      # Creates a named volume 'aletheia_stats_postgres_data'.
+      - aletheia_stats_postgres_data:/var/lib/postgresql/data
+    ports:
+      # Exposes PostgreSQL port 5432 to the host.
+      # Change host port if 5432 is already in use.
+      - "${DB_PORT_HOST:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-user} -d ${DB_NAME:-aletheia_stats_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - aletheia_stats_network
+    restart: unless-stopped
+
+  # MLflow Tracking Server Service
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.7.1 # Use a specific version
+    container_name: aletheia_stats_mlflow
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5001
+      --backend-store-uri ${MLFLOW_BACKEND_STORE_URI:-postgresql://user:pass@db:5432/aletheia_stats_mlflow_backend}
+      --default-artifact-root ${MLFLOW_DEFAULT_ARTIFACT_ROOT:-./mlartifacts}
+      # For --default-artifact-root, if using a volume, ensure it's writable.
+      # Or use S3 compatible storage like MinIO.
+      # For this example, using a local path inside the container (can be mounted).
+    ports:
+      # Exposes MLflow UI port 5001 to the host.
+      # Change host port if 5001 is already in use.
+      - "${MLFLOW_PORT_HOST:-5001}:5001"
+    volumes:
+      - aletheia_stats_mlflow_data:/app/mlartifacts # Persist artifacts
+    depends_on:
+      db:
+        condition: service_healthy # MLflow can use the same DB for its backend
+    networks:
+      - aletheia_stats_network
+    restart: unless-stopped
+
+  # Optional: Alembic migration runner service (can also be run as a one-off command)
+  # alembic_migrate:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile # Uses the same image as API
+  #   container_name: aletheia_stats_alembic
+  #   command: >
+  #     sh -c "
+  #       echo 'Waiting for DB to be ready...' &&
+  #       # Add a wait-for-it script or simple sleep if needed before running migrations
+  #       # Example: wait-for-it.sh db:5432 --timeout=30 --strict --
+  #       sleep 10 &&
+  #       echo 'Running Alembic migrations...' &&
+  #       alembic -c /app/alembic.ini upgrade head
+  #     "
+  #   environment:
+  #     - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   networks:
+  #     - aletheia_stats_network
+  #   # This service typically runs to completion and stops.
+  #   # For one-off runs: docker-compose run --rm alembic_migrate
+
+# Networks definition
+networks:
+  aletheia_stats_network:
+    driver: bridge # Default driver
+
+# Volumes definition
+volumes:
+  aletheia_stats_postgres_data: # For PostgreSQL data
+  aletheia_stats_mlflow_data:   # For MLflow artifacts and data (if not using external storage)

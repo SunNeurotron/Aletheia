@@ -1,0 +1,62 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+    -   id: check-merge-conflict
+    -   id: check-toml
+    -   id: detect-private-key
+
+-   repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+    -   id: black
+        args: [--line-length=79]
+
+-   repo: https://github.com/PyCQA/flake8
+    rev: 7.1.0
+    hooks:
+    -   id: flake8
+        additional_dependencies: [flake8-bugbear]
+        args: [--max-line-length=88, --extend-ignore=E203] # E203 is often incompatible with Black
+
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        name: isort (python)
+        args: ["--profile", "black", "--filter-files"]
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+    -   id: mypy
+        name: mypy
+        entry: mypy
+        language: python
+        types: [python]
+        args: [--ignore-missing-imports, --disallow-untyped-defs]
+        # You might need to configure `files` or `exclude` if you have specific needs
+        # or if Mypy should only run on certain directories.
+        # By default, it will run on all python files passed by pre-commit.
+        additional_dependencies:
+          - types-requests # If you use requests
+          - types-psycopg2
+          - types-sqlalchemy # For SQLAlchemy stubs with MyPy
+          # Add other types-* packages as needed by your project and the aletheia_stats module
+          # For example, if FastAPI is used at the root or other modules:
+          # - types-fastapi
+
+# If Ruff becomes preferred, it can replace black, flake8, and isort:
+# -   repo: https://github.com/astral-sh/ruff-pre-commit
+#     rev: v0.1.6 # or latest
+#     hooks:
+#     -   id: ruff
+#         args: [--fix, --exit-non-zero-on-fix]
+#     -   id: ruff-format
+#         args: []
