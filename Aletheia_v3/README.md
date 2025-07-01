@@ -118,6 +118,11 @@ Further enhancements in **Phase 3 (Advanced AI & Extensibility)** include:
 *   **Plugin Architecture:** A flexible plugin system (interfaces defined in `plugins/plugin_interfaces.py` and managed by `plugins/manager.py`) allows for extending search strategies, quality evaluation, and data processing. An example plugin is in `plugins/available/example_quality_evaluator.py`.
 *   **Dask Integration Concepts:** Exploration of Dask for large-scale parallel data processing and complex task graphs, documented with examples in `docs/DASK_INTEGRATION.md`.
 
+**Phase 4 (Enhanced User Experience & Collaboration)** introduces:
+*   **Advanced Dashboard Visualizations:** Including 3D scatter plots of hits in the Streamlit dashboard (`dashboard/dashboard.py`).
+*   **Collaborative Data Model:** New database tables and corresponding API endpoints for `Researchers`, `DiscoveryAttributions`, and `DerivedConjectures` to support multi-user interaction and knowledge building (see `infrastructure/models.py` and `api/api_server.py`).
+*   **Refined Security Concepts:** Design documents for potential Role-Based Access Control (RBAC) for MLflow (`docs/RBAC_MLFLOW.md`) and API Scopes for granular endpoint authorization (`docs/API_SCOPES.md`).
+
 These advanced features represent the direction for scaling Aletheia to handle increasingly complex and large-scale mathematical research.
 
 ## License and Disclaimer

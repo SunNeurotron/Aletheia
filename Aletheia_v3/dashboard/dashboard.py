@@ -148,10 +148,57 @@ else:
                                     height=500
                                 )
                                 st.plotly_chart(fig, use_container_width=True)
+
+                                # New 3D Scatter Plot
+                                st.subheader("Hits in 3D Space (a, b, c)")
+                                fig_3d = go.Figure(data=[go.Scatter3d(
+                                    x=[h['a'] for h in valid_hits_for_plot],
+                                    y=[h['b'] for h in valid_hits_for_plot],
+                                    z=[h['c'] for h in valid_hits_for_plot],
+                                    mode='markers',
+                                    marker=dict(
+                                        size=5,
+                                        color=[h['quality'] for h in valid_hits_for_plot],
+                                        colorscale='Viridis', # Same colorscale for consistency
+                                        colorbar=dict(title="Quality (q)"),
+                                        opacity=0.8
+                                    ),
+                                    text=[f"a={h['a']}, b={h['b']}, c={h['c']}<br>q={h['quality']:.4f}" for h in valid_hits_for_plot],
+                                    hoverinfo='text'
+                                )])
+                                fig_3d.update_layout(
+                                    title="3D Scatter of Hits (a, b, c) Colored by Quality",
+                                    scene=dict(
+                                        xaxis_title="Component 'a'",
+                                        yaxis_title="Component 'b'",
+                                        zaxis_title="Component 'c' (a+b)",
+                                        aspectmode='cube' # Or 'data', 'auto'
+                                    ),
+                                    margin=dict(r=0, b=0, l=0, t=40), # Adjust margins
+                                    height=600
+                                )
+                                st.plotly_chart(fig_3d, use_container_width=True)
+
                             else:
                                 st.info("Hits found, but 'c' values are not suitable for plotting.")
                         else:
                             st.info("Job completed, but no new high-quality hits were found in this run.")
+
+                    st.markdown("---") # Separator before next section within expander
+                    st.subheader("Factor Analysis (Conceptual)")
+                    st.info("""
+                        **Future Enhancement:** This section will provide insights into the prime factorization of discovered hits.
+                        For example:
+                        - Distribution of the number of distinct prime factors of `a*b*c`.
+                        - Relationship between `rad(abc)` and `c`. (Currently visualized by quality `q`).
+                        - Identification of hits where `a`, `b`, or `c` are perfect powers.
+
+                        Implementing efficient prime factorization for many large numbers directly in the dashboard
+                        can be computationally intensive. This data might be pre-calculated by worker tasks
+                        or analyzed via dedicated data processing jobs in future versions.
+                        The `is_c_perfect_power_naive` in the Dask example (`docs/DASK_INTEGRATION.md`) shows a conceptual direction.
+                    """)
+
                     elif status == "PROCESSING":
                         st.info("Job is currently processing. Refresh to see updates.")
                     elif status == "PENDING":
