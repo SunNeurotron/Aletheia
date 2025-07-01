@@ -94,7 +94,11 @@ graph TD
     cd Aletheia_v3
     ```
 
-2.  **Build and Start Services:**
+2.  **Review Documentation:**
+    *   Before running, it's highly recommended to review the **[End-to-End Use Case Example](docs/END_TO_END_USE_CASE.md)** to understand the platform's workflow and capabilities.
+    *   Detailed documents on specific features (Kubernetes, Celery Scaling, Database Optimizations, HPC Adaptation, Plugins, Security Concepts, Dask) are available in the `docs/` and `kubernetes/` directories.
+
+3.  **Build and Start Services:**
     From the `Aletheia_v3` root directory, execute:
     ```bash
     docker-compose up --build
