@@ -1,0 +1,77 @@
+# docker-compose.yml para desarrollo y pruebas locales de [Module Name]
+# Este archivo es específico para el módulo y puede ser usado para levantar
+# el servicio del módulo y sus dependencias directas (ej. una BD específica para el módulo).
+# Si el módulo se integra en un docker-compose.yml más grande (ej. el principal de Aletheia),
+# este archivo podría no ser necesario o servir solo para pruebas aisladas.
+
+version: '3.8'
+
+services:
+  # Servicio para la aplicación del módulo [Module Name]
+  module_app: # Renombrar a algo específico, ej. 'stats_api_module_instance'
+    build:
+      context: . # Directorio actual (_module_template/)
+      dockerfile: Dockerfile
+    container_name: module_name_app_instance # Nombre del contenedor
+    ports:
+      # Formato: "HOST_PORT:CONTAINER_PORT"
+      # Utilizar un puerto de host único para este módulo
+      - "${MODULE_API_PORT_HOST:-8001}:${MODULE_API_PORT_CONTAINER:-8001}"
+    environment:
+      # Variables de entorno para la aplicación del módulo.
+      # Leer desde _module_template/.env o definir defaults aquí.
+      - MODULE_DATABASE_URL=${MODULE_DATABASE_URL:-postgresql://user:pass@module_db:5432/module_db}
+      - MODULE_SOME_API_KEY=${MODULE_SOME_API_KEY:-placeholder_key}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - API_PORT_CONTAINER=${MODULE_API_PORT_CONTAINER:-8001} # Puerto interno de la app
+      # Si se conecta a servicios compartidos de Aletheia (ej. MLflow principal):
+      # - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI_SHARED:-http://aletheia_mlflow_service_name:5000}
+    # volumes:
+      # - ./module_name:/app_module/module_name # Para live reload durante desarrollo
+    depends_on:
+      # - module_db # Si tiene una BD dedicada
+      # - aletheia_db # Si se conecta a la BD compartida de Aletheia (requiere red común)
+      pass # Eliminar 'pass' si hay dependencias
+    networks:
+      - module_network # Red específica del módulo
+      # - aletheia_shared_network # Si necesita acceder a servicios compartidos
+    restart: unless-stopped
+
+  # Ejemplo: Base de datos dedicada para el módulo (si es necesaria)
+  # module_db:
+  #   image: postgres:14-alpine
+  #   container_name: module_name_db_instance
+  #   environment:
+  #     - POSTGRES_USER=${MODULE_DB_USER:-user}
+  #     - POSTGRES_PASSWORD=${MODULE_DB_PASSWORD:-pass}
+  #     - POSTGRES_DB=${MODULE_DB_NAME:-module_db}
+  #   volumes:
+  #     - module_db_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "${MODULE_DB_PORT_HOST:-5433}:5432" # Puerto de host único para esta BD
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${MODULE_DB_USER:-user} -d ${MODULE_DB_NAME:-module_db}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - module_network
+  #   restart: unless-stopped
+
+# Definición de Redes
+networks:
+  module_network:
+    driver: bridge
+  # aletheia_shared_network: # Si se usa una red externa definida en el docker-compose principal
+  #   external: true
+  #   name: aletheia_default # O el nombre de la red del docker-compose.yml principal
+
+# Definición de Volúmenes
+# volumes:
+#   module_db_data: # Para la base de datos dedicada del módulo
+
+# Nota: Este docker-compose.yml está pensado para el desarrollo y prueba aislada del módulo.
+# Para la integración en el ecosistema Aletheia, el servicio 'module_app' podría ser
+# añadido al docker-compose.yml principal de Aletheia, o este archivo podría ser
+# extendido/referenciado desde allí. Considerar el uso de variables de entorno
+# (.env) para gestionar configuraciones como puertos y URLs de servicios.
