@@ -1,0 +1,28 @@
+# Lista de dependencias Python para este módulo.
+# Ejemplo:
+# fastapi==0.103.0
+# uvicorn[standard]==0.23.2
+# sqlalchemy==2.0.20
+# psycopg2-binary==2.9.6 # Si usa PostgreSQL directamente
+# pydantic==2.4.2
+# requests==2.31.0
+
+# Dependencias de desarrollo (testing, linting - aunque pre-commit se gestiona en la raíz)
+# pytest==7.4.0
+# pytest-cov==4.1.0
+# httpx==0.25.0 # Para TestClient de FastAPI
+
+# Si este módulo depende de aletheia_common:
+# ../aletheia_common # Esto no es estándar para pip, requeriría instalación editable o setuptools.
+# O, si aletheia_common se instala como un paquete:
+# aletheia-common
+
+# Definir aquí las dependencias específicas del módulo.
+# Las herramientas de calidad (black, flake8, mypy, isort) se definen en el .pre-commit-config.yaml raíz.
+# Las dependencias para esas herramientas (ej. types-*) deben estar disponibles en el entorno de CI
+# o en el entorno de desarrollo local al ejecutar pre-commit.
+# Es buena práctica listarlas aquí también si son directamente usadas por el código del módulo.
+
+# Ejemplo para un módulo que usa numpy y scipy:
+# numpy==1.26.0
+# scipy==1.13.1

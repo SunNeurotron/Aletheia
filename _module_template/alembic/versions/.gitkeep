@@ -1,0 +1,2 @@
+# Este archivo asegura que el directorio 'versions' (aunque esté vacío inicialmente)
+# sea rastreado por Git. Alembic necesita este directorio.
