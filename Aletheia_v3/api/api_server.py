@@ -1,6 +1,7 @@
 # Aletheia_v3/api/api_server.py
 import uuid
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone # Added datetime, timezone
+from typing import List # Added List
 
 from fastapi import FastAPI, Depends, HTTPException, status, APIRouter
 from fastapi.security import OAuth2PasswordRequestForm
@@ -9,12 +10,13 @@ from sqlalchemy.orm import Session
 # Project-specific imports
 # Infrastructure
 from infrastructure.database import get_db_session, init_db as initialize_database # Renamed to avoid conflict
-from infrastructure.models import JobDB # HitDB is accessed via JobDB relationship
+from infrastructure.models import JobDB, HitDB, ResearcherDB, DerivedConjectureDB, DiscoveryAttributionDB, conjecture_hits_association
 from infrastructure.celery_worker import intelligent_discovery_task
 
 # API specific (schemas, auth)
-from . import auth # Using . for relative import from the same package
+from . import auth # Using . for relative import
 from . import schemas # Using . for relative import
+from infrastructure.models import ContributionTypeEnum, ConjectureStatusEnum # Added ConjectureStatusEnum
 
 # --- Application Setup ---
 # Metadata for API documentation
@@ -177,6 +179,223 @@ async def health_check():
     Provides a simple health check endpoint for monitoring.
     """
     return schemas.HealthCheckResponse(version=API_VERSION)
+
+# --- Researcher Endpoints ---
+@router.post("/researchers", response_model=schemas.ResearcherResponse, status_code=status.HTTP_201_CREATED, tags=["Researchers"])
+async def create_researcher(
+    researcher_in: schemas.ResearcherCreate,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Creates a new researcher.
+    Passwords are automatically hashed.
+    """
+    # Check if username or email already exists
+    existing_researcher_username = db.query(ResearcherDB).filter(ResearcherDB.username == researcher_in.username).first()
+    if existing_researcher_username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
+
+    existing_researcher_email = db.query(ResearcherDB).filter(ResearcherDB.email == researcher_in.email).first()
+    if existing_researcher_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered")
+
+    hashed_password = auth.get_password_hash(researcher_in.password)
+    db_researcher = ResearcherDB(
+        username=researcher_in.username,
+        full_name=researcher_in.full_name,
+        email=researcher_in.email,
+        orcid=researcher_in.orcid,
+        hashed_password=hashed_password
+    )
+    db.add(db_researcher)
+    db.commit()
+    db.refresh(db_researcher)
+    return db_researcher
+
+@router.get("/researchers", response_model=List[schemas.ResearcherResponse], tags=["Researchers"])
+async def list_researchers(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db_session),
+    # current_user: auth.User = Depends(auth.get_current_active_user) # Protect this
+):
+    """
+    Retrieves a list of researchers.
+    """
+    researchers = db.query(ResearcherDB).offset(skip).limit(limit).all()
+    return researchers
+
+@router.get("/researchers/{researcher_id}", response_model=schemas.ResearcherResponse, tags=["Researchers"])
+async def get_researcher(
+    researcher_id: uuid.UUID, # FastAPI handles UUID conversion
+    db: Session = Depends(get_db_session),
+    # current_user: auth.User = Depends(auth.get_current_active_user) # Protect this
+):
+    """
+    Retrieves a specific researcher by their ID.
+    """
+    db_researcher = db.query(ResearcherDB).filter(ResearcherDB.id == researcher_id).first()
+    if db_researcher is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Researcher not found")
+    return db_researcher
+
+@router.put("/researchers/{researcher_id}", response_model=schemas.ResearcherResponse, tags=["Researchers"])
+async def update_researcher_info(
+    researcher_id: uuid.UUID,
+    researcher_update: schemas.ResearcherUpdate,
+    db: Session = Depends(get_db_session),
+    current_user: auth.User = Depends(auth.get_current_active_user) # Ensure only admin or self can update
+):
+    """
+    Updates a researcher's information. (Password update should be separate)
+    Requires authentication. Current user must be the researcher being updated or an admin.
+    """
+    db_researcher = db.query(ResearcherDB).filter(ResearcherDB.id == researcher_id).first()
+    if db_researcher is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Researcher not found")
+
+    # Authorization: Check if current_user is the researcher or an admin
+    # For simplicity, this example doesn't implement admin roles.
+    # In a real app: if db_researcher.username != current_user.username and not current_user.is_admin:
+    #    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this researcher")
+    # This check is simplified here:
+    if db_researcher.username != current_user.username:
+         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this researcher's info (demo restriction).")
+
+
+    update_data = researcher_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_researcher, key, value)
+
+    db_researcher.updated_at = datetime.now(timezone.utc) # Manually update timestamp if not server_default onupdate
+    db.commit()
+    db.refresh(db_researcher)
+    return db_researcher
+
+
+# --- Derived Conjecture Endpoints ---
+@router.post("/conjectures", response_model=schemas.ConjectureResponse, status_code=status.HTTP_201_CREATED, tags=["Conjectures"])
+async def create_derived_conjecture(
+    conjecture_in: schemas.ConjectureCreate,
+    db: Session = Depends(get_db_session),
+    current_user: auth.User = Depends(auth.get_current_active_user)
+):
+    """
+    Creates a new derived conjecture.
+    The proposer is automatically set to the currently authenticated researcher.
+    """
+    researcher = db.query(ResearcherDB).filter(ResearcherDB.username == current_user.username).first()
+    if not researcher:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated user not found as a researcher.")
+
+    db_conjecture = DerivedConjectureDB(
+        title=conjecture_in.title,
+        description=conjecture_in.description,
+        proposer_id=researcher.id,
+        status=ConjectureStatusEnum.PROPOSED # Default status, using imported Enum
+    )
+
+    # Handle supporting hits if provided
+    if conjecture_in.supporting_hit_ids:
+        hits = db.query(HitDB).filter(HitDB.id.in_(conjecture_in.supporting_hit_ids)).all()
+        if len(hits) != len(set(conjecture_in.supporting_hit_ids)): # Check if all provided IDs were found
+             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="One or more supporting hit IDs not found.")
+        db_conjecture.supporting_hits.extend(hits)
+
+    db.add(db_conjecture)
+    db.commit()
+    db.refresh(db_conjecture)
+    # To populate proposer and supporting_hits_count for response:
+    db.refresh(db_conjecture.proposer) # Eager load proposer for response schema if needed
+    response_data = schemas.ConjectureResponse.model_validate(db_conjecture)
+    response_data.supporting_hits_count = len(db_conjecture.supporting_hits)
+    return response_data
+
+
+@router.get("/conjectures", response_model=List[schemas.ConjectureResponse], tags=["Conjectures"])
+async def list_derived_conjectures(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db_session)
+    # No auth needed for listing conjectures, typically public.
+):
+    """
+    Retrieves a list of derived conjectures.
+    """
+    conjectures_db = db.query(DerivedConjectureDB).order_by(DerivedConjectureDB.created_at.desc()).offset(skip).limit(limit).all()
+
+    # Populate supporting_hits_count for each conjecture
+    response_list = []
+    for conj in conjectures_db:
+        data = schemas.ConjectureResponse.model_validate(conj)
+        data.supporting_hits_count = len(conj.supporting_hits) # SQLAlchemy loads this on access if lazy
+        response_list.append(data)
+    return response_list
+
+
+@router.get("/conjectures/{conjecture_id}", response_model=schemas.ConjectureResponse, tags=["Conjectures"])
+async def get_derived_conjecture(
+    conjecture_id: int,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Retrieves a specific derived conjecture by its ID.
+    """
+    db_conjecture = db.query(DerivedConjectureDB).filter(DerivedConjectureDB.id == conjecture_id).first()
+    if db_conjecture is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conjecture not found")
+
+    response_data = schemas.ConjectureResponse.model_validate(db_conjecture)
+    response_data.supporting_hits_count = len(db_conjecture.supporting_hits)
+    return response_data
+
+# PUT /conjectures/{conjecture_id} (for updates) would be similar to researcher update.
+# DELETE /conjectures/{conjecture_id} could also be added.
+
+# --- Discovery Attribution Endpoints (Conceptual / Simplified) ---
+# Full CRUD for attributions can be extensive.
+# For now, let's consider that attributions might be created more implicitly
+# (e.g., job submitter gets an automatic 'discovered_by_job' attribution)
+# or via a more specialized service/logic.
+# A simple endpoint to add a 'verified_by_user' or 'analyzed_by_user' attribution:
+
+@router.post("/hits/{hit_id}/attributions", response_model=schemas.AttributionResponse, status_code=status.HTTP_201_CREATED, tags=["Attributions"])
+async def add_attribution_to_hit(
+    hit_id: int,
+    attribution_in: schemas.AttributionCreate, # Should not contain researcher_id, that's the current user
+    db: Session = Depends(get_db_session),
+    current_user: auth.User = Depends(auth.get_current_active_user)
+):
+    """
+    Adds an attribution (e.g., 'verified', 'analyzed') to a specific discovery hit
+    by the currently authenticated researcher.
+    """
+    researcher = db.query(ResearcherDB).filter(ResearcherDB.username == current_user.username).first()
+    if not researcher:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated user not found as a researcher.")
+
+    db_hit = db.query(HitDB).filter(HitDB.id == hit_id).first()
+    if not db_hit:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Hit not found.")
+
+    # Ensure contribution_type is valid (from Enum)
+    try:
+        contribution_type_enum = ContributionTypeEnum(attribution_in.contribution_type)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid contribution_type.")
+
+
+    db_attribution = DiscoveryAttributionDB(
+        hit_id=db_hit.id,
+        researcher_id=researcher.id,
+        contribution_type=contribution_type_enum,
+        details=attribution_in.details
+    )
+    db.add(db_attribution)
+    db.commit()
+    db.refresh(db_attribution)
+    return db_attribution
+
 
 # Include the router in the main application
 # If using a prefix for the router, it would be app.include_router(router, prefix="/api/v1")

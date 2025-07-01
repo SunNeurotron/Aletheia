@@ -48,7 +48,8 @@ def init_db():
     # However, to avoid circular imports if models.py imports Base from here,
     # it's often better to ensure models are imported where init_db is called.
     # For this project structure, models.py will import Base from here.
-    from .models import JobDB, HitDB # Ensure models are known to Base
+    # Import all models from .models to ensure they are registered with Base.metadata
+    from . import models
     Base.metadata.create_all(bind=engine) # Creates tables based on SQLAlchemy models
     print("Database tables created/verified by SQLAlchemy (if they didn't exist).")
     print("Note: Advanced optimizations like table partitioning defined in")
