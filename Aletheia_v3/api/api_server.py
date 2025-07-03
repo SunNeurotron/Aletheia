@@ -57,10 +57,13 @@ async def startup_event():
     try:
         # This will create tables if they don't exist.
         # In a production setup with migrations (e.g., Alembic), this might be handled differently.
-        initialize_database()
-        print("Database initialization check complete.")
+        # initialize_database() # Commented out: Alembic will now handle table creation and migrations.
+        print("Database initialization via initialize_database() (create_all) is now DIASABLED.")
+        print("Ensure Alembic migrations are run to set up the database schema.")
+        # print("Database initialization check complete.") # No longer accurate
     except Exception as e:
-        print(f"Error during database initialization on startup: {e}")
+        # This exception block might still be relevant if other startup tasks are added.
+        print(f"Error during other startup tasks (if any): {e}")
         # Depending on the severity, you might want to prevent the app from starting.
         # For now, just logging the error.
 

@@ -1,0 +1,2 @@
+# This file ensures the versions directory is tracked by Git even when empty.
+# Alembic will place migration scripts here.

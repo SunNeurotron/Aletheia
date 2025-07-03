@@ -18,7 +18,7 @@ WORKDIR /opt/aletheia
 # For cypari2 (PARI/GP), we need libgmp-dev, libmpfr-dev, libmpc-dev.
 # Numba often needs llvm and tbb, but pip wheels might handle this. Let's add build-essentials.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends netcat-openbsd gcc build-essential libgmp-dev libmpfr-dev libmpc-dev && \
+    apt-get install -y --no-install-recommends netcat-openbsd gcc build-essential libgmp-dev libmpfr-dev libmpc-dev postgresql-client && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
