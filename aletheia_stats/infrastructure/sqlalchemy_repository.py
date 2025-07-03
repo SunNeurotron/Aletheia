@@ -2,6 +2,7 @@ from typing import List, Optional, Tuple, Any, Dict
 from uuid import UUID
 import logging
 
+from sqlalchemy import func # Added import
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
