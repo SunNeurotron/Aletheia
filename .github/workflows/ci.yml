@@ -55,7 +55,6 @@ jobs:
           # If you have dev requirements for linters at root level:
           # pip install -r requirements-dev.txt
 
-
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
@@ -66,9 +65,8 @@ jobs:
       # - name: Set up QEMU
       #   uses: docker/setup-qemu-action@v3
 
-
       - name: Start services for Aletheia-Stats integration tests
-        working-directory: ./aletheia_stats # Important: run docker-compose from its directory
+        working-directory: ./aletheia_stats
         run: docker-compose -f docker-compose.yml up --build -d db mlflow
         # We only bring up db and mlflow. The API itself will be tested via TestClient against local code.
 
@@ -117,7 +115,6 @@ jobs:
           done
           echo "MLflow service seems to be up."
 
-
       - name: Apply database migrations for Aletheia-Stats
         working-directory: ./aletheia_stats
         env:
@@ -147,20 +144,17 @@ jobs:
       - name: Upload Aletheia-Stats coverage report
         uses: codecov/codecov-action@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }} # Optional: if your repo is private or you want specific features
-          files: ./coverage.xml # Default path for coverage.xml from pytest-cov
-          # flags: aletheia_stats # Optional: flag for Codecov UI to distinguish reports
-          name: codecov-aletheia-stats-module # Optional: A name for the report
-          # working-directory: ./ # Ensure this is relative to repo root if coverage.xml is there
-        # If the action fails, don't fail the whole CI job (optional)
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          name: codecov-aletheia_stats-module
         # continue-on-error: true
 
       - name: Stop services for Aletheia-Stats
-        if: always() # Ensure services are stopped even if tests fail
+        if: always()
         working-directory: ./aletheia_stats
         run: |
           echo "Stopping Aletheia-Stats services..."
-          docker-compose down -v # -v to remove volumes too, for a clean slate next time
+          docker-compose down -v
           echo "Services stopped."
 
     # Add other jobs for other modules or aspects of SunNeurotron/Aletheia as needed
