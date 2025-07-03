@@ -39,10 +39,8 @@ except ImportError:
     CommonUserAuth = UserSchema # Usar el schema local como fallback
     async def get_current_active_user(): return CommonUserAuth(username="mockuser", roles=["viewer"])
     def require_roles(roles): return lambda: CommonUserAuth(username="mockuser", roles=list(roles))
-    def create_access_token(data, expires_delta): return "mock_token"
-    MOCK_COMMON_USERS_DB = {"testuser": {"username": "testuser", "hashed_password": "hashed_password_placeholder", "roles": ["analyst"], "disabled": False}}
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES = 30
-    def verify_password(plain, hashed): return plain == "testpassword" # Simplificación extrema
+    # create_access_token, MOCK_COMMON_USERS_DB, JWT_ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
+    # ya no son necesarios aquí si el endpoint /token se elimina.
     from datetime import timedelta
 
 
@@ -101,55 +99,13 @@ def get_perform_ttest_use_case(
     )
 
 # --- Endpoints de Autenticación (Mock/Adaptado) ---
-# Este endpoint /token es específico para aletheia_stats según su README.
-# Debería idealmente usar un sistema de usuarios centralizado si Aletheia es un sistema unificado.
-# Aquí se implementa un mock simple o se adapta de aletheia_common si es posible.
-
-@router.post("/token", response_model=Token, tags=["Authentication"])
-async def login_for_access_token_stats(form_data: OAuth2PasswordRequestForm = Depends()):
-    """
-    Proporciona un token JWT para credenciales de usuario válidas (mock).
-    En un sistema real, se conectaría a una base de datos de usuarios.
-    """
-    user_in_db_dict = MOCK_COMMON_USERS_DB.get(form_data.username)
-    if not user_in_db_dict:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Aquí estamos usando el UserSchema local que no tiene hashed_password.
-    # Para una verificación real, necesitaríamos el UserInDB de aletheia_common o similar.
-    # Esto es una simplificación basada en el fallback.
-    # user = UserInDB(**user_in_db_dict) # Asumiendo que UserInDB es compatible
-
-    # Simplificación extrema para el fallback:
-    is_password_correct = verify_password(form_data.password, user_in_db_dict.get("hashed_password",""))
-
-
-    if not is_password_correct: # user.disabled # (user.disabled no existe en el dict directo)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password", # o "Inactive user"
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if user_in_db_dict.get("disabled", False):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user"
-        )
-
-    access_token_expires = timedelta(minutes=JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": form_data.username, "roles": user_in_db_dict.get("roles", [])},
-        expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+# --- Endpoints de Autenticación ---
+# El endpoint /token ha sido eliminado. aletheia_stats ahora depende de tokens emitidos por Aletheia_v3.
+# La variable de entorno OAUTH2_SCHEME_TOKEN_URL para este módulo debe apuntar al
+# endpoint /token de Aletheia_v3.
 
 @router.get("/users/me", response_model=UserSchema, tags=["Users"]) # Usa UserSchema local
-async def read_users_me_stats(current_user: CommonUserAuth = Depends(get_current_active_user)):
+async def read_users_me_stats(current_user: CommonUserAuth = Depends(get_current_active_user)): # get_current_active_user es del fallback mock por ahora
     """
     Devuelve detalles del usuario autenticado actualmente.
     """
@@ -163,12 +119,11 @@ async def read_users_me_stats(current_user: CommonUserAuth = Depends(get_current
 async def perform_ttest_analysis_endpoint(
     request_data: TTestRequest,
     use_case: PerformTTestUseCase = Depends(get_perform_ttest_use_case),
-    # Proteger endpoint:
-    # current_user: CommonUserAuth = Depends(require_roles({"analyst"})) # TODO: Descomentar para activar seguridad de roles
+    current_user: CommonUserAuth = Depends(require_roles({"analyst"})) # Seguridad de roles activada
 ):
     """
     Realiza un análisis de prueba t para dos grupos de datos independientes.
-    Requiere rol 'analyst'. (Seguridad de roles comentada para prueba inicial)
+    Requiere rol 'analyst'.
     """
     try:
         # El ID del experimento se genera aquí antes de pasarlo al caso de uso.
@@ -213,13 +168,13 @@ async def perform_ttest_analysis_endpoint(
 async def get_experiment_endpoint(
     experiment_id: UUID,
     stats_repository: StatsRepository = Depends(get_stats_repository),
-    # current_user: CommonUserAuth = Depends(require_roles({"viewer", "analyst"})) # TODO: Descomentar
+    current_user: CommonUserAuth = Depends(require_any_role({"viewer", "analyst"})) # Seguridad de roles activada
 ):
     """
     Obtiene un experimento por su ID.
-    Requiere rol 'viewer' o 'analyst'. (Seguridad de roles comentada para prueba inicial)
+    Requiere rol 'viewer' o 'analyst'.
     """
-    domain_experiment = stats_repository.get(experiment_id=experiment_id)
+    domain_experiment = stats_repository.get(experiment_id=experiment_id) # SQLAlchemyStatsRepository.get
     if not domain_experiment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experimento no encontrado.")
 
@@ -243,16 +198,16 @@ async def list_experiments_endpoint(
     skip: int = 0,
     limit: int = 100,
     stats_repository: StatsRepository = Depends(get_stats_repository),
-    # current_user: CommonUserAuth = Depends(require_roles({"viewer", "analyst"})) # TODO: Descomentar
+    current_user: CommonUserAuth = Depends(require_any_role({"viewer", "analyst"})) # Seguridad de roles activada
 ):
     """
     Lista todos los experimentos con paginación.
-    Requiere rol 'viewer' o 'analyst'. (Seguridad de roles comentada para prueba inicial)
+    Requiere rol 'viewer' o 'analyst'.
     """
     if limit > 500: # Limitar el máximo de `limit`
         limit = 500
 
-    domain_experiments, total_count = stats_repository.list_all(skip=skip, limit=limit)
+    domain_experiments, total_count = stats_repository.list_all(skip=skip, limit=limit) # SQLAlchemyStatsRepository.list_all
 
     response_items = []
     for dexp in domain_experiments:

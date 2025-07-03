@@ -20,10 +20,17 @@ from ..infrastructure.database import get_db_session # Renamed to avoid clash
 from ..infrastructure.models import ResearcherDB
 
 
-# --- Configuration (Keep Aletheia_v3 specific or ensure common takes precedence) ---
-SECRET_KEY = os.getenv("SECRET_KEY", "a-very-secret-key-that-should-be-changed-and-be-very-long") # Used by local create_access_token
-ALGORITHM = "HS256" # Used by local create_access_token
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")) # Used by local create_access_token
+# --- Configuration ---
+# Ensure these use the global environment variable names for consistency if they are to be shared.
+# These are used by the local create_access_token function in this file.
+# If aletheia_common.create_access_token were used, these wouldn't be needed here.
+GLOBAL_JWT_SECRET_KEY_ENV_VAR = "GLOBAL_JWT_SECRET_KEY" # Defined in aletheia_common
+GLOBAL_JWT_ALGORITHM_ENV_VAR = "GLOBAL_JWT_ALGORITHM"   # Defined in aletheia_common
+ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR = "ACCESS_TOKEN_EXPIRE_MINUTES" # Defined in aletheia_common
+
+SECRET_KEY = os.getenv(GLOBAL_JWT_SECRET_KEY_ENV_VAR, "a-very-secure-default-secret-key-please-change-in-production-v3")
+ALGORITHM = os.getenv(GLOBAL_JWT_ALGORITHM_ENV_VAR, "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv(ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR, "30"))
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

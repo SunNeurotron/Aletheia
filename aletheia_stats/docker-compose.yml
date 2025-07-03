@@ -18,19 +18,24 @@ services:
       # Variables expected by aletheia_stats/aletheia_stats/main.py and infrastructure modules
       - STATS_DATABASE_URL=${STATS_DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
       - STATS_MLFLOW_TRACKING_URI=${STATS_MLFLOW_TRACKING_URI:-http://mlflow:5001} # MLflow server runs on 5001
-      - JWT_SECRET_KEY=${STATS_JWT_SECRET_KEY:-default-super-secret-key-for-stats} # Specific secret key
-      - JWT_ALGORITHM=${STATS_JWT_ALGORITHM:-HS256}
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${STATS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      # Uses GLOBAL JWT settings for validating tokens from Aletheia_v3
+      - GLOBAL_JWT_SECRET_KEY=${GLOBAL_JWT_SECRET_KEY:-a-global-secret-key-that-must-be-changed-for-production}
+      - GLOBAL_JWT_ALGORITHM=${GLOBAL_JWT_ALGORITHM:-HS256}
+      # ACCESS_TOKEN_EXPIRE_MINUTES is not strictly needed by aletheia_stats if it only validates tokens,
+      # but aletheia_common.auth.jwt_handler reads it, so provide it for consistency.
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       - RANDOM_SEED=${STATS_RANDOM_SEED:-42}
       - APP_LOG_LEVEL=${STATS_APP_LOG_LEVEL:-INFO} # For application's own logging
       - STATS_API_HOST=${STATS_API_HOST:-0.0.0.0} # For Uvicorn in main.py
       - STATS_API_PORT=${STATS_API_PORT:-8001} # For Uvicorn in main.py
       - STATS_LOG_LEVEL_UVICORN=${STATS_LOG_LEVEL_UVICORN:-info} # For Uvicorn's logging
       - APP_ENVIRONMENT=${STATS_APP_ENVIRONMENT:-development}
-      # OAUTH2_SCHEME_TOKEN_URL for aletheia_common, specific to aletheia_stats's own token endpoint
-      - OAUTH2_SCHEME_TOKEN_URL=${STATS_OAUTH2_SCHEME_TOKEN_URL:-/api/v1/token}
+      # OAUTH2_SCHEME_TOKEN_URL for aletheia_common, now points to Aletheia_v3's token endpoint
+      # This requires aletheia_stats to be on a network where 'aletheia_v3_api' is resolvable.
+      # If running standalone or Aletheia_v3 API is not on port 8000, this needs adjustment.
+      - OAUTH2_SCHEME_TOKEN_URL=${STATS_OAUTH2_SCHEME_TOKEN_URL:-http://aletheia_v3_api:8000/token}
     depends_on:
-      db:
+      db: # Own DB for aletheia_stats
         condition: service_healthy # Wait for DB to be healthy
       mlflow:
         condition: service_started # Wait for MLflow to start (basic check)

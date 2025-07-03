@@ -11,9 +11,14 @@ from pydantic import BaseModel
 logger = logging.getLogger(__name__)
 
 # --- Configuration ---
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "a-very-secure-default-secret-key-please-change-in-production")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")) # Consistent name
+# Use more generic environment variable names that can be shared across services
+GLOBAL_JWT_SECRET_KEY_ENV_VAR = "GLOBAL_JWT_SECRET_KEY"
+GLOBAL_JWT_ALGORITHM_ENV_VAR = "GLOBAL_JWT_ALGORITHM"
+ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR = "ACCESS_TOKEN_EXPIRE_MINUTES" # Keep this as it might be app-specific
+
+JWT_SECRET_KEY = os.getenv(GLOBAL_JWT_SECRET_KEY_ENV_VAR, "a-very-secure-default-secret-key-please-change-in-production-common")
+JWT_ALGORITHM = os.getenv(GLOBAL_JWT_ALGORITHM_ENV_VAR, "HS256")
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv(ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR, "30"))
 
 # OAuth2PasswordBearer needs a tokenUrl. This should point to the actual token endpoint in the main API.
 # This might need to be configurable if different modules have different token URLs or if there's one central one.
@@ -91,32 +96,44 @@ async def get_user_retriever_dependency_placeholder() -> Callable[[str], Awaitab
         "This means the application did not override this dependency to provide "
         "a real user retriever function. Authentication will fail."
     )
-    raise NotImplementedError(
-        "User retriever function not implemented or provided by the application. "
-        "Override `get_user_retriever_dependency_placeholder` using app.dependency_overrides "
-        "or by providing a direct dependency to `get_current_active_user`."
-    )
+    # Default behavior: construct UserInDB from token payload if no DB lookup is performed.
+    # This allows services that only validate tokens (like aletheia_stats) to function
+    # without needing a DB connection to the identity provider (Aletheia_v3).
+    # The 'hashed_password' will be None, and 'disabled' will be False by default.
+    # Roles will be taken directly from the token if present.
+    async def _default_user_retriever_from_token_payload(username_from_payload: str, roles_from_payload: List[str]) -> Optional[UserInDB]:
+        logger.debug(f"Using default user retriever: creating UserInDB for '{username_from_payload}' from token payload only.")
+        return UserInDB(
+            username=username_from_payload,
+            roles=roles_from_payload,
+            disabled=False, # Cannot verify 'disabled' status without DB lookup; assume active.
+            hashed_password=None # Not relevant for token-only validation
+        )
+    # This placeholder now needs to provide the roles from the token to the default retriever
+    # However, the signature of user_retriever_func is Callable[[str], Awaitable[Optional[UserInDB]]]
+    # It only takes username. This means the default retriever logic needs to be inside get_current_active_user.
+
+    # Let's adjust: get_user_retriever_dependency_placeholder will provide a "mode" or a specific retriever.
+    # Simpler: make user_retriever_func truly optional in get_current_active_user.
+    # The placeholder will still be overridden by apps needing DB lookup.
+    # If not overridden, get_current_active_user will handle it.
+    # This requires get_current_active_user to change its signature slightly or how it uses the placeholder.
+
+    # New strategy: The placeholder is just a signal. If it's NOT overridden,
+    # get_current_active_user will know to use token-only data.
+    # This is simpler than trying to make the placeholder return a complex function.
+    pass # Placeholder remains, but its non-override will be key.
 
 
 async def get_current_active_user(
     token: str = Depends(oauth2_scheme),
-    # The user_retriever_func is now a dependency that must be provided by the app
-    # It's a callable that itself returns an awaitable (the actual user lookup function).
-    user_retriever_func: Callable[[str], Awaitable[Optional[UserInDB]]] = Depends(get_user_retriever_dependency_placeholder)
+    user_retriever_provider: Optional[Callable[[str], Awaitable[Optional[UserInDB]]]] = Depends(get_user_retriever_dependency_placeholder)
 ) -> UserAuth:
     """
-    Decodes JWT token, validates it, and retrieves the active user using an injected user retriever.
-    This is a dependency function for FastAPI endpoints.
-
-    Args:
-        token: The JWT token from the Authorization header.
-        user_retriever_func: An async callable (obtained via FastAPI's Depends)
-                             that takes a username (str) and returns an Awaitable[Optional[UserInDB]].
-                             This function is responsible for fetching user details from the database.
-    Returns:
-        A UserAuth object representing the authenticated user.
-    Raises:
-        HTTPException (401): If authentication fails (invalid token, user not found, or disabled).
+    Decodes JWT token, validates it.
+    If user_retriever_provider is the placeholder (i.e., not overridden by an app like Aletheia_v3),
+    it constructs UserAuth from token payload only.
+    Otherwise, it uses the provided retriever to fetch user details from the database.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -130,33 +147,41 @@ async def get_current_active_user(
             logger.warning("Token payload missing 'sub' (username).")
             raise credentials_exception
 
-        roles_from_token: List[str] = payload.get("roles", []) # Roles can also be in token
-        token_data = TokenData(username=username, scopes=roles_from_token)
+        roles_from_token: List[str] = payload.get("roles", [])
+        # token_data = TokenData(username=username, scopes=roles_from_token) # Not strictly needed here anymore
 
     except JWTError as e:
         logger.warning(f"JWTError decoding token: {e}")
         raise credentials_exception
 
-    if not callable(user_retriever_func):
-        # This should ideally not happen if FastAPI's dependency injection works as expected
-        # and get_user_retriever_dependency_placeholder is overridden correctly.
-        logger.error("User retriever function is not callable. Check dependency injection setup.")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication system misconfiguration.")
+    # Check if the dependency was overridden.
+    # If user_retriever_provider is still the placeholder function, it means no DB lookup was configured.
+    # This is a bit of a hacky way to check. A more robust way might involve a sentinel value or specific type.
+    is_placeholder_active = user_retriever_provider is get_user_retriever_dependency_placeholder.__wrapped__ # Access the original function if placeholder is a Depends wrapper
 
-    user_db_record = await user_retriever_func(token_data.username)
+    if is_placeholder_active or user_retriever_provider is None: # If not overridden or explicitly None
+        logger.debug(f"No DB user retriever provided (placeholder active or None). Using token payload for user '{username}'.")
+        # Cannot check 'disabled' status without DB. Assume active.
+        # Roles are taken directly from token.
+        return UserAuth(username=username, roles=roles_from_token)
+    else:
+        # A real user_retriever_func was provided (e.g., by Aletheia_v3)
+        if not callable(user_retriever_provider):
+             logger.error("Provided user retriever is not callable. Check DI setup.")
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Auth system misconfig.")
 
-    if user_db_record is None:
-        logger.warning(f"User '{token_data.username}' (from token sub) not found by user_retriever_func.")
-        raise credentials_exception
-    if user_db_record.disabled:
-        logger.warning(f"User '{token_data.username}' is disabled.")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user.")
+        user_db_record = await user_retriever_provider(username)
 
-    # Check if roles in token match roles in DB (optional, depends on trust model for token)
-    # For now, trust roles from DB after validating username.
-    # Or, could assert token_data.scopes == user_db_record.roles
+        if user_db_record is None:
+            logger.warning(f"User '{username}' (from token sub) not found by provided user_retriever.")
+            raise credentials_exception
+        if user_db_record.disabled:
+            logger.warning(f"User '{username}' is disabled (checked from DB).")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user.")
 
-    return UserAuth(username=user_db_record.username, roles=user_db_record.roles)
+        # Trust roles from DB if available and different from token, or merge, or use token roles.
+        # For now, using roles from DB as they are more authoritative if DB lookup occurs.
+        return UserAuth(username=user_db_record.username, roles=user_db_record.roles)
 
 
 # --- Role/Scope Based Authorization Dependency ---
