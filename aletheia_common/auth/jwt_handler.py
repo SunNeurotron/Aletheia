@@ -18,7 +18,8 @@ JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "
 # OAuth2PasswordBearer needs a tokenUrl. This should point to the actual token endpoint in the main API.
 # This might need to be configurable if different modules have different token URLs or if there's one central one.
 # For now, assume a central token URL. This will be used by FastAPI's Depends(oauth2_scheme).
-OAUTH2_SCHEME_TOKEN_URL = os.getenv("OAUTH2_SCHEME_TOKEN_URL", "/api/v1/token") # Default to a common path
+# Defaulting to "/token" as it's a common pattern for non-versioned auth endpoints.
+OAUTH2_SCHEME_TOKEN_URL = os.getenv("OAUTH2_SCHEME_TOKEN_URL", "/token")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=OAUTH2_SCHEME_TOKEN_URL)
 
 # --- Pydantic Models for Authentication Data ---
