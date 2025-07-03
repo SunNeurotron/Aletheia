@@ -38,8 +38,8 @@ This version integrates features developed across several focused phases, transf
 **Foundational Features (from initial MDU setup, integrated into v4.0):**
 -   **Modular & Layered Architecture:** `core`, `infrastructure`, `api`, `dashboard`, `tests`.
 -   **AI-Powered Intelligent Search Core:** Bayesian Optimization with `scikit-optimize`.
--   **Comprehensive Testing Suite (`pytest`):** Unit and basic integration tests.
--   **Secure API with JWT Authentication:** Using FastAPI and `python-jose`.
+-   **Comprehensive Testing Suite (`pytest`):** Unit and integration tests, including tests for authentication and authorization logic.
+-   **Secure API with JWT Authentication and Role-Based Authorization:** Utilizes FastAPI and `python-jose` for JWTs. Implements role-based access control (RBAC) with roles such as "researcher" and "admin" to protect sensitive endpoints and operations. User authentication is handled against the `ResearcherDB`.
 -   **Scientific Experiment Tracking (`MLflow`):** Integrated into Celery workers.
 -   **Containerized Deployment (`Docker`, `docker-compose.yml`):** For reproducible local/dev execution.
 

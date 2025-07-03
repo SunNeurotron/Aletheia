@@ -14,9 +14,21 @@ from infrastructure.models import JobDB, HitDB, ResearcherDB, DerivedConjectureD
 from infrastructure.celery_worker import intelligent_discovery_task
 
 # API specific (schemas, auth)
-from . import auth # Using . for relative import
+from . import auth as aletheia_v3_auth # Alias para el módulo de auth local de Aletheia_v3
 from . import schemas # Using . for relative import
 from infrastructure.models import ContributionTypeEnum, ConjectureStatusEnum # Added ConjectureStatusEnum
+
+# Import common authentication components
+from aletheia_common.auth.jwt_handler import (
+    get_current_active_user as common_get_current_active_user,
+    get_current_active_user_optional as common_get_current_active_user_optional, # Importar la versión opcional
+    UserAuth as CommonUserAuth, # Modelo Pydantic para el usuario autenticado
+    get_user_retriever_dependency_placeholder,
+    require_roles, # Importar para la autorización basada en roles
+    require_any_role # Importar si se necesita lógica OR para roles
+)
+# Import la implementación del user_retriever de Aletheia_v3
+from .auth import get_user_retriever as get_aletheia_v3_user_retriever
 
 # --- Application Setup ---
 # Metadata for API documentation
@@ -37,6 +49,10 @@ app = FastAPI(
     # redoc_url="/redoc", # Default
     # openapi_url="/openapi.json" # Default
 )
+
+# Override the placeholder dependency in aletheia_common with the actual implementation from Aletheia_v3
+app.dependency_overrides[get_user_retriever_dependency_placeholder] = get_aletheia_v3_user_retriever
+
 
 # API Router - Helps in organizing endpoints, especially if the API grows.
 # All routes defined in this router will be prefixed with /api/v1
@@ -83,33 +99,50 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     """
     Provides a JWT token for valid user credentials.
     This is the standard OAuth2 password flow endpoint.
+    Uses authenticate_user from Aletheia_v3.api.auth which now hits the DB.
     """
-    user = await auth.authenticate_user(form_data) # authenticate_user handles exceptions
-    if not user: # Should be handled by authenticate_user, but as a safeguard
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password (safeguard)",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+    # aletheia_v3_auth.authenticate_user now takes db session
+    user_in_db = await aletheia_v3_auth.authenticate_user(form_data=form_data, db=Depends(get_db_session))
+    # user_in_db is of type UserInDB from common, which includes roles
+
+    access_token_expires = timedelta(minutes=aletheia_v3_auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    # Create token using Aletheia_v3's local create_access_token or common one
+    # For consistency, if jwt_handler.create_access_token is suitable, use it.
+    # Assuming aletheia_v3_auth.create_access_token is what we want for now.
+    access_token = aletheia_v3_auth.create_access_token(
+        data={"sub": user_in_db.username, "roles": user_in_db.roles}, # Include roles in token
+        expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@router.get("/users/me", response_model=schemas.UserResponse, tags=["Users"])
-async def read_users_me(current_user: auth.User = Depends(auth.get_current_active_user)):
+@router.get("/users/me", response_model=schemas.UserResponse, tags=["Users"]) # UserResponse needs to be compatible with CommonUserAuth
+async def read_users_me(current_user: CommonUserAuth = Depends(common_get_current_active_user)):
     """
     Fetches the details of the currently authenticated user.
+    Uses the common get_current_active_user which now relies on the overridden user_retriever.
     This is a protected endpoint.
     """
-    # The `current_user` object is already a Pydantic-compatible model (or dict that Pydantic can handle)
-    # as returned by `get_current_active_user` after fetching from `auth.User`.
+    # CommonUserAuth has 'username' and 'roles'.
+    # schemas.UserResponse expects 'username', 'email', 'full_name', 'disabled'.
+    # We need to fetch the full UserInDB or ResearcherDB again, or expand CommonUserAuth/token.
+    # For now, let's assume UserResponse can be partially filled or we adapt.
+    # To get full details, we'd re-fetch from DB or put more in token (not ideal for all fields).
+
+    # Simplest for now: schemas.UserResponse needs to be updated or only return what CommonUserAuth provides.
+    # Let's assume we want to show what's in CommonUserAuth for this endpoint.
+    # This means schemas.UserResponse might need adjustment if it strictly requires email/full_name.
+    # For this step, we focus on wiring up auth.
+    # A proper UserResponse would re-fetch the ResearcherDB object.
+    # Let's simulate that:
+    db_researcher = await aletheia_v3_auth.get_researcher_for_auth(username=current_user.username, db=Depends(get_db_session))
+    if not db_researcher:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated user not found in database.")
+
     return schemas.UserResponse(
-        username=current_user.username,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        disabled=current_user.disabled
+        username=db_researcher.username,
+        email=db_researcher.email,
+        full_name=db_researcher.full_name,
+        disabled=db_researcher.disabled # Assuming UserInDB has disabled, and get_researcher_for_auth maps it
     )
 
 
@@ -119,7 +152,7 @@ async def read_users_me(current_user: auth.User = Depends(auth.get_current_activ
 async def create_new_search_job(
     request: schemas.JobCreateRequest,
     db: Session = Depends(get_db_session),
-    # current_user: auth.User = Depends(auth.get_current_active_user) # Uncomment to protect this endpoint
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Protegido: requiere rol researcher
 ):
     """
     Creates a new intelligent search job for abc-triples.
@@ -160,8 +193,8 @@ async def create_new_search_job(
 @router.get("/searches/{job_id}", response_model=schemas.JobResponse, tags=["ABC Discovery"])
 async def get_search_job_status_and_results(
     job_id: str,
-    db: Session = Depends(get_db_session)
-    # current_user: auth.User = Depends(auth.get_current_active_user) # Uncomment to protect
+    db: Session = Depends(get_db_session),
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Protegido: requiere rol researcher
 ):
     """
     Retrieves the status and results of a specific search job.
@@ -187,10 +220,11 @@ async def health_check():
 @router.post("/researchers", response_model=schemas.ResearcherResponse, status_code=status.HTTP_201_CREATED, tags=["Researchers"])
 async def create_researcher(
     researcher_in: schemas.ResearcherCreate,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_admin: CommonUserAuth = Depends(require_roles({"admin"})) # Protegido: Solo admin puede crear researchers
 ):
     """
-    Creates a new researcher.
+    Creates a new researcher. Only accessible by users with the 'admin' role.
     Passwords are automatically hashed.
     """
     # Check if username or email already exists
@@ -220,10 +254,10 @@ async def list_researchers(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db_session),
-    # current_user: auth.User = Depends(auth.get_current_active_user) # Protect this
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Protegido: requiere rol researcher (o viewer si se define)
 ):
     """
-    Retrieves a list of researchers.
+    Retrieves a list of researchers. Requires 'researcher' role.
     """
     researchers = db.query(ResearcherDB).offset(skip).limit(limit).all()
     return researchers
@@ -232,10 +266,10 @@ async def list_researchers(
 async def get_researcher(
     researcher_id: uuid.UUID, # FastAPI handles UUID conversion
     db: Session = Depends(get_db_session),
-    # current_user: auth.User = Depends(auth.get_current_active_user) # Protect this
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Protegido: requiere rol researcher
 ):
     """
-    Retrieves a specific researcher by their ID.
+    Retrieves a specific researcher by their ID. Requires 'researcher' role.
     """
     db_researcher = db.query(ResearcherDB).filter(ResearcherDB.id == researcher_id).first()
     if db_researcher is None:
@@ -247,7 +281,7 @@ async def update_researcher_info(
     researcher_id: uuid.UUID,
     researcher_update: schemas.ResearcherUpdate,
     db: Session = Depends(get_db_session),
-    current_user: auth.User = Depends(auth.get_current_active_user) # Ensure only admin or self can update
+    current_user: CommonUserAuth = Depends(common_get_current_active_user) # Ensure only admin or self can update
 ):
     """
     Updates a researcher's information. (Password update should be separate)
@@ -257,14 +291,15 @@ async def update_researcher_info(
     if db_researcher is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Researcher not found")
 
-    # Authorization: Check if current_user is the researcher or an admin
-    # For simplicity, this example doesn't implement admin roles.
-    # In a real app: if db_researcher.username != current_user.username and not current_user.is_admin:
-    #    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this researcher")
-    # This check is simplified here:
-    if db_researcher.username != current_user.username:
-         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to update this researcher's info (demo restriction).")
+    # Authorization: User can update themselves, or an admin can update anyone.
+    is_self = db_researcher.username == current_user.username
+    is_admin_user = "admin" in current_user.roles
 
+    if not (is_self or is_admin_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this researcher's information."
+        )
 
     update_data = researcher_update.model_dump(exclude_unset=True)
     for key, value in update_data.items():
@@ -281,15 +316,18 @@ async def update_researcher_info(
 async def create_derived_conjecture(
     conjecture_in: schemas.ConjectureCreate,
     db: Session = Depends(get_db_session),
-    current_user: auth.User = Depends(auth.get_current_active_user)
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Requiere rol researcher
 ):
     """
-    Creates a new derived conjecture.
+    Creates a new derived conjecture. Requires 'researcher' role.
     The proposer is automatically set to the currently authenticated researcher.
     """
+    # current_user is already validated to be a researcher by require_roles
+    # and get_researcher_for_auth would have failed if not found in ResearcherDB.
+    # However, we still need the ResearcherDB object to link as proposer_id.
     researcher = db.query(ResearcherDB).filter(ResearcherDB.username == current_user.username).first()
-    if not researcher:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated user not found as a researcher.")
+    if not researcher: # Should not happen if require_roles and get_researcher_for_auth work
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authenticated researcher could not be retrieved from database.")
 
     db_conjecture = DerivedConjectureDB(
         title=conjecture_in.title,
@@ -316,14 +354,15 @@ async def create_derived_conjecture(
 
 
 @router.get("/conjectures", response_model=List[schemas.ConjectureResponse], tags=["Conjectures"])
-async def list_derived_conjectures(
+async def list_derived_conjectures( # Ya estaba usando common_get_current_active_user_optional
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db_session)
-    # No auth needed for listing conjectures, typically public.
+    db: Session = Depends(get_db_session),
+    current_user: Optional[CommonUserAuth] = Depends(common_get_current_active_user_optional)
 ):
     """
-    Retrieves a list of derived conjectures.
+    Retrieves a list of derived conjectures. Publicly accessible.
+    If user is authenticated, future enhancements could personalize results.
     """
     conjectures_db = db.query(DerivedConjectureDB).order_by(DerivedConjectureDB.created_at.desc()).offset(skip).limit(limit).all()
 
@@ -339,10 +378,11 @@ async def list_derived_conjectures(
 @router.get("/conjectures/{conjecture_id}", response_model=schemas.ConjectureResponse, tags=["Conjectures"])
 async def get_derived_conjecture(
     conjecture_id: int,
-    db: Session = Depends(get_db_session)
+    db: Session = Depends(get_db_session),
+    current_user: Optional[CommonUserAuth] = Depends(common_get_current_active_user_optional) # Opcional
 ):
     """
-    Retrieves a specific derived conjecture by its ID.
+    Retrieves a specific derived conjecture by its ID. Publicly accessible.
     """
     db_conjecture = db.query(DerivedConjectureDB).filter(DerivedConjectureDB.id == conjecture_id).first()
     if db_conjecture is None:
@@ -367,15 +407,15 @@ async def add_attribution_to_hit(
     hit_id: int,
     attribution_in: schemas.AttributionCreate, # Should not contain researcher_id, that's the current user
     db: Session = Depends(get_db_session),
-    current_user: auth.User = Depends(auth.get_current_active_user)
+    current_user: CommonUserAuth = Depends(require_roles({"researcher"})) # Requiere rol researcher
 ):
     """
     Adds an attribution (e.g., 'verified', 'analyzed') to a specific discovery hit
-    by the currently authenticated researcher.
+    by the currently authenticated researcher. Requires 'researcher' role.
     """
     researcher = db.query(ResearcherDB).filter(ResearcherDB.username == current_user.username).first()
-    if not researcher:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Authenticated user not found as a researcher.")
+    if not researcher: # Should not happen if require_roles and get_researcher_for_auth work
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authenticated researcher could not be retrieved from database.")
 
     db_hit = db.query(HitDB).filter(HitDB.id == hit_id).first()
     if not db_hit:

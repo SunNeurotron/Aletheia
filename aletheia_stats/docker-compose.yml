@@ -87,30 +87,33 @@ services:
       - aletheia_stats_network
     restart: unless-stopped
 
-  # Optional: Alembic migration runner service (can also be run as a one-off command)
-  # alembic_migrate:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile # Uses the same image as API
-  #   container_name: aletheia_stats_alembic
-  #   command: >
-  #     sh -c "
-  #       echo 'Waiting for DB to be ready...' &&
-  #       # Add a wait-for-it script or simple sleep if needed before running migrations
-  #       # Example: wait-for-it.sh db:5432 --timeout=30 --strict --
-  #       sleep 10 &&
-  #       echo 'Running Alembic migrations...' &&
-  #       alembic -c /app/alembic.ini upgrade head
-  #     "
-  #   environment:
-  #     - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   networks:
-  #     - aletheia_stats_network
-  #   # This service typically runs to completion and stops.
-  #   # For one-off runs: docker-compose run --rm alembic_migrate
+  alembic_migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile # Uses the same image as API
+    container_name: aletheia_stats_alembic_migrate
+    command: >
+      sh -c "
+        echo 'Aletheia-Stats Migrator: Waiting for DB (db:5432) to be ready...' &&
+        until pg_isready -h db -p 5432 -U ${DB_USER:-user} -d ${DB_NAME:-aletheia_stats_db}; do
+          sleep 2;
+        done;
+        echo 'Aletheia-Stats Migrator: DB is ready. Running Alembic migrations...' &&
+        alembic -c /app/alembic.ini upgrade head
+      "
+    environment:
+      # This service needs STATS_DATABASE_URL for alembic's env.py to pick up
+      - STATS_DATABASE_URL=${STATS_DATABASE_URL:-postgresql://${DB_USER:-user}:${DB_PASSWORD:-pass}@db:5432/${DB_NAME:-aletheia_stats_db}}
+      # Pass other DB variables if alembic.ini or env.py uses them indirectly via config.get_main_option
+      - DB_USER=${DB_USER:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-pass}
+      - DB_NAME=${DB_NAME:-aletheia_stats_db}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - aletheia_stats_network
+    restart: 'no' # This job should run once and exit
 
 # Networks definition
 networks:

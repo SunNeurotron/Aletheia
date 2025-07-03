@@ -4,48 +4,43 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm # OAuth2PasswordRequestForm for /token endpoint
+from jose import JWTError, jwt # Keep these from original Aletheia_v3/api/auth.py
+from passlib.context import CryptContext # Keep for password hashing
 
-# --- Configuration ---
-# In a production environment, these should come from environment variables or a config service.
-SECRET_KEY = os.getenv("SECRET_KEY", "a-very-secret-key-that-should-be-changed-and-be-very-long")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+# Import UserInDB from aletheia_common to be returned by the user_retriever
+from aletheia_common.auth.jwt_handler import UserInDB, oauth2_scheme as common_oauth2_scheme
+# Note: SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES are used by aletheia_common.create_access_token
+# We can remove them here if aletheia_common.create_access_token is used directly.
+# For now, Aletheia_v3's create_access_token is distinct.
+
+# Import DB session and Researcher model
+from sqlalchemy.orm import Session
+from ..infrastructure.database import get_db_session # Renamed to avoid clash
+from ..infrastructure.models import ResearcherDB
+
+
+# --- Configuration (Keep Aletheia_v3 specific or ensure common takes precedence) ---
+SECRET_KEY = os.getenv("SECRET_KEY", "a-very-secret-key-that-should-be-changed-and-be-very-long") # Used by local create_access_token
+ALGORITHM = "HS256" # Used by local create_access_token
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")) # Used by local create_access_token
 
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 scheme for token dependency
-# tokenUrl should point to the endpoint that issues tokens (e.g., /api/v1/token)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") # Relative to the router prefix
+# OAuth2 scheme for token dependency for THIS auth module.
+# The tokenUrl should point to the /token endpoint defined in this Aletheia_v3 app.
+# `common_oauth2_scheme` from `aletheia_common` might have a different `tokenUrl` if not configured.
+# It's important that the `tokenUrl` used by `OAuth2PasswordBearer` matches the actual token endpoint.
+# If Aletheia_v3's /token is the source of truth, this is correct.
+# The `oauth2_scheme` used by `get_current_active_user` in `aletheia_common`
+# will also need to point to this same `/token` endpoint. This is usually configured
+# by the application setting `OAUTH2_SCHEME_TOKEN_URL` env var that `aletheia_common` reads.
+aletheia_v3_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") # "token" is relative to API root
 
-# --- Mock User Database ---
-# In a real application, this would interact with a database (e.g., a User model in SQLAlchemy).
-# For simplicity, using an in-memory dictionary.
-# Passwords should be stored hashed. The "hashed_password" here is what you'd store.
-# To generate: pwd_context.hash("testpassword")
-# Default user: username="testuser", password="testpassword"
-# Hashed "testpassword": $2b$12$EixZaYVK1xKIx74SAhN7PueE91.qg2vNn2jXRcOB2kK8sUMS83CUm
-MOCK_USERS_DB = {
-    "testuser": {
-        "username": "testuser",
-        "full_name": "Test User",
-        "email": "testuser@example.com",
-        "hashed_password": "$2b$12$EixZaYVK1xKIx74SAhN7PueE91.qg2vNn2jXRcOB2kK8sUMS83CUm",
-        "disabled": False,
-    },
-    "anotheruser": {
-        "username": "anotheruser",
-        "full_name": "Another User",
-        "email": "anotheruser@example.com",
-        "hashed_password": pwd_context.hash("securepass123"), # Example of hashing on the fly
-        "disabled": False,
-    }
-}
-
-# --- Utility Functions ---
+# --- Utility Functions (Password Hashing, Token Creation) ---
+# These are specific to Aletheia_v3's auth flow if it differs from aletheia_common.
+# If they are identical, prefer using the ones from aletheia_common.
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies a plain password against a hashed password."""
@@ -67,75 +62,82 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 # --- User Model (Pydantic for response) ---
-# This is a simplified User model for what get_current_user might return.
-# In a real app, this would likely come from your database models and Pydantic schemas.
-class User:
-    def __init__(self, username: str, full_name: Optional[str] = None, email: Optional[str] = None, disabled: bool = False):
+# This is a simplified User model for what get_current_user might return in THIS module.
+# aletheia_common.UserAuth is the standard for user context after authentication.
+# This User class can be deprecated if UserAuth from common is sufficient.
+class User: # TODO: Review if this class is still needed or if UserAuth from common is enough.
+    def __init__(self, username: str, full_name: Optional[str] = None, email: Optional[str] = None, disabled: bool = False, roles: Optional[list[str]] = None):
         self.username = username
         self.full_name = full_name
         self.email = email
         self.disabled = disabled
+        self.roles = roles or []
 
 
-# --- Dependency for Getting Current User ---
+# --- User Retriever Implementation for Aletheia_v3 ---
+async def get_researcher_for_auth(username: str, db: Session = Depends(get_db_session)) -> Optional[UserInDB]:
+    """
+    Retrieves a researcher from the database and maps it to the UserInDB model
+    expected by aletheia_common.auth.jwt_handler.
+    """
+    researcher = db.query(ResearcherDB).filter(ResearcherDB.username == username).first()
+    if researcher:
+        user_roles = ["researcher"] # Default role for any researcher
+        if researcher.is_admin:
+            if "admin" not in user_roles: # Asegurar que no se duplique si ya estuviera por otra lógica
+                user_roles.append("admin")
 
-async def get_current_user_from_db(username: str) -> Optional[User]:
-    """Simulates fetching a user from the database."""
-    if username in MOCK_USERS_DB:
-        user_dict = MOCK_USERS_DB[username]
-        return User(**user_dict) # type: ignore
+        # TODO: Implementar un campo 'disabled' en ResearcherDB si es necesario para la lógica de negocio.
+        # Por ahora, asumimos que todos los investigadores recuperados no están deshabilitados para la autenticación.
+        # Si un investigador no debe poder loguearse, su registro podría marcarse o eliminarse.
+        is_disabled = False # Placeholder, ya que ResearcherDB no tiene un campo 'disabled'.
+                            # UserInDB de common sí lo tiene, y get_current_active_user lo verifica.
+
+        return UserInDB(
+            username=researcher.username,
+            email=researcher.email,
+            full_name=researcher.full_name,
+            hashed_password=researcher.hashed_password,
+            roles=sorted(list(set(user_roles))), # Ordenar y asegurar unicidad de roles
+            disabled=is_disabled # Este 'disabled' es para UserInDB, no necesariamente de ResearcherDB
+        )
     return None
 
-async def get_current_active_user(token: str = Depends(oauth2_scheme)) -> User:
-    """
-    Dependency to get the current active user from a JWT token.
-    Validates the token, decodes it, and retrieves the user.
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: Optional[str] = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
-
-    user = await get_current_user_from_db(username) # In a real app, this would query the DB
-    if user is None:
-        raise credentials_exception
-    if user.disabled:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
-    return user
+# This function will be provided to aletheia_common's get_current_active_user
+# via app.dependency_overrides in api_server.py
+def get_user_retriever() -> Callable[[str], Awaitable[Optional[UserInDB]]]:
+    # This wrapper is needed because Depends() in get_current_active_user expects
+    # the dependency itself (get_researcher_for_auth) to be injected, not its result.
+    # However, get_researcher_for_auth itself needs `db: Session = Depends(get_db_session)`.
+    # FastAPI handles nested Depends, so we can return the function directly.
+    # The dependency system will resolve get_db_session when get_researcher_for_auth is called.
+    return get_researcher_for_auth
 
 
-# --- Authentication Logic for Token Endpoint ---
+# --- Authentication Logic for Token Endpoint (using ResearcherDB) ---
 
-async def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends()) -> User:
+async def authenticate_user(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db_session)) -> UserInDB:
     """
-    Authenticates a user based on username and password from form data.
-    This is typically used by the /token endpoint.
+    Authenticates a researcher from ResearcherDB.
+    Used by the /token endpoint in api_server.py.
+    Returns UserInDB which includes hashed_password and roles.
     """
-    user = await get_current_user_from_db(form_data.username) # Check if user exists
-    if not user:
+    user_in_db = await get_researcher_for_auth(username=form_data.username, db=db)
+    if not user_in_db:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # Verify the password
-    if not verify_password(form_data.password, MOCK_USERS_DB[user.username]["hashed_password"]):
+    if not user_in_db.hashed_password or not verify_password(form_data.password, user_in_db.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if user.disabled:
+    if user_in_db.disabled: # UserInDB model from common now has 'disabled'
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
-    return user
+    return user_in_db # Return the UserInDB object, as it contains all necessary info including roles
 
 # Example of how to use get_password_hash (e.g., when creating a new user)
 if __name__ == "__main__":

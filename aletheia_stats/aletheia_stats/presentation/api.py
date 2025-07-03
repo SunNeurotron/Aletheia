@@ -68,12 +68,10 @@ def get_stats_repository(db: Session = Depends(get_db_session_stats)) -> StatsRe
     # Por ahora, asumimos que StatsRepository se adapta para tomar la sesión `db`
     # o que su inicialización global usa el `engine` de infrastructure.database.
     # Si StatsRepository(database_url=...) crea su propio engine, esto necesita refactorización.
-    # Idealmente: StatsRepository(session=db)
-    # Por ahora, mantendremos la inicialización original de StatsRepository si espera una URL,
-    # pero esto es subóptimo ya que crea un nuevo engine.
-    # TODO: Refactorizar StatsRepository para aceptar una sesión de SQLAlchemy.
-    from ..infrastructure.database import SQLALCHEMY_DATABASE_URL as STATS_DB_URL # Usar la URL configurada
-    return StatsRepository(database_url=STATS_DB_URL)
+    # StatsRepository (ahora SQLAlchemyStatsRepository) espera una sesión de BD.
+    # La clase real es SQLAlchemyStatsRepository, StatsRepository es un alias en el módulo del repo.
+    from ..infrastructure.sqlalchemy_repository import SQLAlchemyStatsRepository
+    return SQLAlchemyStatsRepository(db=db)
 
 
 def get_mlflow_tracker() -> Optional[MLflowExperimentTracker]:
@@ -197,6 +195,7 @@ async def perform_ttest_analysis_endpoint(
             parameters=domain_experiment.parameters,
             result=TTestResultSchema.from_orm(domain_experiment.result) if domain_experiment.result else None,
             mlflow_run_id=domain_experiment.mlflow_run_id,
+            tracking_warnings=domain_experiment.tracking_warnings, # Añadir tracking_warnings
             created_at=domain_experiment.created_at,
             updated_at=domain_experiment.updated_at
         )
@@ -233,6 +232,7 @@ async def get_experiment_endpoint(
         parameters=domain_experiment.parameters,
         result=TTestResultSchema.from_orm(domain_experiment.result) if domain_experiment.result else None,
         mlflow_run_id=domain_experiment.mlflow_run_id,
+            tracking_warnings=domain_experiment.tracking_warnings, # Añadir tracking_warnings
         created_at=domain_experiment.created_at,
         updated_at=domain_experiment.updated_at
     )
@@ -260,11 +260,12 @@ async def list_experiments_endpoint(
             id=dexp.id,
             name=dexp.name,
             description=dexp.description,
-            group_a_data_summary={"count": len(dexp.group_a_data), "mean": dexp.result.mean_group_a if dexp.result else None},
-            group_b_data_summary={"count": len(dexp.group_b_data), "mean": dexp.result.mean_group_b if dexp.result else None},
+            group_a_data_summary={"count": len(dexp.group_a_data), "mean": dexp.result.mean_group_a if dexp.result else None}, # type: ignore
+            group_b_data_summary={"count": len(dexp.group_b_data), "mean": dexp.result.mean_group_b if dexp.result else None}, # type: ignore
             parameters=dexp.parameters,
             result=TTestResultSchema.from_orm(dexp.result) if dexp.result else None,
             mlflow_run_id=dexp.mlflow_run_id,
+            tracking_warnings=dexp.tracking_warnings, # Añadir tracking_warnings
             created_at=dexp.created_at,
             updated_at=dexp.updated_at
         ))

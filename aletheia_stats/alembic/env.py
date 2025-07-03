@@ -24,25 +24,19 @@ if config.config_file_name is not None:
 # For autogenerate support, import your Base and your models so that
 # Alembic knows about them.
 # Adjust the import path to where your Base and models are defined.
-# This should point to the Base object from your infrastructure.sqlalchemy_repository
+# This should point to the Base object from your infrastructure.database
+# and ensure models in infrastructure.models are imported so Base.metadata is populated.
 import sys
-# Construct the path to the 'aletheia_stats' module root from 'alembic' directory
-# alembic_stats/alembic/env.py -> ../.. -> aletheia_stats_module_root
-module_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-if module_root not in sys.path:
-    sys.path.insert(0, module_root)
+module_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if module_root_path not in sys.path:
+    sys.path.insert(0, module_root_path)
 
-# Now, import Base from your application structure
-# This assumes 'aletheia_stats_module_root' is the parent of 'aletheia_stats' package.
-# If aletheia_stats_module_root is 'SunNeurotron/Aletheia/aletheia_stats', then
-# the package is 'aletheia_stats.aletheia_stats.infrastructure.sqlalchemy_repository'
-# However, if the script_location for alembic is 'alembic' inside 'aletheia_stats' directory,
-# and 'aletheia_stats' is in PYTHONPATH, then we can import more directly.
+# Import Base from aletheia_stats.infrastructure.database
+# and also import the models from aletheia_stats.infrastructure.models to ensure they are registered
+from aletheia_stats.aletheia_stats.infrastructure.database import Base as StatsAppBase
+from aletheia_stats.aletheia_stats.infrastructure import models # Ensures models are registered with StatsAppBase.metadata
 
-# Assuming the 'aletheia_stats' directory (which contains alembic.ini and this alembic dir)
-# is the root for the 'aletheia_stats' package context.
-from aletheia_stats.aletheia_stats.infrastructure.sqlalchemy_repository import Base as StatsBase # Renamed to avoid conflict
-target_metadata = StatsBase.metadata
+target_metadata = StatsAppBase.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -50,7 +44,17 @@ target_metadata = StatsBase.metadata
 # ... etc.
 
 def get_database_url():
-    return os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    # Use the same environment variable as the application for consistency
+    from aletheia_stats.aletheia_stats.infrastructure.database import SQLALCHEMY_DATABASE_URL as STATS_APP_DB_URL
+    # Alembic's config.get_main_option("sqlalchemy.url") can serve as a fallback if needed,
+    # but direct use of the app's configured URL (from env var) is preferred.
+    # For simplicity, directly use what the app uses.
+    # If STATS_APP_DB_URL is already derived from an env var (like STATS_DATABASE_URL), this is fine.
+    # The infrastructure/database.py uses:
+    # SQLALCHEMY_DATABASE_URL = os.getenv("STATS_DATABASE_URL", "postgresql://user:pass@localhost:5433/aletheia_stats_db_main_py")
+    # So we can reference that environment variable name directly here too.
+    return os.getenv("STATS_DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
