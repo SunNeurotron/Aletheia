@@ -35,14 +35,30 @@ except ImportError:
     # Fallback muy básico si aletheia_common no está disponible
     # Esto NO es para producción, solo para permitir que el módulo se cargue
     # Se necesitaría una estrategia de dependencias adecuada.
-    print("ADVERTENCIA: aletheia_common.auth no encontrado. Usando mocks de autenticación muy básicos.")
-    CommonUserAuth = UserSchema # Usar el schema local como fallback
+    # logger.warning("aletheia_common.auth no encontrado. Usando mocks de autenticación muy básicos.") # Reemplazado abajo
+    CommonUserAuth = UserSchema
     async def get_current_active_user(): return CommonUserAuth(username="mockuser", roles=["viewer"])
     def require_roles(roles): return lambda: CommonUserAuth(username="mockuser", roles=list(roles))
-    # create_access_token, MOCK_COMMON_USERS_DB, JWT_ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
-    # ya no son necesarios aquí si el endpoint /token se elimina.
     from datetime import timedelta
 
+import logging # Importar logging
+logger = logging.getLogger(__name__) # Obtener logger a nivel de módulo
+
+# Fallback de importación con logging
+try:
+    from aletheia_common.auth.jwt_handler import (
+        get_current_active_user as common_get_current_active_user_real, # Renombrar para evitar conflicto con el mock
+        require_roles as common_require_roles_real,
+        UserAuth as CommonUserAuthReal
+    )
+    # Asignar los reales si la importación es exitosa
+    get_current_active_user = common_get_current_active_user_real
+    require_roles = common_require_roles_real
+    CommonUserAuth = CommonUserAuthReal
+    logger.info("aletheia_common.auth importado exitosamente para aletheia_stats.api.")
+except ImportError as e:
+    logger.warning(f"ADVERTENCIA: aletheia_common.auth no encontrado ({e}). Usando mocks de autenticación muy básicos para aletheia_stats.api. Esto NO es para producción.")
+    # Las definiciones mock de CommonUserAuth, get_current_active_user, require_roles ya están arriba.
 
 import os # Para leer variables de entorno para MLFLOW_TRACKING_URI
 
@@ -75,13 +91,14 @@ def get_stats_repository(db: Session = Depends(get_db_session_stats)) -> StatsRe
 def get_mlflow_tracker() -> Optional[MLflowExperimentTracker]:
     # Podría retornar None si MLflow no está configurado o es opcional
     if not MLFLOW_TRACKING_URI or MLFLOW_TRACKING_URI.lower() == "none":
-        print("ADVERTENCIA: MLFLOW_TRACKING_URI no configurado o es 'none'. MLflowTracker no se inicializará.")
+        logger.warning("MLFLOW_TRACKING_URI no configurado o es 'none'. MLflowTracker no se inicializará.")
         return None
     try:
         # Usar la variable MLFLOW_TRACKING_URI leída de env var
+        logger.info(f"Intentando inicializar MLflowTracker con URI: {MLFLOW_TRACKING_URI}")
         return MLflowExperimentTracker(tracking_uri=MLFLOW_TRACKING_URI)
     except Exception as e:
-        print(f"ADVERTENCIA: No se pudo inicializar MLflowTracker: {e}. Continuará sin MLflow.")
+        logger.error(f"No se pudo inicializar MLflowTracker con URI '{MLFLOW_TRACKING_URI}': {e}", exc_info=True)
         return None
 
 def get_stats_service() -> StatsService:
@@ -157,10 +174,10 @@ async def perform_ttest_analysis_endpoint(
         return response
 
     except ValueError as ve:
+        logger.warning(f"ValueError en endpoint ttest: {ve}") # Loguear el ValueError
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        # Loggear el error e en un sistema de producción
-        print(f"Error inesperado en endpoint ttest: {e}") # TODO: Usar logger real
+        logger.exception(f"Error inesperado en endpoint ttest para experiment_id (potencial): {experiment_uuid}") # Usar logger.exception
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Un error interno ocurrió durante el análisis.")
 
 
@@ -241,11 +258,12 @@ async def health_check_stats():
 # y manejar la configuración global, la inicialización de la base de datos (Alembic), etc.
 # Este archivo se centra en la definición de los endpoints.
 # Los TODOs sobre seguridad y configuración de dependencias son cruciales para producción.
-print("Aletheia-Stats API Router cargado. NOTA: La seguridad de roles está comentada para pruebas iniciales.")
-print("NOTA: La instanciación de dependencias (BD, MLflow) usa placeholders o configuraciones por defecto.")
+logger.info("Aletheia-Stats API Router (presentation.api) cargado.")
+# Las notas sobre seguridad de roles comentada y placeholders de dependencias ya no son tan precisas
+# o se manejan con los logs de advertencia/error anteriores.
 
 # TODO:
-# 1. Implementar `get_db_session_placeholder` con la gestión real de sesión de SQLAlchemy.
+# 1. Implementar `get_db_session_placeholder` con la gestión real de sesión de SQLAlchemy. # HECHO, usa get_db_session_stats
 #    Esto implica tener `infrastructure/database.py` en `aletheia_stats` con `engine`, `SessionLocal`.
 # 2. Configurar adecuadamente las URLs de BD y MLflow mediante variables de entorno.
 # 3. Descomentar y probar la seguridad de roles (`require_roles`).
