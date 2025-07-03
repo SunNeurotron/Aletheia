@@ -1,4 +1,7 @@
 import uuid as uuid_pkg
+from typing import Optional, List, Dict, Any # Added import
+
+import sqlalchemy as sa # Added import
 from sqlalchemy import Column, String, Float, DateTime, Text, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, Mapped, mapped_column # Usando nueva sintaxis de Mapped si es posible/preferido
