@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any, Set # Added Set
+from typing import List, Optional, Dict, Any, Set, Callable, Awaitable # Added Callable, Awaitable
 
 from fastapi import Depends, HTTPException, status # For exceptions and Depends
 from fastapi.security import OAuth2PasswordBearer # For dependency
@@ -72,40 +72,48 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 # --- JWT Verification and User Retrieval (Example) ---
 # This part typically involves a user database lookup.
 # For `aletheia_common`, we provide the decoding and a structure for user retrieval,
-# but the actual user lookup function (`get_user_from_db`) would be implemented by the main application
-# or a user management service, and potentially injected or configured.
+# but the actual user lookup function would be implemented by the main application
+# or a user management service, and injected as a dependency.
 
-# Mock user database for demonstration within this common library (NOT FOR PRODUCTION USE as is)
-# In a real scenario, this would be a proper database interaction.
-MOCK_COMMON_USERS_DB: Dict[str, UserInDB] = {
-    "common_user": UserInDB(username="common_user", email="common@example.com", roles=["viewer"], hashed_password="$2b$12$EixZaYVK1xLG.xX1xR2sAeVF3g5MSd20i8t9o.LwLKmAAzLswpD6q"), # pw: testpassword
-    "common_analyst": UserInDB(username="common_analyst", email="analyst@example.com", roles=["analyst", "viewer"], hashed_password="$2b$12$EixZaYVK1xLG.xX1xR2sAeVF3g5MSd20i8t9o.LwLKmAAzLswpD6q"),
-    "common_admin": UserInDB(username="common_admin", email="admin@example.com", roles=["admin", "analyst", "viewer"], disabled=False, hashed_password="$2b$12$EixZaYVK1xLG.xX1xR2sAeVF3g5MSd20i8t9o.LwLKmAAzLswpD6q")
-}
+# Placeholder dependency for the user retriever function.
+# The consuming application (e.g., Aletheia_v3) MUST override this dependency.
+async def get_user_retriever_dependency_placeholder() -> Callable[[str], Awaitable[Optional[UserInDB]]]:
+    """
+    Placeholder for the actual user retriever dependency.
+    This function should be overridden in the main application (e.g., Aletheia_v3)
+    to provide a concrete implementation of a user retriever function.
+    The user retriever function itself should be an async callable that takes a username (str)
+    and returns an Awaitable[Optional[UserInDB]].
+    """
+    logger.critical(
+        "FATAL: `get_user_retriever_dependency_placeholder` was called. "
+        "This means the application did not override this dependency to provide "
+        "a real user retriever function. Authentication will fail."
+    )
+    raise NotImplementedError(
+        "User retriever function not implemented or provided by the application. "
+        "Override `get_user_retriever_dependency_placeholder` using app.dependency_overrides "
+        "or by providing a direct dependency to `get_current_active_user`."
+    )
 
-async def get_user_from_db_mock(username: str) -> Optional[UserInDB]:
-    """Mock function to retrieve a user from the mock DB."""
-    if username in MOCK_COMMON_USERS_DB:
-        return MOCK_COMMON_USERS_DB[username]
-    return None
 
 async def get_current_active_user(
     token: str = Depends(oauth2_scheme),
-    # user_retriever: Callable[[str], Awaitable[Optional[UserInDB]]] = get_user_from_db_mock # Injectable user retriever
-) -> UserAuth: # Returns UserAuth, a subset of UserInDB for security context
+    # The user_retriever_func is now a dependency that must be provided by the app
+    # It's a callable that itself returns an awaitable (the actual user lookup function).
+    user_retriever_func: Callable[[str], Awaitable[Optional[UserInDB]]] = Depends(get_user_retriever_dependency_placeholder)
+) -> UserAuth:
     """
-    Decodes JWT token, validates it, and retrieves the active user.
+    Decodes JWT token, validates it, and retrieves the active user using an injected user retriever.
     This is a dependency function for FastAPI endpoints.
 
     Args:
         token: The JWT token from the Authorization header.
-        user_retriever: An async callable that takes a username and returns UserInDB or None.
-                        This allows different parts of Aletheia to use their own user sources
-                        while reusing the JWT decoding logic. (Currently using mock)
-
+        user_retriever_func: An async callable (obtained via FastAPI's Depends)
+                             that takes a username (str) and returns an Awaitable[Optional[UserInDB]].
+                             This function is responsible for fetching user details from the database.
     Returns:
         A UserAuth object representing the authenticated user.
-
     Raises:
         HTTPException (401): If authentication fails (invalid token, user not found, or disabled).
     """
@@ -121,21 +129,23 @@ async def get_current_active_user(
             logger.warning("Token payload missing 'sub' (username).")
             raise credentials_exception
 
-        # 'scopes' in TokenData corresponds to 'roles' in UserAuth/UserInDB
-        # The token might store roles directly or scopes that map to roles.
-        # Assuming roles are directly in the token for simplicity here.
-        roles_from_token: List[str] = payload.get("roles", [])
+        roles_from_token: List[str] = payload.get("roles", []) # Roles can also be in token
+        token_data = TokenData(username=username, scopes=roles_from_token)
 
-        token_data = TokenData(username=username, scopes=roles_from_token) # scopes can be roles
     except JWTError as e:
         logger.warning(f"JWTError decoding token: {e}")
         raise credentials_exception
 
-    # user_db_record = await user_retriever(token_data.username) # Using injected retriever
-    user_db_record = await get_user_from_db_mock(token_data.username) # Using mock for now
+    if not callable(user_retriever_func):
+        # This should ideally not happen if FastAPI's dependency injection works as expected
+        # and get_user_retriever_dependency_placeholder is overridden correctly.
+        logger.error("User retriever function is not callable. Check dependency injection setup.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Authentication system misconfiguration.")
+
+    user_db_record = await user_retriever_func(token_data.username)
 
     if user_db_record is None:
-        logger.warning(f"User '{token_data.username}' from token not found in DB.")
+        logger.warning(f"User '{token_data.username}' (from token sub) not found by user_retriever_func.")
         raise credentials_exception
     if user_db_record.disabled:
         logger.warning(f"User '{token_data.username}' is disabled.")
@@ -183,6 +193,54 @@ def require_any_role(any_of_roles: Set[str]):
                 detail=f"Insufficient permissions. User does not have any of the required roles: {', '.join(any_of_roles)}."
             )
         return current_user
+    return role_checker # Return the inner function
+
+
+# Need an optional OAuth2 scheme that doesn't raise an error if token is missing
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl=OAUTH2_SCHEME_TOKEN_URL, auto_error=False)
+
+async def get_current_active_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    user_retriever_func: Callable[[str], Awaitable[Optional[UserInDB]]] = Depends(get_user_retriever_dependency_placeholder)
+) -> Optional[UserAuth]:
+    """
+    Attempts to get the current active user from a JWT token, but returns None if token is missing or invalid.
+    This is useful for endpoints that are public but can have enhanced behavior for authenticated users.
+    """
+    if token is None:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        username: Optional[str] = payload.get("sub")
+        if username is None:
+            logger.warning("Token payload missing 'sub' (username) in optional auth.")
+            return None
+
+        roles_from_token: List[str] = payload.get("roles", [])
+        # Not using TokenData here explicitly as we handle missing username by returning None
+
+        if not callable(user_retriever_func):
+            logger.error("User retriever function is not callable in optional auth. Check DI setup.")
+            return None # System misconfiguration, treat as unauthenticated
+
+        user_db_record = await user_retriever_func(username)
+
+        if user_db_record is None:
+            logger.info(f"User '{username}' (from token sub) not found by user_retriever_func in optional auth.")
+            return None
+
+        if user_db_record.disabled:
+            logger.info(f"User '{username}' is disabled in optional auth.")
+            return None
+
+        return UserAuth(username=user_db_record.username, roles=user_db_record.roles)
+    except JWTError as e:
+        logger.info(f"JWTError decoding token in optional auth: {e}") # Info level, not a warning for optional
+        return None
+    except Exception as e: # Catch any other unexpected error during optional auth
+        logger.error(f"Unexpected error in get_current_active_user_optional: {e}", exc_info=True)
+        return None
+
 
 # Example usage (typically in an API endpoint):
 # from fastapi import APIRouter

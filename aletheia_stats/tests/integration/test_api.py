@@ -140,12 +140,16 @@ def test_analyze_ttest_endpoint_success(
     assert result_data["normality_p_value_group_a"] > 0.05 # Expect normality for these data
     assert result_data["normality_p_value_group_b"] > 0.05
 
+    assert "tracking_warnings" in data # Nuevo campo
+    assert data["tracking_warnings"] == [] # Esperar lista vacía en caso de éxito
+
     # Check if repository save was called
     mock_stats_repository.save.assert_called_once()
     saved_experiment_arg = mock_stats_repository.save.call_args[0][0]
     assert isinstance(saved_experiment_arg, DomainExperiment)
     assert saved_experiment_arg.id == UUID(data["id"])
     assert saved_experiment_arg.name == "Integration Test Exp"
+    assert saved_experiment_arg.tracking_warnings == [] # Verificar que se guarda vacío
 
     # Check MLflow interactions
     mock_mlflow_tracker.start_run.assert_called_once()
@@ -305,7 +309,10 @@ def test_get_experiment_by_id_success(
     assert data["id"] == str(exp_id)
     assert data["name"] == "Sample Repo Exp"
     assert data["result"]["p_value"] == 0.003
-    mock_stats_repository.get_by_id.assert_called_once_with(exp_id)
+    mock_stats_repository.get_by_id.assert_called_once_with(UUID(exp_id)) # Convertir str a UUID para la aserción
+    assert "tracking_warnings" in data
+    # Dependerá de lo que sample_domain_experiment tenga; si es default_factory=list, será []
+    assert data["tracking_warnings"] == sample_domain_experiment.tracking_warnings
 
 
 def test_get_experiment_by_id_not_found(client: TestClient, mock_stats_repository: MagicMock):
@@ -330,8 +337,11 @@ def test_list_experiments_success(
 
     # Create a second sample experiment for the list
     exp2_id = uuid4()
-    exp2 = DomainExperiment(id=exp2_id, name="Exp Two", group_a_data=[0], group_b_data=[1])
-    mock_stats_repository.list_all.return_value = [sample_domain_experiment, exp2]
+    # Asegurarse de que los experimentos de prueba tengan el campo tracking_warnings (incluso si está vacío por defecto)
+    exp2 = DomainExperiment(id=exp2_id, name="Exp Two", group_a_data=[0], group_b_data=[1], tracking_warnings=["Warning on exp2"])
+
+    # mock_stats_repository.list_all debe devolver una tupla: (lista_de_experimentos, conteo_total)
+    mock_stats_repository.list_all.return_value = ([sample_domain_experiment, exp2], 2)
 
     response = client.get("/api/v1/experiments?skip=0&limit=10", headers=headers)
 
@@ -339,11 +349,12 @@ def test_list_experiments_success(
     data = response.json()
     assert "items" in data
     assert "total" in data
-    assert data["total"] == 2 # Asumiendo que list_all devuelve total correcto
+    assert data["total"] == 2
     assert len(data["items"]) == 2
     assert data["items"][0]["id"] == str(sample_domain_experiment.id)
+    assert data["items"][0]["tracking_warnings"] == sample_domain_experiment.tracking_warnings # Verificar warnings
     assert data["items"][1]["id"] == str(exp2_id)
-    # Modificar el mock para que devuelva una tupla (items, total_count)
+    assert data["items"][1]["tracking_warnings"] == ["Warning on exp2"] # Verificar warnings
     mock_stats_repository.list_all.assert_called_once_with(skip=0, limit=10)
 
 
@@ -364,3 +375,80 @@ def test_root_endpoint(client: TestClient):
     response = client.get("/")
     assert response.status_code == 200
     assert "Welcome to Aletheia-Stats API" in response.json()["message"]
+
+
+def test_analyze_ttest_with_mlflow_start_failure(
+    client: TestClient,
+    mock_stats_repository: MagicMock,
+    mock_mlflow_tracker: MagicMock
+):
+    """Test /analyze/ttest when MLflow fails to start a run."""
+    token = get_mock_auth_token(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Configure mock_mlflow_tracker to simulate failure during start_run
+    mock_mlflow_tracker.start_run.side_effect = Exception("MLflow unavailable")
+    # Ensure other MLflow calls don't raise unexpected errors if start_run fails
+    # (MagicMock by default returns new MagicMocks for attributes not set, which is fine here)
+
+    request_payload = {
+        "group_a_data": [1,2,3,4,5],
+        "group_b_data": [2,3,4,5,6],
+        "experiment_name": "MLflow Start Fail Test"
+    }
+    response = client.post("/api/v1/analyze/ttest", json=request_payload, headers=headers)
+
+    assert response.status_code == 201 # Endpoint should still succeed
+    data = response.json()
+    assert data["name"] == "MLflow Start Fail Test"
+    assert data["mlflow_run_id"] is None # As start_run failed
+    assert "tracking_warnings" in data
+    assert len(data["tracking_warnings"]) == 1
+    assert "MLflow Error: Failed to start run or log initial parameters: MLflow unavailable" in data["tracking_warnings"][0]
+
+    # Verify that the experiment was saved, including the warning
+    mock_stats_repository.save.assert_called_once()
+    saved_experiment: DomainExperiment = mock_stats_repository.save.call_args[0][0]
+    assert saved_experiment.name == "MLflow Start Fail Test"
+    assert saved_experiment.mlflow_run_id is None
+    assert len(saved_experiment.tracking_warnings) == 1
+    assert "MLflow Error: Failed to start run or log initial parameters: MLflow unavailable" in saved_experiment.tracking_warnings[0]
+
+    # Reset side_effect for this mock if it's shared across tests (it's function-scoped here, so it's fine)
+    mock_mlflow_tracker.start_run.side_effect = None
+    mock_mlflow_tracker.start_run.return_value = "mock_mlflow_run_id_after_reset" # Reset to default behavior
+
+
+def test_analyze_ttest_with_mlflow_log_metric_failure(
+    client: TestClient,
+    mock_stats_repository: MagicMock,
+    mock_mlflow_tracker: MagicMock
+):
+    """Test /analyze/ttest when MLflow fails to log a metric."""
+    token = get_mock_auth_token(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Reset start_run to succeed for this test, but make log_metric fail
+    mock_mlflow_tracker.start_run.return_value = "mock_run_log_fail"
+    mock_mlflow_tracker.start_run.side_effect = None # Clear previous side effect
+    mock_mlflow_tracker.log_metric.side_effect = Exception("MLflow log_metric failed")
+
+    request_payload = {
+        "group_a_data": [1,2,3,4,5],
+        "group_b_data": [2,3,4,5,6],
+        "experiment_name": "MLflow Log Metric Fail Test"
+    }
+    response = client.post("/api/v1/analyze/ttest", json=request_payload, headers=headers)
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == "MLflow Log Metric Fail Test"
+    assert data["mlflow_run_id"] == "mock_run_log_fail" # Run started
+    assert "tracking_warnings" in data
+    assert len(data["tracking_warnings"]) >= 1
+    assert any("MLflow Error: Failed to log metrics/tags" in w for w in data["tracking_warnings"])
+
+    mock_mlflow_tracker.end_run.assert_called_once() # end_run should still be called
+
+    # Reset side_effect for log_metric
+    mock_mlflow_tracker.log_metric.side_effect = None

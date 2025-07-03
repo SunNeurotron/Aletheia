@@ -45,6 +45,7 @@ class ResearcherDB(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     orcid = Column(String(50), unique=True, nullable=True, index=True) # ORCID iDs are typically 19 chars like 0000-0002-1825-0097
     hashed_password = Column(String, nullable=False) # Store hashed passwords only
+    is_admin = Column(sa.Boolean, default=False, nullable=False) # Nuevo campo para roles de administrador
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

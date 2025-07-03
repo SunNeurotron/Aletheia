@@ -60,8 +60,14 @@ class Experiment:
     group_b_data: List[float] = field(default_factory=list)
     parameters: Dict[str, Any] = field(default_factory=dict)
     result: Optional[TTestResult] = None
-    created_at: datetime.datetime = field(default_factory=datetime.datetime.utcnow)
+    created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)) # Use timezone aware utcnow
+    updated_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)) # Add updated_at
     mlflow_run_id: Optional[str] = None
+    tracking_warnings: List[str] = field(default_factory=list) # New field
+
+    def add_tracking_warning(self, message: str):
+        self.tracking_warnings.append(message)
+        self.updated_at = datetime.datetime.now(datetime.timezone.utc)
 
     def to_dict(self) -> Dict[str, Any]:
         """Converts the experiment to a dictionary, useful for serialization."""
@@ -70,12 +76,14 @@ class Experiment:
             "id": str(self.id),
             "name": self.name,
             "description": self.description,
-            "group_a_data": self.group_a_data,
-            "group_b_data": self.group_b_data,
+            "group_a_data": self.group_a_data, # Consider summarizing this for to_dict if large
+            "group_b_data": self.group_b_data, # Consider summarizing this for to_dict if large
             "parameters": self.parameters,
             "result": res_dict,
             "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(), # Add updated_at
             "mlflow_run_id": self.mlflow_run_id,
+            "tracking_warnings": self.tracking_warnings, # Add tracking_warnings
         }
 
 # Example usage (optional, for testing or demonstration)

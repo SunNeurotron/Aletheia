@@ -50,14 +50,23 @@ aletheia_stats/
     ```bash
     docker-compose up --build -d
     ```
-    Esto levantará la API de Aletheia-Stats, una base de datos PostgreSQL y un servidor MLflow dedicados a este módulo.
+    Esto levantará la API de Aletheia-Stats, una base de datos PostgreSQL, un servidor MLflow y un servicio de migración de base de datos (Alembic) dedicados a este módulo. El servicio de migración aplicará automáticamente las últimas migraciones de base de datos al iniciar.
 
-3.  **Inicializar Base de Datos (Primera Vez)**:
-    Si es la primera vez o después de cambios en los modelos que requieran una nueva migración:
-    ```bash
-    docker-compose exec api alembic upgrade head
-    ```
-    (Nota: `init_db.py` podría usarse para creación inicial si no se usa Alembic desde el principio, o `scripts/run_migrations.sh` para simplificar).
+3.  **Inicializar Base de Datos y Aplicar Migraciones**:
+    Las migraciones de Alembic ahora se aplican automáticamente al ejecutar `docker-compose up` gracias al servicio `alembic_migrate` configurado en `docker-compose.yml`.
+    Para generar nuevas migraciones después de cambios en los modelos (`infrastructure/models.py`):
+    *   Asegúrate de tener `alembic` instalado en tu entorno local (`pip install alembic`).
+    *   Configura la variable de entorno `STATS_DATABASE_URL` para que apunte a tu base de datos de desarrollo.
+    *   Desde el directorio `aletheia_stats/`, ejecuta:
+        ```bash
+        alembic -c alembic.ini revision -m "tu_mensaje_de_migracion" --autogenerate
+        ```
+    *   Revisa y ajusta el script de migración generado en `aletheia_stats/alembic/versions/`.
+    *   Aplica la migración en desarrollo con:
+        ```bash
+        alembic -c alembic.ini upgrade head
+        ```
+    Al hacer `commit` de los nuevos scripts de migración, `docker-compose up` los aplicará en otros entornos.
 
 4.  **Acceder a la API**:
     La documentación interactiva de la API estará disponible en [http://localhost:8000/docs](http://localhost:8000/docs) (o el puerto que hayas configurado).
@@ -108,29 +117,32 @@ La API de Aletheia-Stats se expone bajo el prefijo `/api/v1` y sigue los estánd
     -   **Response**: `{ "access_token": "...", "token_type": "bearer" }`
 -   **`POST /api/v1/analyze/ttest`**: Realiza un análisis de prueba t.
     -   **Request Body**: `TTestRequest` (ver `presentation/api.py` para el modelo Pydantic). Incluye `group_a`, `group_b`, `experiment_name`, `alpha`, etc.
-    -   **Response**: `ExperimentResponse` con los resultados del análisis y metadatos del experimento.
+    -   **Response**: `ExperimentResponse` con los resultados del análisis, metadatos del experimento y posibles `tracking_warnings` si hubo problemas con MLflow.
     -   **Autenticación**: Requerida (rol `analyst`).
 -   **`GET /api/v1/experiments/{experiment_id}`**: Obtiene un experimento por su ID.
-    -   **Response**: `ExperimentResponse`.
+    -   **Response**: `ExperimentResponse` (incluyendo `tracking_warnings`).
     -   **Autenticación**: Requerida (rol `viewer` o `analyst`).
 -   **`GET /api/v1/experiments`**: Lista todos los experimentos con paginación.
     -   **Query Params**: `skip`, `limit`.
-    -   **Response**: Lista de `ExperimentResponse`.
+    -   **Response**: `PaginatedExperimentResponse` (lista de `ExperimentResponse`, cada una con `tracking_warnings`).
     -   **Autenticación**: Requerida (rol `viewer` o `analyst`).
 -   **`GET /api/v1/users/me`**: Devuelve detalles del usuario autenticado actualmente.
-    -   **Response**: `User` (modelo Pydantic).
+    -   **Response**: `UserSchema` (modelo Pydantic).
     -   **Autenticación**: Requerida.
--   **`GET /api/docs`**: Acceso a la documentación interactiva de Swagger UI.
--   **`GET /api/redoc`**: Acceso a la documentación ReDoc.
--   **`GET /health`**: Endpoint de Health Check.
+-   **`GET /api/v1/health`**: Endpoint de Health Check específico de la API de Stats.
+-   **`GET /api/docs`**: Acceso a la documentación interactiva de Swagger UI (ruta base de la app: `HOST:PORT/api/docs`).
+-   **`GET /api/redoc`**: Acceso a la documentación ReDoc (ruta base de la app: `HOST:PORT/api/redoc`).
+-   **`GET /health` (en raíz de la app)**: Endpoint de Health Check general de la aplicación FastAPI.
+
 
 ### Modelos de Datos Clave (Pydantic):
 
 -   `TTestRequest`: Define la estructura para solicitar un análisis de prueba t.
--   `TTestResultResponse`: Define la estructura de los resultados de una prueba t en las respuestas de la API.
--   `ExperimentResponse`: Define la estructura completa de un experimento en las respuestas de la API, incluyendo un resumen de los datos de entrada y los resultados.
+-   `TTestResultSchema`: Define la estructura de los resultados de una prueba t.
+-   `ExperimentResponse`: Define la estructura completa de un experimento en las respuestas de la API, incluyendo un resumen de los datos de entrada, los resultados y `tracking_warnings`.
+-   `PaginatedExperimentResponse`: Envuelve una lista de `ExperimentResponse` con información de paginación.
 
-(Consultar `aletheia_stats/aletheia_stats/presentation/api.py` para las definiciones detalladas de estos modelos).
+(Consultar `aletheia_stats/aletheia_stats/presentation/schemas.py` para las definiciones detalladas de estos modelos).
 
 ## Lógica Científica
 

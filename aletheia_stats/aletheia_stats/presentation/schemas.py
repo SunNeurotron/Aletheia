@@ -53,11 +53,13 @@ class ExperimentResponse(BaseModel):
     parameters: Optional[Dict[str, Any]] = None
     result: Optional[TTestResultSchema] = None # Puede ser None si el experimento aún no se ha procesado
     mlflow_run_id: Optional[str] = None
+    tracking_warnings: Optional[List[str]] = Field(default_factory=list, description="List of warnings related to MLflow tracking or other non-critical issues.")
     created_at: datetime
     updated_at: datetime
 
     class Config:
         orm_mode = True
+        # Pydantic V1 orm_mode. For V2, it's from_attributes = True
 
 class PaginatedExperimentResponse(BaseModel):
     total: int
