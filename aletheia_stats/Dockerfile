@@ -39,20 +39,22 @@ COPY ./alembic ./alembic # if migrations run from container startup
 # ENV DATABASE_URL="postgresql://user:pass@db_host:5432/aletheia_stats_db" # Example
 # ENV MLFLOW_TRACKING_URI="http://mlflow_host:5000" # Example
 # ENV JWT_SECRET_KEY="your-docker-secret-key" # Example
-# ENV API_PORT=8000
+# ENV STATS_API_PORT=8001 # Example, better to set in docker-compose or runtime
 
-# Expose the port the app runs on
-EXPOSE 8000
-# (If using a different port, change this and the CMD instruction)
+# Expose the port the app runs on. This should match the port Uvicorn listens to.
+# This value is more for documentation and can be overridden at runtime.
+# The actual port is determined by the CMD instruction and main.py's env var reading.
+EXPOSE 8001 # Default port expected by main.py (STATS_API_PORT)
 
 # Define the command to run the application
-# This will run the FastAPI app using Uvicorn.
-# The path to the app instance is 'aletheia_stats.main:app'
-# which means uvicorn looks for 'app' in 'aletheia_stats/main.py'
-# Ensure your main.py defines the FastAPI instance as `app`.
-# Our main.py is aletheia_stats/aletheia_stats/main.py, so the module path is aletheia_stats.aletheia_stats.main:app
-CMD ["uvicorn", "aletheia_stats.aletheia_stats.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Uvicorn will be started by main.py, which reads STATS_API_HOST and STATS_API_PORT.
+# So, the command here just needs to execute main.py.
+# The Dockerfile CMD should reflect how main.py's `if __name__ == "__main__":` block runs uvicorn.
+# main.py's uvicorn.run expects "aletheia_stats.aletheia_stats.main:app"
+# The host and port for uvicorn are read from ENV VARS by main.py itself.
+CMD ["python", "-m", "aletheia_stats.aletheia_stats.main"]
 
 # Healthcheck (optional but good practice)
+# Ensure the port in the healthcheck matches the one the application actually uses (e.g. 8001 by default)
 # HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-#   CMD curl -f http://localhost:8000/health || exit 1
+#   CMD curl -f http://localhost:8001/health || exit 1
