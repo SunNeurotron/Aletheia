@@ -3,19 +3,29 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
-# Environment variables for database connection parameters
-# Default values are provided for local development with Docker Compose.
-DB_USER = os.getenv("POSTGRES_USER", "user")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
-DB_NAME = os.getenv("POSTGRES_DB", "abc_db") # This will also be used by MLflow
-DB_HOST = os.getenv("DB_HOST", "db") # Service name in docker-compose.yml
-DB_PORT = os.getenv("DB_PORT", "5432")
+import logging # Añadir logging
 
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+logger = logging.getLogger(__name__)
+
+# Environment variable for the full database URL
+# This aligns with how Alembic's env.py is often configured.
+ALETHEIA_V3_DATABASE_URL_ENV_VAR = "ALETHEIA_V3_DATABASE_URL"
+DEFAULT_ALETHEIA_V3_DATABASE_URL = "postgresql://user:password@db:5432/abc_db" # Default for docker-compose
+
+SQLALCHEMY_DATABASE_URL = os.getenv(ALETHEIA_V3_DATABASE_URL_ENV_VAR, DEFAULT_ALETHEIA_V3_DATABASE_URL)
+
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"): # SQLAlchemy <1.4 compatibilidad con psycopg2
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+logger.info(f"Aletheia_v3 Infrastructure: Using database URL: {SQLALCHEMY_DATABASE_URL[:SQLALCHEMY_DATABASE_URL.find('@') if '@' in SQLALCHEMY_DATABASE_URL else len(SQLALCHEMY_DATABASE_URL)]}...") # Log sin creds
 
 # SQLAlchemy engine
 # `echo=True` can be useful for debugging SQL queries during development
-engine = create_engine(DATABASE_URL) # Add echo=True for query logging if needed
+try:
+    engine = create_engine(SQLALCHEMY_DATABASE_URL) # Add echo=True for query logging if needed
+except Exception as e:
+    logger.critical(f"Failed to create SQLAlchemy engine for Aletheia_v3: {e}", exc_info=True)
+    engine = None # Allow app to start but DB operations will fail
 
 # SessionLocal class for creating database sessions
 # autocommit=False and autoflush=False are standard settings for FastAPI/Celery integration

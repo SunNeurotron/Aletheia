@@ -22,6 +22,9 @@ x-common-env: &common-env
   # SECRET_KEY for JWT should be set in a .env file or environment
   SECRET_KEY: ${SECRET_KEY:-a-very-secret-key-that-should-be-changed-and-be-very-long}
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+  # Database URL for Alembic and application (constructed from other POSTGRES_ vars if not set directly)
+  ALETHEIA_V3_DATABASE_URL: ${ALETHEIA_V3_DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:${DB_PORT:-5432}/${POSTGRES_DB:-aletheia_db}}
+
 
 services:
   # PostgreSQL Database Service
@@ -166,4 +169,28 @@ services:
       db:
         condition: service_healthy # MLflow server needs DB to be ready
     restart: unless-stopped
+
+  # Alembic Migration Service
+  alembic_migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile # Uses the same image as API and worker
+    container_name: aletheia_alembic_migrate
+    command: >
+      sh -c "
+        echo 'Waiting for DB to be ready before running migrations...' &&
+        # Simple wait loop, or use wait-for-it.sh if available in image
+        until pg_isready -h db -p 5432 -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-aletheia_db}; do
+          sleep 2;
+        done;
+        echo 'DB is ready. Running Alembic migrations...' &&
+        alembic -c /opt/aletheia/alembic.ini upgrade head
+      "
+    environment:
+      <<: *common-env # Inherits ALETHEIA_V3_DATABASE_URL and other DB vars if needed by alembic.ini or env.py indirectly
+      # Ensure ALETHEIA_V3_DATABASE_URL is correctly picked up by alembic/env.py
+    depends_on:
+      db:
+        condition: service_healthy # Explicit dependency
+    restart: 'no' # This job should run once and exit
 ```
