@@ -11,23 +11,22 @@ services:
     # volumes:
     #   - .:/app # Mounts the content of aletheia_stats/ to /app in the container
     ports:
-      # Exposes port 8000 of the container to port 8000 on the host machine.
+      # Exposes port (default 8001) of the container to a host port (default 8001).
       # Format: "HOST_PORT:CONTAINER_PORT"
-      # Use a different host port if 8000 is already in use on your system.
-      - "${API_PORT_HOST:-8000}:${API_PORT_CONTAINER:-8000}"
+      - "${STATS_API_PORT_HOST:-8001}:${STATS_API_PORT:-8001}"
     environment:
-      # These variables will be passed to the container.
-      # Values from .env file in this directory (aletheia_stats/.env) will override these defaults if loaded.
-      # Ensure your FastAPI app reads these environment variables (e.g., os.getenv).
-      - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
-      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow:5001/mlflow/} # Adjusted port, added /mlflow/ path
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-default-super-secret-key-for-docker-compose}
-      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
-      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
-      - RANDOM_SEED=${RANDOM_SEED:-42}
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - API_PORT_CONTAINER=${API_PORT_CONTAINER:-8000} # For CMD in Dockerfile if it uses this
-      - APP_ENVIRONMENT=${APP_ENVIRONMENT:-development}
+      # Variables expected by aletheia_stats/aletheia_stats/main.py and infrastructure modules
+      - STATS_DATABASE_URL=${STATS_DATABASE_URL:-postgresql://user:pass@db:5432/aletheia_stats_db}
+      - STATS_MLFLOW_TRACKING_URI=${STATS_MLFLOW_TRACKING_URI:-http://mlflow:5001} # MLflow server runs on 5001
+      - JWT_SECRET_KEY=${STATS_JWT_SECRET_KEY:-default-super-secret-key-for-stats} # Specific secret key
+      - JWT_ALGORITHM=${STATS_JWT_ALGORITHM:-HS256}
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${STATS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - RANDOM_SEED=${STATS_RANDOM_SEED:-42}
+      - APP_LOG_LEVEL=${STATS_APP_LOG_LEVEL:-INFO} # For application's own logging
+      - STATS_API_HOST=${STATS_API_HOST:-0.0.0.0} # For Uvicorn in main.py
+      - STATS_API_PORT=${STATS_API_PORT:-8001} # For Uvicorn in main.py
+      - STATS_LOG_LEVEL_UVICORN=${STATS_LOG_LEVEL_UVICORN:-info} # For Uvicorn's logging
+      - APP_ENVIRONMENT=${STATS_APP_ENVIRONMENT:-development}
     depends_on:
       db:
         condition: service_healthy # Wait for DB to be healthy
