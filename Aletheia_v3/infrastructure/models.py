@@ -5,7 +5,7 @@ from sqlalchemy.sql import func # For server-side default timestamps if preferre
 from datetime import datetime
 
 import uuid as uuid_pkg # To avoid conflict with column name
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, Table, Enum as SAEnum
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, Table, Enum as SAEnum, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID # For PostgreSQL UUID type
 from sqlalchemy.sql import func
@@ -45,7 +45,7 @@ class ResearcherDB(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     orcid = Column(String(50), unique=True, nullable=True, index=True) # ORCID iDs are typically 19 chars like 0000-0002-1825-0097
     hashed_password = Column(String, nullable=False) # Store hashed passwords only
-    is_admin = Column(sa.Boolean, default=False, nullable=False) # Nuevo campo para roles de administrador
+    is_admin = Column(Boolean, default=False, nullable=False) # Corregido: Usar Boolean directamente
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
