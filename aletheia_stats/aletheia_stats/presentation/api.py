@@ -1,150 +1,155 @@
 import uuid
 from typing import List, Optional, Dict, Any
+import logging
+import os
+from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status, Body
-from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session # Para inyectar la sesión de BD si es necesario directamente
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer # No se usa OAuth2PasswordRequestForm si no hay /token local
+from sqlalchemy.orm import Session
+# from sqlalchemy import func # No parece usarse directamente aquí
 
-# Dependencias de este módulo
+# Imports locales
 from ..application.use_cases import PerformTTestUseCase
-from ..domain.entities import Experiment as ExperimentDomain # Para type hinting
-from ..domain.services import StatsService # Para instanciar
-from ..infrastructure.sqlalchemy_repository import StatsRepository # Para instanciar
-from ..infrastructure.mlflow_tracker import MLflowExperimentTracker # Para instanciar
+from ..domain.entities import Experiment as ExperimentDomain
+from ..domain.services import StatsService
+from ..infrastructure.database import get_db_session_stats # Asegúrate que esta función exista y funcione
 from .schemas import (
-    Token, TTestRequest, ExperimentResponse, UserSchema, HealthCheckResponse,
-    PaginatedExperimentResponse
+    TTestRequest, ExperimentResponse, UserSchema, HealthCheckResponse,
+    PaginatedExperimentResponse, TTestResultSchema # Token ya no es necesario aquí
 )
 
-# Dependencias comunes de autenticación
-# Asumimos que aletheia_common está en el PYTHONPATH o instalado
-# Si no, esta importación fallará en tiempo de ejecución.
-# Considerar una estructura de 'common_dependencies' inyectada en la app si es más robusto.
-try:
-    from aletheia_common.auth.jwt_handler import (
-        create_access_token,
-        get_current_active_user,
-        require_roles,
-        UserAuth as CommonUserAuth, # Modelo de usuario de aletheia_common
-        MOCK_COMMON_USERS_DB, # Para el endpoint /token mock
-        JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-    )
-    from aletheia_common.auth.password_utils import verify_password # Para el endpoint /token mock
-    from datetime import timedelta
-except ImportError:
-    # Fallback muy básico si aletheia_common no está disponible
-    # Esto NO es para producción, solo para permitir que el módulo se cargue
-    # Se necesitaría una estrategia de dependencias adecuada.
-    # logger.warning("aletheia_common.auth no encontrado. Usando mocks de autenticación muy básicos.") # Reemplazado abajo
-    CommonUserAuth = UserSchema
-    async def get_current_active_user(): return CommonUserAuth(username="mockuser", roles=["viewer"])
-    def require_roles(roles): return lambda: CommonUserAuth(username="mockuser", roles=list(roles))
-    from datetime import timedelta
+# Logger
+logger = logging.getLogger(__name__)
 
-import logging # Importar logging
-logger = logging.getLogger(__name__) # Obtener logger a nivel de módulo
+# OAuth2 scheme para autenticación mock local si aletheia_common falla
+# El tokenUrl es relativo al prefijo del router, que es /api/v1.
+# Entonces, si hubiera un /token mock, sería /api/v1/token.
+# auto_error=False es importante para que Depends(oauth2_scheme_mock) devuelva None si no hay token.
+oauth2_scheme_mock = OAuth2PasswordBearer(tokenUrl="token", auto_error=False) # tokenUrl es relativo al router
 
-# Fallback de importación con logging
-try:
-    from aletheia_common.auth.jwt_handler import (
-        get_current_active_user as common_get_current_active_user_real, # Renombrar para evitar conflicto con el mock
-        require_roles as common_require_roles_real,
-        UserAuth as CommonUserAuthReal
-    )
-    # Asignar los reales si la importación es exitosa
-    get_current_active_user = common_get_current_active_user_real
-    require_roles = common_require_roles_real
-    CommonUserAuth = CommonUserAuthReal
-    logger.info("aletheia_common.auth importado exitosamente para aletheia_stats.api.")
-except ImportError as e:
-    logger.warning(f"ADVERTENCIA: aletheia_common.auth no encontrado ({e}). Usando mocks de autenticación muy básicos para aletheia_stats.api. Esto NO es para producción.")
-    # Las definiciones mock de CommonUserAuth, get_current_active_user, require_roles ya están arriba.
-
-import os # Para leer variables de entorno para MLFLOW_TRACKING_URI
-
-# Configuración del Módulo (ej. para MLflow)
-# DATABASE_URL se manejará a través del nuevo infrastructure.database
+# Configuración MLflow
 MLFLOW_TRACKING_URI_ENV = "STATS_MLFLOW_TRACKING_URI"
-DEFAULT_MLFLOW_TRACKING_URI = "http://localhost:5001" # Puerto diferente al principal
+DEFAULT_MLFLOW_TRACKING_URI = "http://localhost:5001" # Ajustar si es necesario
 MLFLOW_TRACKING_URI = os.getenv(MLFLOW_TRACKING_URI_ENV, DEFAULT_MLFLOW_TRACKING_URI)
 
+# Router
+router = APIRouter(tags=["Aletheia-Stats"]) # El prefijo /api/v1 se aplica en main.py
 
-# --- Router de API ---
-# El prefijo /api/v1 se aplicará en main.py al incluir el router.
-router = APIRouter(tags=["Aletheia-Stats"]) # Tags para agrupar en Swagger
+# --- Autenticación: Lógica de Fallback y Selección ---
+class MockUserAuth: # Modelo Pydantic-like para el usuario mock
+    def __init__(self, username: str, roles: List[str]):
+        self.username = username
+        self.roles = roles
 
-# --- Dependencias de la API (Instanciación de servicios y repositorios) ---
-# Se importa la función get_db_session_stats del nuevo módulo de base de datos
-from ..infrastructure.database import get_db_session_stats
+async def get_current_active_user_mock(token: Optional[str] = Depends(oauth2_scheme_mock)) -> MockUserAuth:
+    """Mock de autenticación para desarrollo/testing si aletheia_common no está."""
+    logger.debug(f"Mock Auth: Token recibido: {'Presente' if token else 'Ausente'}")
+    if not token: # Si no hay token, y auto_error=False, token es None.
+        # Para endpoints protegidos que usan este mock, necesitamos decidir qué hacer.
+        # Si el endpoint está protegido, esta función debería levantar 401 si no hay token.
+        # El OAuth2PasswordBearer con auto_error=True lo haría automáticamente.
+        # Con auto_error=False, debemos hacerlo nosotros si el endpoint es protegido.
+        # Sin embargo, los endpoints usarán require_user_roles que internamente llamará a esto.
+        # require_user_roles_mock SÍ espera un current_user.
+        # Por lo tanto, si no hay token, este mock debe fallar para proteger el endpoint.
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated (mock)",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # En desarrollo/testing con mock, aceptar cualquier token y asignar roles.
+    # Aquí se podría decodificar un token de prueba si fuera necesario.
+    logger.info(f"Mock Auth: Usuario 'testuser_stats_mock' autenticado con roles ['analyst', 'viewer']")
+    return MockUserAuth(username="testuser_stats_mock", roles=["analyst", "viewer"])
 
-def get_stats_repository(db: Session = Depends(get_db_session_stats)) -> StatsRepository:
-    # StatsRepository ahora debería aceptar una sesión de SQLAlchemy o usar una global si es necesario
-    # Por ahora, asumimos que StatsRepository se adapta para tomar la sesión `db`
-    # o que su inicialización global usa el `engine` de infrastructure.database.
-    # Si StatsRepository(database_url=...) crea su propio engine, esto necesita refactorización.
-    # StatsRepository (ahora SQLAlchemyStatsRepository) espera una sesión de BD.
-    # La clase real es SQLAlchemyStatsRepository, StatsRepository es un alias en el módulo del repo.
-    from ..infrastructure.sqlalchemy_repository import SQLAlchemyStatsRepository
-    return SQLAlchemyStatsRepository(db=db)
+def require_roles_mock(required_roles: set):
+    """Mock de require_roles que siempre permite acceso en desarrollo si el mock está activo."""
+    async def role_checker(current_user: MockUserAuth = Depends(get_current_active_user_mock)) -> MockUserAuth:
+        logger.warning(
+            f"Auth Mock: Acceso permitido por require_roles_mock. "
+            f"Usuario: {current_user.username}, Roles Requeridos: {required_roles}, Roles del Usuario: {current_user.roles}"
+        )
+        # Podríamos añadir una comprobación simple de roles si quisiéramos que el mock fuera más realista:
+        # if not required_roles.issubset(set(current_user.roles)):
+        #     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Mock: Insufficient roles")
+        return current_user
+    return role_checker
 
+try:
+    from aletheia_common.auth.jwt_handler import (
+        get_current_active_user as common_get_current_active_user,
+        require_roles as common_require_roles,
+        UserAuth as CommonUserAuthType # Evitar conflicto de nombres con la clase mock
+    )
+    logger.info("aletheia_common.auth importado exitosamente para aletheia_stats.api.")
+    # Usar las funciones y clases reales de aletheia_common
+    get_current_user_dependency = common_get_current_active_user
+    require_user_roles_dependency = common_require_roles
+    UserAuthClassForTypeHint = CommonUserAuthType # Para type hints en endpoints
+except ImportError as e:
+    logger.warning(f"ADVERTENCIA: aletheia_common.auth no encontrado ({e}). Usando autenticación MOCK para aletheia_stats.api. Esto NO es para producción.")
+    # Usar las funciones y clases mock
+    get_current_user_dependency = get_current_active_user_mock
+    require_user_roles_dependency = require_roles_mock
+    UserAuthClassForTypeHint = MockUserAuth # Para type hints en endpoints
 
-def get_mlflow_tracker() -> Optional[MLflowExperimentTracker]:
-    # Podría retornar None si MLflow no está configurado o es opcional
-    if not MLFLOW_TRACKING_URI or MLFLOW_TRACKING_URI.lower() == "none":
-        logger.warning("MLFLOW_TRACKING_URI no configurado o es 'none'. MLflowTracker no se inicializará.")
-        return None
-    try:
-        # Usar la variable MLFLOW_TRACKING_URI leída de env var
-        logger.info(f"Intentando inicializar MLflowTracker con URI: {MLFLOW_TRACKING_URI}")
-        return MLflowExperimentTracker(tracking_uri=MLFLOW_TRACKING_URI)
-    except Exception as e:
-        logger.error(f"No se pudo inicializar MLflowTracker con URI '{MLFLOW_TRACKING_URI}': {e}", exc_info=True)
-        return None
-
+# --- Dependencias de la Aplicación ---
 def get_stats_service() -> StatsService:
     return StatsService()
 
+def get_mlflow_tracker() -> Optional[MLflowExperimentTracker]:
+    """Obtiene el tracker de MLflow o None si no está configurado."""
+    if not MLFLOW_TRACKING_URI or MLFLOW_TRACKING_URI.lower() == "none":
+        logger.warning("MLflow no configurado o URI es 'none'. MLflowTracker no se inicializará.")
+        return None
+    try:
+        from ..infrastructure.mlflow_tracker import MLflowExperimentTracker # Importación local
+        logger.info(f"Intentando inicializar MLflowTracker con URI: {MLFLOW_TRACKING_URI}")
+        return MLflowExperimentTracker(tracking_uri=MLFLOW_TRACKING_URI)
+    except ImportError: # Si mlflow_tracker.py no existe o tiene problemas
+        logger.error("Error al importar MLflowExperimentTracker desde ..infrastructure.mlflow_tracker")
+        return None
+    except Exception as e:
+        logger.error(f"Error inicializando MLflowTracker con URI '{MLFLOW_TRACKING_URI}': {e}", exc_info=True)
+        return None
+
+def get_stats_repository(db: Session = Depends(get_db_session_stats)):
+    """Obtiene el repositorio de estadísticas."""
+    from ..infrastructure.sqlalchemy_repository import SQLAlchemyStatsRepository # Importación local
+    return SQLAlchemyStatsRepository(db=db)
+
 def get_perform_ttest_use_case(
     stats_service: StatsService = Depends(get_stats_service),
-    stats_repository: StatsRepository = Depends(get_stats_repository),
-    mlflow_tracker: Optional[MLflowExperimentTracker] = Depends(get_mlflow_tracker)
+    stats_repository = Depends(get_stats_repository), # FastAPI infiere el tipo del type hint de la función
+    mlflow_tracker = Depends(get_mlflow_tracker)  # FastAPI infiere el tipo
 ) -> PerformTTestUseCase:
+    # Asegurarse de que stats_repository y mlflow_tracker tengan los tipos esperados por PerformTTestUseCase
+    # PerformTTestUseCase espera: stats_repository: StatsRepository (alias de SQLAlchemyStatsRepository)
+    #                         mlflow_tracker: Optional[MLflowExperimentTracker]
     return PerformTTestUseCase(
         stats_service=stats_service,
-        stats_repository=stats_repository,
-        mlflow_tracker=mlflow_tracker
+        stats_repository=stats_repository, # type: ignore
+        mlflow_tracker=mlflow_tracker   # type: ignore
     )
 
-# --- Endpoints de Autenticación (Mock/Adaptado) ---
-# --- Endpoints de Autenticación ---
-# El endpoint /token ha sido eliminado. aletheia_stats ahora depende de tokens emitidos por Aletheia_v3.
-# La variable de entorno OAUTH2_SCHEME_TOKEN_URL para este módulo debe apuntar al
-# endpoint /token de Aletheia_v3.
-
-@router.get("/users/me", response_model=UserSchema, tags=["Users"]) # Usa UserSchema local
-async def read_users_me_stats(current_user: CommonUserAuth = Depends(get_current_active_user)): # get_current_active_user es del fallback mock por ahora
-    """
-    Devuelve detalles del usuario autenticado actualmente.
-    """
-    # Convierte CommonUserAuth a UserSchema local si es necesario, o ajusta UserSchema
+# --- Endpoints ---
+@router.get("/users/me", response_model=UserSchema, tags=["Users"])
+async def read_users_me_stats(current_user: UserAuthClassForTypeHint = Depends(get_current_user_dependency)): # type: ignore
+    """Devuelve detalles del usuario autenticado actualmente."""
+    # UserSchema espera 'username' y 'roles', que están en MockUserAuth y CommonUserAuthType
     return UserSchema(username=current_user.username, roles=current_user.roles)
-
-
-# --- Endpoints de Análisis Estadístico ---
 
 @router.post("/analyze/ttest", response_model=ExperimentResponse, status_code=status.HTTP_201_CREATED, tags=["Analysis"])
 async def perform_ttest_analysis_endpoint(
     request_data: TTestRequest,
     use_case: PerformTTestUseCase = Depends(get_perform_ttest_use_case),
-    current_user: CommonUserAuth = Depends(require_roles({"analyst"})) # Seguridad de roles activada
+    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"analyst"})) # type: ignore
 ):
-    """
-    Realiza un análisis de prueba t para dos grupos de datos independientes.
-    Requiere rol 'analyst'.
-    """
+    """Realiza un análisis de prueba t para dos grupos de datos independientes."""
     try:
-        # El ID del experimento se genera aquí antes de pasarlo al caso de uso.
         experiment_uuid = uuid.uuid4()
+        logger.info(f"Endpoint /analyze/ttest llamado por usuario '{current_user.username if current_user else 'anonymous'}' para nuevo experiment_id: {experiment_uuid}")
 
         domain_experiment: ExperimentDomain = use_case.execute(
             experiment_id=experiment_uuid,
@@ -156,55 +161,67 @@ async def perform_ttest_analysis_endpoint(
             alpha=request_data.alpha
         )
 
-        # Mapear entidad de dominio a schema de respuesta
-        # Esto podría ser más elaborado, ej. con una función de mapeo.
+        logger.info(f"Análisis para experiment_id {domain_experiment.id} completado. MLflow run ID: {domain_experiment.mlflow_run_id}")
+        if domain_experiment.tracking_warnings:
+            logger.warning(f"Experiment {domain_experiment.id} tiene las siguientes advertencias de seguimiento: {domain_experiment.tracking_warnings}")
+
         response = ExperimentResponse(
             id=domain_experiment.id,
             name=domain_experiment.name,
             description=domain_experiment.description,
-            group_a_data_summary={"count": len(domain_experiment.group_a_data), "mean": domain_experiment.result.mean_group_a if domain_experiment.result else None},
-            group_b_data_summary={"count": len(domain_experiment.group_b_data), "mean": domain_experiment.result.mean_group_b if domain_experiment.result else None},
+            group_a_data_summary={
+                "count": len(domain_experiment.group_a_data),
+                "mean": domain_experiment.result.mean_group_a if domain_experiment.result else None
+            },
+            group_b_data_summary={
+                "count": len(domain_experiment.group_b_data),
+                "mean": domain_experiment.result.mean_group_b if domain_experiment.result else None
+            },
             parameters=domain_experiment.parameters,
             result=TTestResultSchema.from_orm(domain_experiment.result) if domain_experiment.result else None,
             mlflow_run_id=domain_experiment.mlflow_run_id,
-            tracking_warnings=domain_experiment.tracking_warnings, # Añadir tracking_warnings
+            tracking_warnings=domain_experiment.tracking_warnings,
             created_at=domain_experiment.created_at,
             updated_at=domain_experiment.updated_at
         )
         return response
 
     except ValueError as ve:
-        logger.warning(f"ValueError en endpoint ttest: {ve}") # Loguear el ValueError
+        logger.warning(f"ValueError en endpoint /analyze/ttest: {ve}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e:
-        logger.exception(f"Error inesperado en endpoint ttest para experiment_id (potencial): {experiment_uuid}") # Usar logger.exception
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Un error interno ocurrió durante el análisis.")
-
+        logger.exception(f"Error inesperado en endpoint /analyze/ttest. Request data: {request_data.model_dump_json() if request_data else 'No request data'}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno durante el análisis.")
 
 @router.get("/experiments/{experiment_id}", response_model=ExperimentResponse, tags=["Experiments"])
 async def get_experiment_endpoint(
-    experiment_id: UUID,
-    stats_repository: StatsRepository = Depends(get_stats_repository),
-    current_user: CommonUserAuth = Depends(require_any_role({"viewer", "analyst"})) # Seguridad de roles activada
+    experiment_id: uuid.UUID, # Cambiado a uuid.UUID para consistencia con el modelo de dominio/DB
+    stats_repository = Depends(get_stats_repository), # Inferencia de tipo
+    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"viewer", "analyst"})) # type: ignore
 ):
-    """
-    Obtiene un experimento por su ID.
-    Requiere rol 'viewer' o 'analyst'.
-    """
-    domain_experiment = stats_repository.get(experiment_id=experiment_id) # SQLAlchemyStatsRepository.get
+    """Obtiene un experimento por su ID."""
+    logger.info(f"Endpoint /experiments/{experiment_id} llamado por usuario '{current_user.username if current_user else 'anonymous'}'")
+    domain_experiment = stats_repository.get(experiment_id=experiment_id)
     if not domain_experiment:
+        logger.warning(f"Experimento con ID {experiment_id} no encontrado.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experimento no encontrado.")
 
     response = ExperimentResponse(
         id=domain_experiment.id,
         name=domain_experiment.name,
         description=domain_experiment.description,
-        group_a_data_summary={"count": len(domain_experiment.group_a_data), "mean": domain_experiment.result.mean_group_a if domain_experiment.result else None},
-        group_b_data_summary={"count": len(domain_experiment.group_b_data), "mean": domain_experiment.result.mean_group_b if domain_experiment.result else None},
+        group_a_data_summary={
+            "count": len(domain_experiment.group_a_data),
+            "mean": domain_experiment.result.mean_group_a if domain_experiment.result else None
+        },
+        group_b_data_summary={
+            "count": len(domain_experiment.group_b_data),
+            "mean": domain_experiment.result.mean_group_b if domain_experiment.result else None
+        },
         parameters=domain_experiment.parameters,
         result=TTestResultSchema.from_orm(domain_experiment.result) if domain_experiment.result else None,
         mlflow_run_id=domain_experiment.mlflow_run_id,
-            tracking_warnings=domain_experiment.tracking_warnings, # Añadir tracking_warnings
+        tracking_warnings=domain_experiment.tracking_warnings,
         created_at=domain_experiment.created_at,
         updated_at=domain_experiment.updated_at
     )
@@ -214,17 +231,16 @@ async def get_experiment_endpoint(
 async def list_experiments_endpoint(
     skip: int = 0,
     limit: int = 100,
-    stats_repository: StatsRepository = Depends(get_stats_repository),
-    current_user: CommonUserAuth = Depends(require_any_role({"viewer", "analyst"})) # Seguridad de roles activada
+    stats_repository = Depends(get_stats_repository), # Inferencia de tipo
+    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"viewer", "analyst"})) # type: ignore
 ):
-    """
-    Lista todos los experimentos con paginación.
-    Requiere rol 'viewer' o 'analyst'.
-    """
-    if limit > 500: # Limitar el máximo de `limit`
+    """Lista todos los experimentos con paginación."""
+    logger.info(f"Endpoint /experiments llamado por usuario '{current_user.username if current_user else 'anonymous'}' con skip={skip}, limit={limit}")
+    if limit > 500: # Prevenir
+        logger.warning(f"Se solicitó un límite de {limit}, reducido a 500.")
         limit = 500
 
-    domain_experiments, total_count = stats_repository.list_all(skip=skip, limit=limit) # SQLAlchemyStatsRepository.list_all
+    domain_experiments, total_count = stats_repository.list_all(skip=skip, limit=limit)
 
     response_items = []
     for dexp in domain_experiments:
@@ -232,55 +248,30 @@ async def list_experiments_endpoint(
             id=dexp.id,
             name=dexp.name,
             description=dexp.description,
-            group_a_data_summary={"count": len(dexp.group_a_data), "mean": dexp.result.mean_group_a if dexp.result else None}, # type: ignore
-            group_b_data_summary={"count": len(dexp.group_b_data), "mean": dexp.result.mean_group_b if dexp.result else None}, # type: ignore
+            group_a_data_summary={
+                "count": len(dexp.group_a_data),
+                "mean": dexp.result.mean_group_a if dexp.result else None # type: ignore
+            },
+            group_b_data_summary={
+                "count": len(dexp.group_b_data),
+                "mean": dexp.result.mean_group_b if dexp.result else None # type: ignore
+            },
             parameters=dexp.parameters,
             result=TTestResultSchema.from_orm(dexp.result) if dexp.result else None,
             mlflow_run_id=dexp.mlflow_run_id,
-            tracking_warnings=dexp.tracking_warnings, # Añadir tracking_warnings
+            tracking_warnings=dexp.tracking_warnings,
             created_at=dexp.created_at,
             updated_at=dexp.updated_at
         ))
-
+    logger.info(f"Devolviendo {len(response_items)} experimentos de un total de {total_count}.")
     return PaginatedExperimentResponse(total=total_count, items=response_items)
 
-# --- Endpoint de Health Check ---
 @router.get("/health", response_model=HealthCheckResponse, tags=["Meta"])
 async def health_check_stats():
-    """
-    Endpoint de Health Check para el módulo Aletheia-Stats.
-    """
-    # En el futuro, podría verificar la conexión a la BD o MLflow.
-    # version = "0.1.0" # Podría venir de un archivo de versión o var de entorno
-    return HealthCheckResponse(status="OK", module="Aletheia-Stats") # version=version
+    """Endpoint de Health Check para el módulo Aletheia-Stats."""
+    logger.info("Health check para Aletheia-Stats API invocado.")
+    return HealthCheckResponse(status="OK", module="Aletheia-Stats")
 
-# Nota: La aplicación FastAPI principal que usa este router debe estar en main.py
-# y manejar la configuración global, la inicialización de la base de datos (Alembic), etc.
-# Este archivo se centra en la definición de los endpoints.
-# Los TODOs sobre seguridad y configuración de dependencias son cruciales para producción.
-logger.info("Aletheia-Stats API Router (presentation.api) cargado.")
-# Las notas sobre seguridad de roles comentada y placeholders de dependencias ya no son tan precisas
-# o se manejan con los logs de advertencia/error anteriores.
+logger.info("Aletheia-Stats API Router (presentation.api) cargado y configurado.")
 
-# TODO:
-# 1. Implementar `get_db_session_placeholder` con la gestión real de sesión de SQLAlchemy. # HECHO, usa get_db_session_stats
-#    Esto implica tener `infrastructure/database.py` en `aletheia_stats` con `engine`, `SessionLocal`.
-# 2. Configurar adecuadamente las URLs de BD y MLflow mediante variables de entorno.
-# 3. Descomentar y probar la seguridad de roles (`require_roles`).
-# 4. Asegurar que `aletheia_common` sea una dependencia correctamente instalada o accesible.
-# 5. Añadir logging estructurado en lugar de `print`.
-# 6. Crear migraciones con Alembic para los modelos de `StatsRepository`.
-# 7. Escribir pruebas de integración completas.
-# 8. El `PaginatedExperimentResponse` podría necesitar un schema más detallado para `items` si `ExperimentResponse` es muy grande.
-#    Actualmente, `group_a_data_summary` y `group_b_data_summary` son simplificaciones.
-#    Si se necesita la data completa para algunos listados, considerar un `ExperimentDetailResponse`.
-# 9. El endpoint `/token` es un mock. Para producción, debe integrarse con un sistema de usuarios real
-#    y usar `passlib` para el hash y verificación de contraseñas de forma segura.
-#    El `MOCK_COMMON_USERS_DB` y `verify_password` simplificado son inseguros.
-#    Idealmente, `aletheia_stats` usaría el mismo proveedor de identidad que `Aletheia_v3`.
-#    Si `Aletheia_v3` es el proveedor de tokens, entonces `aletheia_stats` no necesita su propio endpoint `/token`,
-#    sino que validaría los tokens emitidos por `Aletheia_v3`.
-#    El `README.md` de `aletheia_stats` sugiere un endpoint `/token` propio, lo que implica un manejo de usuarios separado o replicado.
-#    Esta es una decisión arquitectónica importante a clarificar.
-#    Por ahora, se ha implementado un mock siguiendo la indicación del README.
 ```
