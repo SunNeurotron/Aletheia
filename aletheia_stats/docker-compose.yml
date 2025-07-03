@@ -27,6 +27,8 @@ services:
       - STATS_API_PORT=${STATS_API_PORT:-8001} # For Uvicorn in main.py
       - STATS_LOG_LEVEL_UVICORN=${STATS_LOG_LEVEL_UVICORN:-info} # For Uvicorn's logging
       - APP_ENVIRONMENT=${STATS_APP_ENVIRONMENT:-development}
+      # OAUTH2_SCHEME_TOKEN_URL for aletheia_common, specific to aletheia_stats's own token endpoint
+      - OAUTH2_SCHEME_TOKEN_URL=${STATS_OAUTH2_SCHEME_TOKEN_URL:-/api/v1/token}
     depends_on:
       db:
         condition: service_healthy # Wait for DB to be healthy

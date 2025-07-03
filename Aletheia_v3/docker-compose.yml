@@ -24,6 +24,8 @@ x-common-env: &common-env
   ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
   # Database URL for Alembic and application (constructed from other POSTGRES_ vars if not set directly)
   ALETHEIA_V3_DATABASE_URL: ${ALETHEIA_V3_DATABASE_URL:-postgresql://${POSTGRES_USER:-user}:${POSTGRES_PASSWORD:-password}@db:${DB_PORT:-5432}/${POSTGRES_DB:-aletheia_db}}
+  # OAuth2 Scheme Token URL for aletheia_common, should match the actual token endpoint path
+  OAUTH2_SCHEME_TOKEN_URL: ${OAUTH2_SCHEME_TOKEN_URL:-token}
 
 
 services:
