@@ -65,7 +65,7 @@ jobs:
       #   uses: docker/setup-qemu-action@v3
 
       - name: Start services for Aletheia-Stats integration tests
-        working-directory: ./aletheia_stats # Asegurada una sola línea y correcta
+        working-directory: ./aletheia_stats # Solo una instancia de esta línea
         run: docker-compose -f docker-compose.yml up --build -d db mlflow
         # We only bring up db and mlflow. The API itself will be tested via TestClient against local code.
 
@@ -146,11 +146,11 @@ jobs:
         # continue-on-error: true                 # Opcional, si quieres que no falle el CI
 
       - name: Stop services for Aletheia-Stats
-        if: always() # Asegurada una sola línea y correcta
+        if: always() # Solo una instancia de esta línea
         working-directory: ./aletheia_stats
         run: |
           echo "Stopping Aletheia-Stats services..."
-          docker-compose down -v # Asegurada una sola línea y correcta
+          docker-compose down -v # Solo una instancia de esta línea
           echo "Services stopped."
     # Add other jobs for other modules or aspects of SunNeurotron/Aletheia as needed
     # another_module_checks:
