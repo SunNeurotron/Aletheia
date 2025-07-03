@@ -87,19 +87,44 @@ def override_api_dependencies(
 
     app.dependency_overrides[presentation_api.get_stats_repository] = lambda: mock_stats_repository
     app.dependency_overrides[presentation_api.get_mlflow_tracker] = lambda: mock_mlflow_tracker
-    # app.dependency_overrides[presentation_api.get_stats_service] = lambda: mock_stats_service # Use real service
+    # app.dependency_overrides[presentation_api.get_stats_service] = lambda: mock_stats_service
+
+    # Importar el common_get_current_active_user para poder sobreescribirlo
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    from aletheia_common.auth.jwt_handler import UserAuth as CommonUserAuth
+
+    # Store original dependency to restore it if needed, or clear all overrides
+    original_dependency = app.dependency_overrides.get(common_get_current_active_user_dependency)
+
+    # Default override for tests that don't specify a user type (e.g. public endpoints)
+    # For protected endpoints, individual tests will override this further.
+    async def mock_no_auth_user():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated for test")
+    app.dependency_overrides[common_get_current_active_user_dependency] = mock_no_auth_user
 
     yield # Run the tests
 
-    app.dependency_overrides = {} # Clear overrides after tests
+    # Restore original or clear all
+    if original_dependency:
+        app.dependency_overrides[common_get_current_active_user_dependency] = original_dependency
+    else:
+        app.dependency_overrides.pop(common_get_current_active_user_dependency, None)
+    # Clear all overrides made during the test session if other method was used
+    # app.dependency_overrides = {}
 
 
-# --- Helper to get a valid token (mocked) ---
-def get_mock_auth_token(client: TestClient, username: str = "testuser", password: str = "testpassword") -> str:
-    """Helper to get a mock JWT token."""
-    response = client.post("/api/v1/token", data={"username": username, "password": password})
-    assert response.status_code == 200, f"Failed to get token: {response.text}"
-    return response.json()["access_token"]
+# --- Mock Authenticated Users with Roles ---
+@pytest.fixture
+def analyst_user() -> CommonUserAuth:
+    return CommonUserAuth(username="test_analyst", roles=["analyst", "viewer"])
+
+@pytest.fixture
+def viewer_user() -> CommonUserAuth:
+    return CommonUserAuth(username="test_viewer", roles=["viewer"])
+
+@pytest.fixture
+def unprivileged_user() -> CommonUserAuth:
+    return CommonUserAuth(username="test_unprivileged", roles=["some_other_role"])
 
 
 # --- Test Cases ---
@@ -107,14 +132,15 @@ def get_mock_auth_token(client: TestClient, username: str = "testuser", password
 def test_analyze_ttest_endpoint_success(
     client: TestClient,
     mock_stats_repository: MagicMock,
-    mock_mlflow_tracker: MagicMock
+    mock_mlflow_tracker: MagicMock,
+    analyst_user: CommonUserAuth
 ):
-    """Test the /analyze/ttest endpoint for a successful analysis."""
-    token = get_mock_auth_token(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    """Test the /analyze/ttest endpoint for a successful analysis by an analyst."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
 
     request_payload = {
-        "group_a_data": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6], # Corregido: group_a_data
+        "group_a_data": [1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6],
         "group_b_data": [2.0, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6], # Corregido: group_b_data
         "experiment_name": "Integration Test Exp",
         "alpha": 0.05
@@ -159,13 +185,13 @@ def test_analyze_ttest_endpoint_success(
     mock_mlflow_tracker.end_run.assert_called_once()
 
 
-def test_analyze_ttest_endpoint_insufficient_data(client: TestClient):
+def test_analyze_ttest_endpoint_insufficient_data(client: TestClient, analyst_user: CommonUserAuth):
     """Test /analyze/ttest with data that's insufficient for analysis (ValueError)."""
-    token = get_mock_auth_token(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
 
     request_payload = {
-        "group_a_data": [1.0, 1.1], # Corregido: group_a_data, Less than 3 samples
+        "group_a_data": [1.0, 1.1],
         "group_b_data": [2.0, 2.1, 2.2], # Corregido: group_b_data
         "experiment_name": "Insufficient Data Test"
         # alpha y parameters son opcionales aquí si usan defaults en schema
@@ -180,10 +206,10 @@ def test_analyze_ttest_endpoint_insufficient_data(client: TestClient):
     assert "ensure this value has at least 3 items" in response.text
 
 
-def test_analyze_ttest_endpoint_invalid_alpha(client: TestClient):
+def test_analyze_ttest_endpoint_invalid_alpha(client: TestClient, analyst_user: CommonUserAuth):
     """Test /analyze/ttest with invalid alpha value."""
-    token = get_mock_auth_token(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
 
     request_payload = {
         "group_a_data": [1,2,3,4,5],
@@ -197,11 +223,11 @@ def test_analyze_ttest_endpoint_invalid_alpha(client: TestClient):
 
 
 def test_analyze_ttest_endpoint_non_normal_data_comment(
-    client: TestClient, mock_mlflow_tracker: MagicMock
+    client: TestClient, mock_mlflow_tracker: MagicMock, analyst_user: CommonUserAuth
 ):
     """Test that non-normal data results in appropriate comments and MLflow tags."""
-    token = get_mock_auth_token(client)
-    headers = {"Authorization": f"Bearer {token}"}
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
 
     # Data designed to likely fail Shapiro-Wilk
     group_a_non_normal = [1,1,1,1,1,1,1,1,1,100] # Likely non-normal
@@ -233,42 +259,32 @@ def test_analyze_ttest_endpoint_non_normal_data_comment(
 
 def test_analyze_ttest_no_auth(client: TestClient): # Corregido: nombre de payload
     """Test endpoint access without authentication token."""
+    # Default override in override_api_dependencies already simulates no auth / 401
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    async def mock_no_auth_user_explicit(): # Explicit mock for this test case
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated for test (explicit)")
+    app.dependency_overrides[common_get_current_active_user_dependency] = mock_no_auth_user_explicit
+
     request_payload_no_auth = {"group_a_data": [1,2,3,4,5], "group_b_data": [6,7,8,9,10]}
     response = client.post("/api/v1/analyze/ttest", json=request_payload_no_auth)
-    assert response.status_code == 401 # O 403 dependiendo de la configuración de seguridad exacta
-    # El mensaje puede variar. "Not authenticated" es común con OAuth2PasswordBearer.
-    # Si se usa el mock básico de get_current_active_user, puede que no dé este error exacto
-    # si el mock no levanta HTTPException por falta de token.
-    # La prueba real de esto depende de la robustez de la capa de autenticación común.
-    # Por ahora, asumimos que el `Depends(get_current_active_user)` en el endpoint protegido
-    # (una vez descomentado) causará un error apropiado si el token no es válido o no está.
-    # El `api.py` tiene la seguridad de roles comentada, así que esta prueba podría dar otro resultado
-    # hasta que se active. Si la seguridad está comentada, podría ser 201.
-    # Para que esta prueba sea significativa, la seguridad debe estar activa en el endpoint.
-    # Dado que está comentada ("# current_user: CommonUserAuth = Depends(require_roles({'analyst'}))")
-    # este test actualmente probaría el endpoint como si fuera público.
-    # Lo marcaremos como skip hasta que la seguridad se active en api.py.
-    pytest.skip("Skipping no_auth test for /analyze/ttest as endpoint security is currently commented out in api.py")
+    assert response.status_code == 401
+    assert "Not authenticated" in response.json()["detail"] # O el mensaje del mock
 
 
-def test_analyze_ttest_insufficient_role(client: TestClient):
-    """Test endpoint access with a user having insufficient roles."""
-    # Assuming "vieweruser" exists and has only "viewer" role (not "analyst")
-    # Need to adjust mock_users_db in api.py or mock token generation for this.
-    # For this example, let's assume we can generate a token for a "viewer"
+def test_analyze_ttest_insufficient_role(client: TestClient, viewer_user: CommonUserAuth):
+    """Test /analyze/ttest access with a user having insufficient roles (viewer, not analyst)."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: viewer_user
 
-    # This requires modifying the mock_users_db in presentation.api or mocking token creation logic.
-    # For now, we'll assume the "testuser" used by get_mock_auth_token has "analyst".
-    # To test this properly, we'd need a way to get a token for a user *without* "analyst" role.
-
-    # If we had a "vieweruser" with password "viewpassword" and only "viewer" role:
-    # token = get_mock_auth_token(client, username="vieweruser", password="viewpassword")
-    # headers = {"Authorization": f"Bearer {token}"}
-    # request_payload = {"group_a": [1,2,3,4,5], "group_b": [6,7,8,9,10]}
-    # response = client.post("/api/v1/analyze/ttest", json=request_payload, headers=headers)
-    # assert response.status_code == 403 # Forbidden
-    # assert "Insufficient permissions" in response.json()["detail"]
-    pytest.skip("Skipping insufficient role test for /analyze/ttest as it requires more complex auth mocking setup for roles.")
+    request_payload = {
+        "group_a_data": [1,2,3,4,5],
+        "group_b_data": [6,7,8,9,10],
+        "experiment_name": "Viewer Role Test"
+    }
+    response = client.post("/api/v1/analyze/ttest", json=request_payload) # No headers needed due to mock override
+    assert response.status_code == 403 # Forbidden
+    assert "Insufficient permissions" in response.json()["detail"]
+    assert "analyst" in response.json()["detail"] # Message should indicate missing 'analyst' role
 
 
 # --- Tests for /experiments/{experiment_id} and /experiments ---
@@ -293,14 +309,93 @@ def sample_domain_experiment() -> DomainExperiment:
         mlflow_run_id="mlf_repo_test_1"
     )
 
-def test_get_experiment_by_id_success(
-    client: TestClient, mock_stats_repository: MagicMock, sample_domain_experiment: DomainExperiment
+def test_get_experiment_by_id_success_as_analyst(
+    client: TestClient, mock_stats_repository: MagicMock, sample_domain_experiment: DomainExperiment, analyst_user: CommonUserAuth
 ):
-    token = get_mock_auth_token(client) # "testuser" has "analyst" role, which includes "viewer"
-    headers = {"Authorization": f"Bearer {token}"}
+    """Test GET /experiments/{id} success with 'analyst' role."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
 
     exp_id = sample_domain_experiment.id
-    mock_stats_repository.get_by_id.return_value = sample_domain_experiment
+    mock_stats_repository.get.return_value = sample_domain_experiment # mock repo's get method
+
+    response = client.get(f"/api/v1/experiments/{exp_id}")
+    assert response.status_code == 200
+    # ... (assertions as before) ...
+    mock_stats_repository.get.assert_called_once_with(experiment_id=exp_id)
+
+
+def test_get_experiment_by_id_success_as_viewer(
+    client: TestClient, mock_stats_repository: MagicMock, sample_domain_experiment: DomainExperiment, viewer_user: CommonUserAuth
+):
+    """Test GET /experiments/{id} success with 'viewer' role."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: viewer_user
+
+    exp_id = sample_domain_experiment.id
+    mock_stats_repository.get.return_value = sample_domain_experiment
+
+    response = client.get(f"/api/v1/experiments/{exp_id}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(exp_id)
+    assert data["name"] == "Sample Repo Exp"
+    mock_stats_repository.get.assert_called_once_with(experiment_id=exp_id)
+
+
+def test_get_experiment_by_id_forbidden_for_unprivileged(
+    client: TestClient, mock_stats_repository: MagicMock, sample_domain_experiment: DomainExperiment, unprivileged_user: CommonUserAuth
+):
+    """Test GET /experiments/{id} forbidden for user without 'viewer' or 'analyst' role."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: unprivileged_user
+
+    exp_id = sample_domain_experiment.id
+    response = client.get(f"/api/v1/experiments/{exp_id}")
+    assert response.status_code == 403
+    assert "Insufficient permissions" in response.json()["detail"]
+
+
+def test_get_experiment_by_id_no_auth(client: TestClient, sample_domain_experiment: DomainExperiment):
+    """Test GET /experiments/{id} without authentication."""
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    async def mock_no_auth_user_explicit():
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated for test (explicit)")
+    app.dependency_overrides[common_get_current_active_user_dependency] = mock_no_auth_user_explicit
+
+    exp_id = sample_domain_experiment.id
+    response = client.get(f"/api/v1/experiments/{exp_id}")
+    assert response.status_code == 401
+
+
+def test_get_experiment_by_id_not_found(client: TestClient, mock_stats_repository: MagicMock, analyst_user: CommonUserAuth):
+    # Uses analyst_user for auth, but focus is on not_found
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
+
+    non_existent_id = uuid4()
+    mock_stats_repository.get.return_value = None # Ensure mock returns None
+
+    response = client.get(f"/api/v1/experiments/{non_existent_id}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Experiment not found"
+    mock_stats_repository.get.assert_called_once_with(experiment_id=non_existent_id)
+
+
+def test_list_experiments_success(
+    client: TestClient, mock_stats_repository: MagicMock, sample_domain_experiment: DomainExperiment, analyst_user: CommonUserAuth
+):
+    # Test with analyst role, viewer role would be similar
+    from aletheia_common.auth.jwt_handler import get_current_active_user as common_get_current_active_user_dependency
+    app.dependency_overrides[common_get_current_active_user_dependency] = lambda: analyst_user
+
+    exp2_id = uuid4()
+    # Asegurarse de que los experimentos de prueba tengan el campo tracking_warnings (incluso si está vacío por defecto)
+    exp2 = DomainExperiment(id=exp2_id, name="Exp Two", group_a_data=[0], group_b_data=[1], tracking_warnings=["Warning on exp2"])
+
+    # mock_stats_repository.list_all debe devolver una tupla: (lista_de_experimentos, conteo_total)
+    mock_stats_repository.list_all.return_value = ([sample_domain_experiment, exp2], 2)
 
     response = client.get(f"/api/v1/experiments/{exp_id}", headers=headers)
 

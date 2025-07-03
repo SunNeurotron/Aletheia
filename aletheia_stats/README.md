@@ -108,31 +108,29 @@ Las contribuciones deben seguir las guías del MDU y mantener los estándares de
 
 ## Detalles de la API
 
-La API de Aletheia-Stats se expone bajo el prefijo `/api/v1` y sigue los estándares RESTful. La autenticación se realiza mediante tokens JWT Bearer.
+La API de Aletheia-Stats se expone bajo el prefijo `/api/v1` y sigue los estándares RESTful.
+La autenticación se realiza mediante tokens JWT Bearer **emitidos por el sistema de identidad principal de Aletheia (ej. Aletheia_v3)**. Este módulo no gestiona la creación de usuarios ni emite tokens directamente.
 
-### Endpoints Principales:
+### Endpoints Principales y Roles Requeridos:
 
--   **`POST /api/v1/token`**: Obtiene un token JWT para autenticación.
-    -   **Request Body**: `username` y `password` (form data).
-    -   **Response**: `{ "access_token": "...", "token_type": "bearer" }`
 -   **`POST /api/v1/analyze/ttest`**: Realiza un análisis de prueba t.
-    -   **Request Body**: `TTestRequest` (ver `presentation/api.py` para el modelo Pydantic). Incluye `group_a`, `group_b`, `experiment_name`, `alpha`, etc.
-    -   **Response**: `ExperimentResponse` con los resultados del análisis, metadatos del experimento y posibles `tracking_warnings` si hubo problemas con MLflow.
-    -   **Autenticación**: Requerida (rol `analyst`).
+    -   **Request Body**: `TTestRequest` (ver `presentation/schemas.py`). Incluye `group_a_data`, `group_b_data`, `experiment_name`, `alpha`, etc.
+    -   **Response**: `ExperimentResponse` con los resultados del análisis, metadatos del experimento y posibles `tracking_warnings`.
+    -   **Autenticación y Autorización**: Requerida. El token JWT debe contener el rol `analyst`.
 -   **`GET /api/v1/experiments/{experiment_id}`**: Obtiene un experimento por su ID.
     -   **Response**: `ExperimentResponse` (incluyendo `tracking_warnings`).
-    -   **Autenticación**: Requerida (rol `viewer` o `analyst`).
+    -   **Autenticación y Autorización**: Requerida. El token JWT debe contener el rol `viewer` o `analyst`.
 -   **`GET /api/v1/experiments`**: Lista todos los experimentos con paginación.
     -   **Query Params**: `skip`, `limit`.
     -   **Response**: `PaginatedExperimentResponse` (lista de `ExperimentResponse`, cada una con `tracking_warnings`).
-    -   **Autenticación**: Requerida (rol `viewer` o `analyst`).
--   **`GET /api/v1/users/me`**: Devuelve detalles del usuario autenticado actualmente.
+    -   **Autenticación y Autorización**: Requerida. El token JWT debe contener el rol `viewer` o `analyst`.
+-   **`GET /api/v1/users/me`**: Devuelve detalles del usuario autenticado actualmente (basado en el token).
     -   **Response**: `UserSchema` (modelo Pydantic).
-    -   **Autenticación**: Requerida.
--   **`GET /api/v1/health`**: Endpoint de Health Check específico de la API de Stats.
--   **`GET /api/docs`**: Acceso a la documentación interactiva de Swagger UI (ruta base de la app: `HOST:PORT/api/docs`).
--   **`GET /api/redoc`**: Acceso a la documentación ReDoc (ruta base de la app: `HOST:PORT/api/redoc`).
--   **`GET /health` (en raíz de la app)**: Endpoint de Health Check general de la aplicación FastAPI.
+    -   **Autenticación**: Requerida (cualquier token válido).
+-   **`GET /api/v1/health`**: Endpoint de Health Check específico de la API de Stats. (Público)
+-   **`GET /api/docs`**: Acceso a la documentación interactiva de Swagger UI (ruta configurada en `main.py`, típicamente accesible en la raíz de la API de este módulo).
+-   **`GET /api/redoc`**: Acceso a la documentación ReDoc.
+-   **`GET /health` (en raíz de la app)**: Endpoint de Health Check general de la aplicación FastAPI. (Público)
 
 
 ### Modelos de Datos Clave (Pydantic):
