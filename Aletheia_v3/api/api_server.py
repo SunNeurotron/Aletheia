@@ -30,6 +30,19 @@ from aletheia_common.auth.jwt_handler import (
 # Import la implementación del user_retriever de Aletheia_v3
 from .auth import get_user_retriever as get_aletheia_v3_user_retriever
 
+import logging # Import logging module
+import os # For LOG_LEVEL env var
+
+# --- Basic Logging Configuration ---
+# Configure logging at the beginning of the application module.
+# This ensures that loggers used in this module and submodules (if they don't define their own handlers)
+# will output messages. Uvicorn's logging can also be configured separately.
+LOG_LEVEL = os.getenv("ALETHEIA_V3_LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - [%(module)s.%(funcName)s:%(lineno)d] - %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 # --- Application Setup ---
 # Metadata for API documentation
 API_VERSION = "3.0.0-MDU"
@@ -61,35 +74,30 @@ app.dependency_overrides[get_user_retriever_dependency_placeholder] = get_alethe
 # If a prefix is desired later: router = APIRouter(prefix="/api/v1")
 router = APIRouter()
 
+# Get a logger instance for this module
+logger = logging.getLogger(__name__)
 
 # --- Event Handlers ---
 @app.on_event("startup")
 async def startup_event():
     """
     Actions to perform on application startup.
-    For example, initializing the database.
     """
-    print("FastAPI application startup...")
+    logger.info("Aletheia_v3 FastAPI application startup...")
     try:
-        # This will create tables if they don't exist.
-        # In a production setup with migrations (e.g., Alembic), this might be handled differently.
         # initialize_database() # Commented out: Alembic will now handle table creation and migrations.
-        print("Database initialization via initialize_database() (create_all) is now DIASABLED.")
-        print("Ensure Alembic migrations are run to set up the database schema.")
-        # print("Database initialization check complete.") # No longer accurate
+        logger.info("Database auto-creation (create_all) is DISABLED.")
+        logger.info("Ensure Alembic migrations are run to set up the database schema.")
     except Exception as e:
-        # This exception block might still be relevant if other startup tasks are added.
-        print(f"Error during other startup tasks (if any): {e}")
-        # Depending on the severity, you might want to prevent the app from starting.
-        # For now, just logging the error.
+        logger.exception("Error during other startup tasks (if any).") # Use logger.exception to include traceback
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """
     Actions to perform on application shutdown.
     """
-    print("FastAPI application shutdown...")
-    # Cleanup tasks can go here, e.g., closing database connection pools if not handled by sessions.
+    logger.info("Aletheia_v3 FastAPI application shutdown...")
+    # Cleanup tasks can go here.
 
 
 # --- Authentication Endpoints ---
@@ -174,8 +182,9 @@ async def create_new_search_job(
     # Dispatch the computationally intensive task to Celery
     try:
         task_result = intelligent_discovery_task.delay(job_id=db_job.id, n_calls=request.n_calls)
-        print(f"Celery task enqueued with ID: {task_result.id} for job_id: {db_job.id}")
+        logger.info(f"Celery task enqueued with ID: {task_result.id} for job_id: {db_job.id}")
     except Exception as e:
+        logger.exception(f"Failed to queue Celery discovery task for job_id: {db_job.id}")
         # If Celery task queuing fails, we should probably mark the job as failed
         # and raise an HTTP exception.
         db_job.status = "failed_queuing"
@@ -451,10 +460,17 @@ if __name__ == "__main__":
     # Host 0.0.0.0 makes it accessible externally (e.g., from Docker).
     # Reload=True is useful for development, automatically reloads on code changes.
     import uvicorn
-    print("Starting Uvicorn server directly for development...")
-    uvicorn.run("api_server:app", host="0.0.0.0", port=8000, reload=True)
+    # Configure basic logging for direct Uvicorn run if not already configured by FastAPI/Uvicorn
+    # This is more for when running `python Aletheia_v3/api/api_server.py` directly.
+    # Uvicorn itself has logging, and FastAPI might add handlers.
+    # Ensure a basic config if no other logging is set up by this point for the __main__ block.
+    if not logging.getLogger().hasHandlers(): # Check if root logger has handlers
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+    logger.info("Starting Uvicorn server directly for development via __main__...")
+    uvicorn.run("Aletheia_v3.api.api_server:app", host="0.0.0.0", port=8000, reload=True)
     # In docker-compose, uvicorn is typically started like:
-    # uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000
+    # uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000 --log-config uvicorn_log_config.yml
     # Note the module path `Aletheia_v3.api.api_server:app` when run from project root.
     # The `if __name__ == "__main__":` block uses `api_server:app` because it's run from within the `api` dir.
     # For consistency with Docker, it's better to rely on the docker-compose command.
