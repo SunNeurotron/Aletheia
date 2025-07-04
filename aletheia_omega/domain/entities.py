@@ -1,8 +1,9 @@
 # aletheia_omega/domain/entities.py
 
 import uuid
+import enum # Necesario para TrajectoryState
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional # Tuple ya no es necesario, Optional sí por si acaso
 
 from pydantic import BaseModel, Field as PydanticField
 
@@ -43,3 +44,50 @@ class OptimizationResult(BaseModel):
     best_model_metrics: ModelMetrics
     search_space_size: int
     parameters: dict[str, Any]
+
+
+# --- Entidades para la Fase 2: Trayectorias ---
+
+class TrajectoryState(str, enum.Enum):
+    """Clasificación dinámica de una trayectoria según el Axioma 3."""
+    STATIONARY = "Estacionaria"
+    OSCILLATORY = "Oscilatoria"
+    PROGRESSIVE = "Progresiva"
+    UNDEFINED = "Indefinida" # Para trayectorias demasiado cortas para analizar
+
+@dataclass
+class TrajectoryStep:
+    """Representa un único paso (un modelo M*ᵢ) en la trayectoria."""
+    step_index: int
+    model: ModelRepresentation # El modelo óptimo para este paso
+    metrics: ModelMetrics      # Las métricas de ese modelo en este paso
+    # Podríamos añadir aquí el run_id del OptimizationRunDB si fuera necesario
+    # para trazarlo directamente al registro de BD, aunque el repositorio lo manejará.
+
+@dataclass
+class Trajectory:
+    """Representa la trayectoria completa de modelos Θ."""
+    id: uuid.UUID # ID único de la trayectoria
+    name: str     # Un nombre descriptivo opcional para la trayectoria
+    steps: List[TrajectoryStep] = field(default_factory=list)
+    # Podríamos añadir metadata adicional como fecha de creación, descripción, etc.
+
+    def add_step(self, model: ModelRepresentation, metrics: ModelMetrics) -> TrajectoryStep:
+        """Añade un nuevo paso a la trayectoria y lo devuelve."""
+        new_step_index = len(self.steps)
+        new_step = TrajectoryStep(
+            step_index=new_step_index,
+            model=model,
+            metrics=metrics
+        )
+        self.steps.append(new_step)
+        return new_step
+
+@dataclass(frozen=True) # frozen=True porque es un resultado de análisis inmutable
+class TrajectoryAnalysis:
+    """El resultado del análisis de una trayectoria."""
+    trajectory_id: uuid.UUID
+    state: TrajectoryState
+    comment: str
+    step_count: int
+    # Podríamos añadir más detalles del análisis, como las métricas que llevaron a la clasificación.
