@@ -1,3 +1,17 @@
+# Copyright 2025 Alant
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Aletheia_v3/dashboard/dashboard.py
 import math
 import os  # For environment variables
@@ -19,13 +33,13 @@ MLFLOW_UI_URL = os.getenv("MLFLOW_UI_URL", "http://mlflow:5000")
 
 # --- Page Setup ---
 st.set_page_config(
-    page_title="Aletheia v3.0: Discovery Dashboard",
+    page_title="Aletheia v4.0: Discovery Dashboard",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-st.title("🔬 Aletheia v3.0: AI-Guided Discovery Dashboard (MDU Edition)")
+st.title("🔬 Aletheia v4.0: AI-Guided Discovery Dashboard")
 st.markdown(
     f"""
 Welcome to the Aletheia platform. Use this dashboard to submit and monitor AI-driven research jobs.
@@ -54,6 +68,17 @@ with st.sidebar:
         submitted = st.form_submit_button("Start Intelligent Discovery")
 
         if submitted:
+            # NOTE: Dashboard doesn't implement auth. In a real-world scenario,
+            # it would need to handle user login and send a JWT token.
+            # For this internal-facing tool, we are currently bypassing auth checks
+            # for job submission from the dashboard if the API allows it (e.g., in a trusted network).
+            # The current API endpoints ARE protected. This dashboard will fail to submit jobs
+            # unless authentication is added to it or the API endpoints are made public.
+            # For the demo, this illustrates the UI flow. A real implementation would require
+            # a login flow in this sidebar.
+            st.warning("Note: Dashboard currently lacks authentication. "
+                       "Job submission will fail if API endpoints are protected. "
+                       "This UI demonstrates the intended workflow.")
             payload = {"n_calls": n_calls}
             try:
                 # The endpoint is now just /searches (router has no prefix)
@@ -103,6 +128,7 @@ else:
     # Display jobs, newest first (as they are inserted at index 0)
     for job_id in st.session_state.submitted_jobs:
         try:
+            # This request would also fail without auth if the endpoint is protected
             response = requests.get(
                 f"{API_BASE_URL}/searches/{job_id}", timeout=10
             )
@@ -317,6 +343,6 @@ else:
 # --- Footer ---
 st.markdown("---")
 st.markdown(
-    f"<p align='center'>Aletheia Platform v3.0 (MDU Edition) | Current API: {API_BASE_URL}</p>",
+    f"<p align='center'>Aletheia Platform v4.0 | Current API: {API_BASE_URL}</p>",
     unsafe_allow_html=True,
 )
