@@ -1,0 +1,30 @@
+fastapi>=0.100.0 # Compatible con Pydantic v2
+uvicorn[standard]>=0.23.0
+pydantic>=2.4.0,<3.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0 # Driver de PostgreSQL
+alembic>=1.10.0 # Para migraciones de base de datos
+
+# Dependencias de dominio/aplicación
+scikit-learn>=1.0.0 # Para el LikelihoodService de ejemplo
+
+# Dependencias para autenticación (si se usa el handler real de aletheia_common)
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Dependencias para el cliente de pruebas de FastAPI (necesarias si se ejecutan pruebas que lo usen en el contenedor)
+httpx>=0.23.0
+
+# Nota: Es buena práctica fijar las versiones exactas (ej. fastapi==0.103.1)
+# después de probar la compatibilidad, usando pip freeze > requirements.txt.
+# Por ahora, se usan requerimientos de versión mínimos o rangos amplios.
+# Por ahora, se usan requerimientos de versión mínimos o rangos amplios.
+# Considerar añadir aletheia_common aquí si se instala como un paquete.
+# Si se copia o monta, no es necesario listarlo.
+
+# Dependencias que httpx podría necesitar (instaladas transitivamente antes)
+# certifi
+# httpcore
+
+# Dependencia de SQLAlchemy (instalada transitivamente antes)
+# greenlet
