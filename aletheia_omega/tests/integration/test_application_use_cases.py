@@ -103,9 +103,9 @@ class TestFindOptimalModelUseCaseIntegration:
         # Recalculamos para el modelo elegido para asegurar la consistencia interna de la lógica
         # Esto es más una prueba de la correctitud del test en sí mismo y la expectativa.
 
-        cs = find_optimal_model_use_case._complexity_service
-        ls = find_optimal_model_use_case._likelihood_service
-        ocs = find_optimal_model_use_case._omega_cost_service
+        cs = find_optimal_model_use_case.complexity_service
+        ls = find_optimal_model_use_case.likelihood_service
+        ocs = find_optimal_model_use_case.omega_cost_service
 
         expected_complexity = cs.compute(result.best_model.content)
         expected_likelihood = ls.compute(result.best_model.content, sample_data)
@@ -233,9 +233,9 @@ class TestFindOptimalModelUseCaseIntegration:
         failing_likelihood_service.compute.return_value = -1e9
 
         use_case = FindOptimalModelUseCase(
-            complexity_service=find_optimal_model_use_case._complexity_service, # real
+            complexity_service=find_optimal_model_use_case.complexity_service, # real
             likelihood_service=failing_likelihood_service, # mock
-            omega_cost_service=find_optimal_model_use_case._omega_cost_service # real
+            omega_cost_service=find_optimal_model_use_case.omega_cost_service # real
         )
 
         lambda_param = 0.1
@@ -250,7 +250,7 @@ class TestFindOptimalModelUseCaseIntegration:
         # ya que Cost(M) = λ * K(M) - (-1e9) = λ * K(M) + 1e9.
         # Para minimizar Cost(M), minimizamos K(M).
 
-        cs = find_optimal_model_use_case._complexity_service
+        cs = find_optimal_model_use_case.complexity_service # Corregido aquí
         complexities = {
             model.identifier: cs.compute(model.content) for model in candidate_models_list
         }
@@ -287,9 +287,9 @@ class TestFindOptimalModelUseCaseIntegration:
         # Por lo tanto, el modelo lineal (asumiendo que es razonable) debería ser elegido.
         assert result.best_model.identifier == model1_linear_regression.identifier
 
-        cs = find_optimal_model_use_case._complexity_service
-        ls = find_optimal_model_use_case._likelihood_service # Real LikelihoodService
-        ocs = find_optimal_model_use_case._omega_cost_service
+        cs = find_optimal_model_use_case.complexity_service
+        ls = find_optimal_model_use_case.likelihood_service # Real LikelihoodService
+        ocs = find_optimal_model_use_case.omega_cost_service
 
         # Métricas para el modelo lineal
         lm_complexity = cs.compute(model1_linear_regression.content)

@@ -65,10 +65,10 @@ class LikelihoodService:
             # Por ejemplo, en regresión lineal, es el coeficiente R^2.
             # Aquí lo usamos como un proxy directo.
             return float(model_obj.score(X, y))
-        except (pickle.UnpicklingError, AttributeError, TypeError, NotImplementedError) as e:
+        except (pickle.UnpicklingError, AttributeError, TypeError, NotImplementedError, ValueError) as e:
             # Si el modelo no se puede cargar o no es compatible, su verosimilitude es mínima.
             # Devolvemos un valor muy negativo para penalizarlo fuertemente.
-            # Añadido TypeError para capturar problemas si 'data' no es desempaquetable como (X,y)
+            # Añadido TypeError y ValueError para capturar problemas si 'data' no es desempaquetable como (X,y)
             return -1e9
 
 
