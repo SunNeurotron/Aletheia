@@ -2,11 +2,11 @@
 
 import uuid
 from datetime import datetime
-from typing import Any, Dict # Quitamos List que no se usa aquí
+from typing import Any, Dict, List # List es necesario para Mapped[List["OptimizationRunDB"]]
 
 from sqlalchemy import Column, DateTime, Float, Integer, String, JSON, ForeignKey
-from sqlalchemy.orm import relationship, Mapped, mapped_column # relationship no se usa aquí
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.dialects.postgresql import UUID, JSONB # Usar JSONB para request_parameters si es PG
 from sqlalchemy.sql import func
 
 # Intentamos importar la Base común. Si no existe, crearemos una placeholder.
@@ -17,31 +17,63 @@ except ImportError:
     Base = declarative_base()
 
 
+class TrajectoryDB(Base):
+    __tablename__ = "omega_trajectories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=True, index=True) # Un nombre opcional para la trayectoria
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    # Relación uno-a-muchos: una trayectoria tiene muchos pasos (OptimizationRunDB)
+    # `steps` será una lista de objetos OptimizationRunDB asociados con esta trayectoria.
+    # `order_by` asegura que los pasos se carguen en el orden correcto.
+    steps: Mapped[List["OptimizationRunDB"]] = relationship(
+        back_populates="trajectory",
+        cascade="all, delete-orphan",
+        order_by="OptimizationRunDB.step_index" # Importante para recuperar en orden
+    )
+
+    def __repr__(self):
+        return f"<TrajectoryDB(id={self.id}, name='{self.name}', steps_count='{len(self.steps) if self.steps else 0}')>"
+
+
 class OptimizationRunDB(Base):
     __tablename__ = "omega_optimization_runs"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    status: Mapped[str] = mapped_column(String, index=True, default="PENDING") # Podría ser un Enum
 
-    # Parámetros de la ejecución
+    # --- Vinculación a la Trayectoria ---
+    trajectory_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("omega_trajectories.id", name="fk_optimization_run_trajectory"),
+        index=True,
+        nullable=False # Un run ahora siempre pertenece a una trayectoria
+    )
+    step_index: Mapped[int] = mapped_column(Integer, nullable=False) # Índice del paso dentro de la trayectoria (0, 1, 2...)
+
+    # Relación muchos-a-uno: un run pertenece a una trayectoria
+    trajectory: Mapped["TrajectoryDB"] = relationship(back_populates="steps")
+
+    # --- Campos existentes (mantenidos y revisados) ---
+    status: Mapped[str] = mapped_column(String, index=True, default="PENDING", nullable=False)
+
+    # Parámetros de la ejecución de este paso/run
     lambda_param: Mapped[float] = mapped_column(Float, nullable=False)
     search_space_size: Mapped[int] = mapped_column(Integer, nullable=False)
-    # Renombrado de optimization_params a request_parameters para claridad
-    request_parameters: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=True)
+    # Usar JSONB si el dialecto es postgresql para mejor rendimiento y capacidades de consulta
+    request_parameters: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=True)
 
-    # El resultado final (una vez completado)
+    # El resultado final de este paso/run
     best_model_identifier: Mapped[str] = mapped_column(String, nullable=True)
     best_model_complexity: Mapped[float] = mapped_column(Float, nullable=True)
     best_model_likelihood: Mapped[float] = mapped_column(Float, nullable=True)
     best_model_mdl_cost: Mapped[float] = mapped_column(Float, nullable=True)
 
     # Trazabilidad y Timestamps
-    mlflow_run_id: Mapped[str] = mapped_column(String, nullable=True, index=True) # Opcional
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    mlflow_run_id: Mapped[str] = mapped_column(String, nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    # Podríamos añadir una relación a una tabla de "modelos candidatos evaluados" si quisiéramos
-    # guardar detalles de cada modelo en el espacio de búsqueda, pero por ahora lo mantenemos simple.
 
     def __repr__(self):
-        return f"<OptimizationRunDB(id={self.id}, status='{self.status}', best_model='{self.best_model_identifier}')>"
+        return (f"<OptimizationRunDB(id={self.id}, trajectory_id={self.trajectory_id}, step={self.step_index}, "
+                f"status='{self.status}', model='{self.best_model_identifier}')>")

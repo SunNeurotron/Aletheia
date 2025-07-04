@@ -2,123 +2,176 @@
 
 import uuid
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, FastAPI
+from fastapi import APIRouter, Depends, HTTPException, status, FastAPI, Path # Path para trajectory_id
 
-from ..application.use_cases import FindOptimalModelUseCase
-from ..domain.entities import OptimizationResult
-from .schemas import OptimizationRequest, OptimizationResultResponse
+from ..application.use_cases import ( # Importar todos los casos de uso
+    FindOptimalModelUseCase,
+    EvolveTrajectoryUseCase,
+    ClassifyTrajectoryUseCase
+)
+from ..domain.entities import OptimizationResult, Trajectory, TrajectoryAnalysis # Importar entidades de dominio
+from .schemas import ( # Importar todos los schemas necesarios
+    OptimizationRequest,
+    OptimizationResultResponse,
+    TrajectoryCreationRequest,
+    TrajectoryResponse,
+    EvolveTrajectoryRequest,
+    TrajectoryAnalysisResponse,
+    TrajectoryStepSchema # Importar TrajectoryStepSchema
+)
 
 from .dependencies import (
     get_find_optimal_model_use_case,
     get_omega_repository,
-    dev_get_current_user, # Nueva dependencia de autenticación simple
-    UserAuth # Importar UserAuth desde dependencies.py (donde está el placeholder o se importa de common)
+    dev_get_current_user,
+    UserAuth,
+    get_evolve_trajectory_use_case,    # Nuevas dependencias de caso de uso
+    get_classify_trajectory_use_case
 )
-from ..infrastructure.repository import OmegaRepository
+from ..infrastructure.repository import OmegaRepository # Para tipo de `repo`
+from ..infrastructure.models import TrajectoryDB # Para el tipo de retorno de repo.create_trajectory
 
 
 app = FastAPI(title="Aletheia-Omega Module", version="0.1.0")
-router = APIRouter(prefix="/omega", tags=["Omega Model Optimization"])
+# Router principal para /omega
+omega_router = APIRouter(prefix="/omega", tags=["Omega Module"])
+# Sub-router para trayectorias
+trajectories_router = APIRouter(prefix="/trajectories", tags=["Omega Trajectories"])
+
 logger = logging.getLogger(__name__)
 
-# Helper para pasar el conjunto de roles al decorador Depends
+# Helper de autenticación (sin cambios)
 def require_roles(roles_set: set):
     async def _role_checker_dependency(user: UserAuth = Depends(dev_get_current_user)) -> UserAuth:
-        # En la implementación real de producción, dev_get_current_user sería reemplazado
-        # por el verdadero manejador de JWT que ya valida el token y extrae roles.
-        # Aquí, el placeholder dev_get_current_user o el mock de prueba ya proveen los roles.
-        # Este chequeo es una segunda capa o una forma de especificar roles a nivel de endpoint.
-        # Para el mockeo actual, dev_get_current_user (cuando es mockeado) ya da un usuario con roles.
-        # Si no se mockea, dev_get_current_user da roles por defecto.
-
-        # logger.info(f"Role checker: User roles: {user.roles}, Required: {roles_set}")
-        # if not roles_set.issubset(set(user.roles)):
-        #     logger.warning(f"Usuario {user.username} no tiene los roles requeridos: {roles_set}. Roles actuales: {user.roles}")
-        #     raise HTTPException(
-        #         status_code=status.HTTP_403_FORBIDDEN,
-        #         detail="No tiene permisos suficientes."
-        #     )
-        # El chequeo de roles real se haría en la implementación de producción de dev_get_current_user
-        # o en un middleware de autenticación más global.
-        # Para esta prueba, el mock de dev_get_current_user es suficiente.
         return user
     return _role_checker_dependency
 
 
-@router.post("/optimize", response_model=OptimizationResultResponse, status_code=status.HTTP_200_OK)
-async def optimize_model_selection(
-    request: OptimizationRequest,
-    use_case: FindOptimalModelUseCase = Depends(get_find_optimal_model_use_case),
+# --- Endpoints para Trayectorias (Fase 2) ---
+
+@trajectories_router.post("", response_model=TrajectoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_trajectory(
+    request: TrajectoryCreationRequest,
     repo: OmegaRepository = Depends(get_omega_repository),
-    current_user: UserAuth = Depends(require_roles({"researcher"})), # Usando el helper
+    current_user: UserAuth = Depends(require_roles({"researcher"}))
 ):
-    run_id = uuid.uuid4()
     user_identifier = getattr(current_user, 'username', 'unknown_user')
-    logger.info(f"Iniciando optimización Omega (Run ID: {run_id}) por el usuario '{user_identifier}'. "
-                f"Lambda: {request.lambda_param}, Candidatos: {len(request.candidate_models)}")
-
+    logger.info(f"Usuario '{user_identifier}' creando nueva trayectoria con nombre: '{request.name}'.")
     try:
-        repo.create_run(
-            run_id=run_id,
-            search_space_size=len(request.candidate_models),
-            lambda_param=request.lambda_param,
-            request_params=request.optimization_parameters
+        trajectory_db: TrajectoryDB = repo.create_trajectory(name=request.name)
+        return TrajectoryResponse(
+            id=trajectory_db.id,
+            name=trajectory_db.name,
+            created_at=trajectory_db.created_at,
+            steps=[]
         )
-    except Exception as db_exc:
-        logger.exception(f"Error al crear el registro inicial para la optimización {run_id} en la BD.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al iniciar el registro de la optimización en la base de datos: {str(db_exc)}"
-        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"Error inesperado al crear trayectoria '{request.name}': {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor al crear trayectoria.")
 
+
+@trajectories_router.post("/{trajectory_id}/evolve", response_model=TrajectoryResponse)
+async def evolve_trajectory(
+    request: EvolveTrajectoryRequest,
+    trajectory_id: uuid.UUID = Path(..., description="ID de la trayectoria a evolucionar."),
+    evolve_uc: EvolveTrajectoryUseCase = Depends(get_evolve_trajectory_use_case),
+    repo: OmegaRepository = Depends(get_omega_repository), # Necesario para obtener created_at
+    current_user: UserAuth = Depends(require_roles({"researcher"}))
+):
+    user_identifier = getattr(current_user, 'username', 'unknown_user')
+    logger.info(f"Usuario '{user_identifier}' evolucionando trayectoria ID: {trajectory_id}.")
     try:
-        result: OptimizationResult = use_case.execute(
-            candidate_models=request.candidate_models,
-            data=request.data_context,
+        updated_trajectory_domain: Trajectory = evolve_uc.execute(
+            trajectory_id=trajectory_id,
+            new_data=request.data_context,
+            model_search_space=request.candidate_models,
             lambda_param=request.lambda_param,
             optimization_parameters=request.optimization_parameters
         )
-        try:
-            repo.update_run_with_result(run_id=run_id, result=result, status="COMPLETED")
-        except Exception as db_exc: # Error específico al guardar el resultado
-            logger.exception(f"Error al guardar el resultado de la optimización {run_id} en la BD. El cálculo fue exitoso.")
-            # Intentar actualizar el estado a CALC_DONE_SAVE_FAILED
-            try:
-                repo.update_run_status(run_id=run_id, status="CALC_DONE_SAVE_FAILED")
-            except Exception as inner_db_exc:
-                logger.exception(f"Además, error al actualizar estado a CALC_DONE_SAVE_FAILED para {run_id}: {inner_db_exc}")
-            # Relanzar la excepción original de guardado como HTTPException
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Cálculo completado pero error al guardar el resultado: {str(db_exc)}"
-            )
 
-        return OptimizationResultResponse(
-            run_id=run_id,
-            status="COMPLETED",
-            best_model=result.best_model,
-            best_model_metrics=result.best_model_metrics,
-            search_space_size=result.search_space_size,
-            lambda_param_used=result.parameters.get("lambda", request.lambda_param),
-            optimization_parameters_stored=result.parameters
+        # Obtener TrajectoryDB para el created_at, ya que el objeto de dominio no lo tiene
+        trajectory_db_for_date = repo.get_trajectory_db_by_id(updated_trajectory_domain.id)
+        if not trajectory_db_for_date:
+            logger.error(f"No se pudo encontrar TrajectoryDB {updated_trajectory_domain.id} después de la evolución para obtener created_at.")
+            # Esto es un estado inconsistente o un error grave si el caso de uso tuvo éxito.
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error al recuperar metadatos de la trayectoria post-evolución.")
+
+        return TrajectoryResponse(
+            id=updated_trajectory_domain.id,
+            name=updated_trajectory_domain.name,
+            created_at=trajectory_db_for_date.created_at, # Tomado de TrajectoryDB
+            steps=[TrajectoryStepSchema.model_validate(step) for step in updated_trajectory_domain.steps]
         )
+
     except ValueError as e:
-        logger.warning(f"Error de validación en la optimización {run_id}: {e}", exc_info=True)
-        repo.update_run_status(run_id=run_id, status="FAILED_VALIDATION")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except NotImplementedError as e:
-        logger.error(f"Error de feature no implementada en optimización {run_id}: {e}", exc_info=True)
-        repo.update_run_status(run_id=run_id, status="FAILED_NOT_IMPLEMENTED")
-        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail=str(e))
-    except HTTPException: # Si ya es una HTTPException (ej. del bloque db_exc), relanzarla directamente
-        raise
-    except Exception as e: # Captura cualquier otra excepción no manejada previamente
-        logger.exception(f"Error inesperado no manejado previamente en la optimización {run_id}: {str(e)}")
-        try:
-            repo.update_run_status(run_id=run_id, status="FAILED_UNEXPECTED")
-        except Exception as db_exc_on_fail:
-            logger.exception(f"Además, error al actualizar el estado a FAILED_UNEXPECTED para {run_id} tras error previo: {db_exc_on_fail}")
+        logger.warning(f"Error de valor al evolucionar trayectoria {trajectory_id}: {e}", exc_info=False)
+        status_code = status.HTTP_404_NOT_FOUND if "no existe" in str(e).lower() or "not found" in str(e).lower() else status.HTTP_400_BAD_REQUEST
+        raise HTTPException(status_code=status_code, detail=str(e))
+    except RuntimeError as e:
+        logger.error(f"Error de ejecución al evolucionar trayectoria {trajectory_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"Error inesperado al evolucionar trayectoria {trajectory_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
 
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno del servidor: {str(e)}")
 
-app.include_router(router)
+@trajectories_router.get("/{trajectory_id}/classification", response_model=TrajectoryAnalysisResponse)
+async def get_trajectory_classification(
+    trajectory_id: uuid.UUID = Path(..., description="ID de la trayectoria a clasificar."),
+    classify_uc: ClassifyTrajectoryUseCase = Depends(get_classify_trajectory_use_case),
+    current_user: UserAuth = Depends(require_roles({"researcher"}))
+):
+    user_identifier = getattr(current_user, 'username', 'unknown_user')
+    logger.info(f"Usuario '{user_identifier}' solicitando clasificación para trayectoria ID: {trajectory_id}.")
+    try:
+        analysis_domain: TrajectoryAnalysis = classify_uc.execute(trajectory_id)
+        return TrajectoryAnalysisResponse.model_validate(analysis_domain)
+    except ValueError as e:
+        logger.warning(f"Error de valor al clasificar trayectoria {trajectory_id}: {e}", exc_info=False)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"Error inesperado al clasificar trayectoria {trajectory_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
+
+
+@trajectories_router.get("/{trajectory_id}", response_model=TrajectoryResponse)
+async def get_trajectory_details(
+    trajectory_id: uuid.UUID = Path(..., description="ID de la trayectoria a recuperar."),
+    repo: OmegaRepository = Depends(get_omega_repository),
+    current_user: UserAuth = Depends(require_roles({"researcher"}))
+):
+    user_identifier = getattr(current_user, 'username', 'unknown_user')
+    logger.info(f"Usuario '{user_identifier}' solicitando detalles de trayectoria ID: {trajectory_id}.")
+    try:
+        trajectory_domain = repo.get_trajectory_with_steps(trajectory_id)
+        if not trajectory_domain:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Trayectoria con ID {trajectory_id} no encontrada.")
+
+        trajectory_db = repo.get_trajectory_db_by_id(trajectory_id)
+        if not trajectory_db:
+             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Datos de base de Trayectoria con ID {trajectory_id} no encontrados.")
+
+        return TrajectoryResponse(
+            id=trajectory_domain.id,
+            name=trajectory_domain.name,
+            created_at=trajectory_db.created_at,
+            steps=[TrajectoryStepSchema.model_validate(step) for step in trajectory_domain.steps]
+        )
+    except HTTPException as http_exc:
+        raise http_exc
+    except ValueError as e:
+        logger.warning(f"Error de valor al obtener detalles de trayectoria {trajectory_id}: {e}", exc_info=False)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.exception(f"Error inesperado al recuperar detalles de trayectoria {trajectory_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno del servidor.")
+
+
+omega_router.include_router(trajectories_router)
+app.include_router(omega_router)
