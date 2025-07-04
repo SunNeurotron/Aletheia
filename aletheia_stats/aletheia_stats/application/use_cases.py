@@ -1,20 +1,24 @@
-from typing import List, Dict, Any, Optional
-from uuid import UUID
 import logging
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 from ..domain.entities import Experiment, TTestResult
 from ..domain.services import StatsService
-from ..infrastructure.sqlalchemy_repository import StatsRepository # Assuming this path
-from ..infrastructure.mlflow_tracker import MLflowExperimentTracker # Assuming this path
+from ..infrastructure.mlflow_tracker import (  # Assuming this path
+    MLflowExperimentTracker,
+)
+from ..infrastructure.sqlalchemy_repository import StatsRepository  # Assuming this path
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
 
 class PerformTTestUseCase:
     """
     Use case for performing a t-test, logging it, and storing the results.
     Orchestrates domain services, repositories, and experiment trackers.
     """
+
     def __init__(
         self,
         stats_service: StatsService,
@@ -39,7 +43,9 @@ class PerformTTestUseCase:
         group_a_data: List[float],
         group_b_data: List[float],
         experiment_name: Optional[str] = "T-Test Experiment",
-        experiment_description: Optional[str] = "Independent two-sample t-test.",
+        experiment_description: Optional[
+            str
+        ] = "Independent two-sample t-test.",
         parameters: Optional[Dict[str, Any]] = None,
         alpha: float = 0.05,
     ) -> Experiment:
@@ -61,7 +67,9 @@ class PerformTTestUseCase:
         Raises:
             ValueError: If input data is invalid for the statistical tests.
         """
-        logger.info(f"Executing t-test use case for experiment ID: {experiment_id}")
+        logger.info(
+            f"Executing t-test use case for experiment ID: {experiment_id}"
+        )
 
         current_parameters = {"alpha": alpha}
         if parameters:
@@ -85,14 +93,21 @@ class PerformTTestUseCase:
             if self.mlflow_tracker:
                 try:
                     mlflow_run_id = self.mlflow_tracker.start_run(
-                        experiment.name or "Default T-Test Experiments", # Use experiment.name
-                        run_name=f"Run_{experiment.id}" # Use experiment.id
+                        experiment.name
+                        or "Default T-Test Experiments",  # Use experiment.name
+                        run_name=f"Run_{experiment.id}",  # Use experiment.id
                     )
-                    experiment.mlflow_run_id = mlflow_run_id # Store it in the entity
+                    experiment.mlflow_run_id = (
+                        mlflow_run_id  # Store it in the entity
+                    )
 
                     self.mlflow_tracker.log_params(experiment.parameters or {})
-                    self.mlflow_tracker.log_param("group_a_size", len(experiment.group_a_data))
-                    self.mlflow_tracker.log_param("group_b_size", len(experiment.group_b_data))
+                    self.mlflow_tracker.log_param(
+                        "group_a_size", len(experiment.group_a_data)
+                    )
+                    self.mlflow_tracker.log_param(
+                        "group_b_size", len(experiment.group_b_data)
+                    )
 
                 except Exception as e_mlflow_start:
                     err_msg = f"MLflow Error: Failed to start run or log initial parameters: {e_mlflow_start}"
@@ -101,14 +116,20 @@ class PerformTTestUseCase:
                     # mlflow_run_id will remain None or its previous value if start_run failed partially
 
             # Perform statistical analysis
-            logger.debug(f"Performing t-test analysis for experiment: {experiment.id}")
-            ttest_result: TTestResult = self.stats_service.perform_t_test_analysis(
-                group_a=group_a_data,
-                group_b=group_b_data,
-                alpha=alpha
+            logger.debug(
+                f"Performing t-test analysis for experiment: {experiment.id}"
             )
-            logger.info(f"T-test analysis completed for experiment: {experiment.id}, p-value: {ttest_result.p_value:.4f}")
-            experiment.result = ttest_result # Assign result to the existing experiment entity
+            ttest_result: TTestResult = (
+                self.stats_service.perform_t_test_analysis(
+                    group_a=group_a_data, group_b=group_b_data, alpha=alpha
+                )
+            )
+            logger.info(
+                f"T-test analysis completed for experiment: {experiment.id}, p-value: {ttest_result.p_value:.4f}"
+            )
+            experiment.result = (
+                ttest_result  # Assign result to the existing experiment entity
+            )
 
             # Log results to MLflow if tracker and a valid run_id (experiment.mlflow_run_id) exist
             if self.mlflow_tracker and experiment.mlflow_run_id:
@@ -117,19 +138,31 @@ class PerformTTestUseCase:
                     for key, value in ttest_result.__dict__.items():
                         if isinstance(value, (int, float, bool)):
                             self.mlflow_tracker.log_metric(key, float(value))
-                        elif key == "confidence_interval_95" and isinstance(value, tuple) and len(value) == 2:
-                            self.mlflow_tracker.log_metric("ci_95_lower", value[0])
-                            self.mlflow_tracker.log_metric("ci_95_upper", value[1])
+                        elif (
+                            key == "confidence_interval_95"
+                            and isinstance(value, tuple)
+                            and len(value) == 2
+                        ):
+                            self.mlflow_tracker.log_metric(
+                                "ci_95_lower", value[0]
+                            )
+                            self.mlflow_tracker.log_metric(
+                                "ci_95_upper", value[1]
+                            )
 
                     self.mlflow_tracker.set_tag("status", "SUCCESS")
                     if ttest_result.comment:
-                         self.mlflow_tracker.set_tag("analysis_comment", ttest_result.comment[:250]) # MLflow tag limit
+                        self.mlflow_tracker.set_tag(
+                            "analysis_comment", ttest_result.comment[:250]
+                        )  # MLflow tag limit
                 except Exception as e_mlflow_log:
                     err_msg = f"MLflow Error: Failed to log metrics/tags for run {experiment.mlflow_run_id}: {e_mlflow_log}"
                     logger.error(err_msg)
                     experiment.add_tracking_warning(err_msg)
             elif self.mlflow_tracker and not experiment.mlflow_run_id:
-                experiment.add_tracking_warning("MLflow Warning: Skipping logging of results as MLflow run was not successfully started.")
+                experiment.add_tracking_warning(
+                    "MLflow Warning: Skipping logging of results as MLflow run was not successfully started."
+                )
 
             # Persist experiment data
             logger.debug(f"Saving experiment to repository: {experiment.id}")
@@ -149,51 +182,90 @@ class PerformTTestUseCase:
                 try:
                     # Log all scalar attributes of ttest_result
                     for key, value in ttest_result.__dict__.items():
-                        if isinstance(value, (int, float, bool)): # Check if value is directly loggable as metric
+                        if isinstance(
+                            value, (int, float, bool)
+                        ):  # Check if value is directly loggable as metric
                             self.mlflow_tracker.log_metric(key, float(value))
-                        elif key == "confidence_interval_95" and isinstance(value, tuple) and len(value) == 2:
-                            self.mlflow_tracker.log_metric("ci_95_lower", value[0])
-                            self.mlflow_tracker.log_metric("ci_95_upper", value[1])
+                        elif (
+                            key == "confidence_interval_95"
+                            and isinstance(value, tuple)
+                            and len(value) == 2
+                        ):
+                            self.mlflow_tracker.log_metric(
+                                "ci_95_lower", value[0]
+                            )
+                            self.mlflow_tracker.log_metric(
+                                "ci_95_upper", value[1]
+                            )
                         # Consider logging other types as tags or params if appropriate
 
                     self.mlflow_tracker.set_tag("status", "SUCCESS")
                     if ttest_result.comment:
-                         self.mlflow_tracker.set_tag("analysis_comment", ttest_result.comment[:250]) # MLflow tag limit
+                        self.mlflow_tracker.set_tag(
+                            "analysis_comment", ttest_result.comment[:250]
+                        )  # MLflow tag limit
                 except Exception as e_mlflow_log:
                     err_msg = f"MLflow Error: Failed to log metrics/tags for run {experiment.mlflow_run_id}: {e_mlflow_log}"
                     logger.error(err_msg)
-                    experiment.add_tracking_warning(err_msg) # Add warning to the experiment object
-            elif self.mlflow_tracker and not experiment.mlflow_run_id: # MLflow tracker exists, but run failed to start
-                experiment.add_tracking_warning("MLflow Warning: Skipping logging of results as MLflow run was not successfully started.")
+                    experiment.add_tracking_warning(
+                        err_msg
+                    )  # Add warning to the experiment object
+            elif (
+                self.mlflow_tracker and not experiment.mlflow_run_id
+            ):  # MLflow tracker exists, but run failed to start
+                experiment.add_tracking_warning(
+                    "MLflow Warning: Skipping logging of results as MLflow run was not successfully started."
+                )
 
             # Persist experiment data
             logger.debug(f"Saving experiment to repository: {experiment.id}")
-            self.stats_repository.save(experiment) # Save includes tracking_warnings now
+            self.stats_repository.save(
+                experiment
+            )  # Save includes tracking_warnings now
             logger.info(f"Experiment {experiment.id} saved successfully.")
 
             return experiment
 
         except ValueError as ve:
-            logger.error(f"ValueError during t-test execution for {experiment.id}: {ve}")
-            if self.mlflow_tracker and experiment.mlflow_run_id: # Use experiment.mlflow_run_id
+            logger.error(
+                f"ValueError during t-test execution for {experiment.id}: {ve}"
+            )
+            if (
+                self.mlflow_tracker and experiment.mlflow_run_id
+            ):  # Use experiment.mlflow_run_id
                 self.mlflow_tracker.set_tag("status", "FAILED_VALIDATION")
                 self.mlflow_tracker.set_tag("error_type", "ValueError")
                 self.mlflow_tracker.set_tag("error_message", str(ve)[:250])
             experiment.add_tracking_warning(f"Analysis ValueError: {ve}")
-            self.stats_repository.save(experiment) # Save experiment even if analysis failed, with warnings
+            self.stats_repository.save(
+                experiment
+            )  # Save experiment even if analysis failed, with warnings
             raise
         except Exception as e:
-            logger.error(f"Unexpected error during t-test execution for {experiment.id}: {e}", exc_info=True)
-            if self.mlflow_tracker and experiment.mlflow_run_id: # Use experiment.mlflow_run_id
-                self.mlflow_tracker.set_tag("status", "CRITICAL_FAILURE_ANALYSIS")
+            logger.error(
+                f"Unexpected error during t-test execution for {experiment.id}: {e}",
+                exc_info=True,
+            )
+            if (
+                self.mlflow_tracker and experiment.mlflow_run_id
+            ):  # Use experiment.mlflow_run_id
+                self.mlflow_tracker.set_tag(
+                    "status", "CRITICAL_FAILURE_ANALYSIS"
+                )
                 self.mlflow_tracker.set_tag("error_type", e.__class__.__name__)
                 self.mlflow_tracker.set_tag("error_message", str(e)[:250])
-            experiment.add_tracking_warning(f"Unexpected Analysis Error: {e.__class__.__name__} - {e}")
-            self.stats_repository.save(experiment) # Save experiment even if analysis failed, with warnings
+            experiment.add_tracking_warning(
+                f"Unexpected Analysis Error: {e.__class__.__name__} - {e}"
+            )
+            self.stats_repository.save(
+                experiment
+            )  # Save experiment even if analysis failed, with warnings
             raise
         finally:
             # End MLflow run if tracker and a run was actually started
-            if self.mlflow_tracker and experiment.mlflow_run_id: # Check experiment.mlflow_run_id
+            if (
+                self.mlflow_tracker and experiment.mlflow_run_id
+            ):  # Check experiment.mlflow_run_id
                 try:
                     self.mlflow_tracker.end_run()
                 except Exception as e_mlflow_end:

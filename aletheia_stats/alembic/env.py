@@ -1,10 +1,8 @@
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -27,14 +25,20 @@ if config.config_file_name is not None:
 # This should point to the Base object from your infrastructure.database
 # and ensure models in infrastructure.models are imported so Base.metadata is populated.
 import sys
-module_root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+
+module_root_path = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")
+)
 if module_root_path not in sys.path:
     sys.path.insert(0, module_root_path)
+
+from aletheia_stats.aletheia_stats.infrastructure import (  # Ensures models are registered with StatsAppBase.metadata
+    models,
+)
 
 # Import Base from aletheia_stats.infrastructure.database
 # and also import the models from aletheia_stats.infrastructure.models to ensure they are registered
 from aletheia_stats.aletheia_stats.infrastructure.database import Base as StatsAppBase
-from aletheia_stats.aletheia_stats.infrastructure import models # Ensures models are registered with StatsAppBase.metadata
 
 target_metadata = StatsAppBase.metadata
 
@@ -43,9 +47,13 @@ target_metadata = StatsAppBase.metadata
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
 
+
 def get_database_url():
     # Use the same environment variable as the application for consistency
-    from aletheia_stats.aletheia_stats.infrastructure.database import SQLALCHEMY_DATABASE_URL as STATS_APP_DB_URL
+    from aletheia_stats.aletheia_stats.infrastructure.database import (
+        SQLALCHEMY_DATABASE_URL as STATS_APP_DB_URL,
+    )
+
     # Alembic's config.get_main_option("sqlalchemy.url") can serve as a fallback if needed,
     # but direct use of the app's configured URL (from env var) is preferred.
     # For simplicity, directly use what the app uses.
@@ -53,7 +61,9 @@ def get_database_url():
     # The infrastructure/database.py uses:
     # SQLALCHEMY_DATABASE_URL = os.getenv("STATS_DATABASE_URL", "postgresql://user:pass@localhost:5433/aletheia_stats_db_main_py")
     # So we can reference that environment variable name directly here too.
-    return os.getenv("STATS_DATABASE_URL", config.get_main_option("sqlalchemy.url"))
+    return os.getenv(
+        "STATS_DATABASE_URL", config.get_main_option("sqlalchemy.url")
+    )
 
 
 def run_migrations_offline() -> None:
@@ -89,11 +99,11 @@ def run_migrations_online() -> None:
     """
     configuration = config.get_section(config.config_ini_section)
     if configuration is None:
-        configuration = {} # Ensure configuration is a dictionary
+        configuration = {}  # Ensure configuration is a dictionary
     configuration["sqlalchemy.url"] = get_database_url()
 
     connectable = engine_from_config(
-        configuration, # Use the modified configuration
+        configuration,  # Use the modified configuration
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

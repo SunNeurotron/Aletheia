@@ -1,5 +1,6 @@
 # import os
 # import logging
+# from typing import Optional # Added for when code is uncommented
 # # from alembic.config import Config
 # # from alembic import command
 

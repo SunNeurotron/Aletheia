@@ -1,8 +1,9 @@
-import os
 import logging
-from sqlalchemy import create_engine
-from alembic.config import Config
+import os
+
 from alembic import command
+from alembic.config import Config
+from sqlalchemy import create_engine
 
 # Import Base from the repository where your models are defined
 # Adjust this import path according to your project structure.
@@ -24,15 +25,21 @@ def apply_migrations():
     """Applies Alembic migrations to upgrade the database to the latest version."""
     db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        logger.error("DATABASE_URL environment variable not set. Cannot apply migrations.")
+        logger.error(
+            "DATABASE_URL environment variable not set. Cannot apply migrations."
+        )
         raise ValueError("DATABASE_URL not set.")
 
-    logger.info(f"DATABASE_URL found: {db_url.split('@')[-1] if '@' in db_url else db_url}")
+    logger.info(
+        f"DATABASE_URL found: {db_url.split('@')[-1] if '@' in db_url else db_url}"
+    )
     logger.info(f"Using Alembic config file: {ALEMBIC_INI_PATH}")
 
     if not os.path.exists(ALEMBIC_INI_PATH):
         logger.error(f"Alembic config file not found at {ALEMBIC_INI_PATH}")
-        raise FileNotFoundError(f"Alembic config file not found: {ALEMBIC_INI_PATH}")
+        raise FileNotFoundError(
+            f"Alembic config file not found: {ALEMBIC_INI_PATH}"
+        )
 
     alembic_cfg = Config(ALEMBIC_INI_PATH)
 
@@ -49,6 +56,7 @@ def apply_migrations():
         logger.error(f"Error applying Alembic migrations: {e}", exc_info=True)
         raise
 
+
 def create_tables_direct(db_url: Optional[str] = None):
     """
     Creates all tables directly using SQLAlchemy Base.metadata.create_all().
@@ -59,10 +67,14 @@ def create_tables_direct(db_url: Optional[str] = None):
     if not db_url:
         db_url = os.getenv("DATABASE_URL")
     if not db_url:
-        logger.error("DATABASE_URL environment variable not set. Cannot create tables.")
+        logger.error(
+            "DATABASE_URL environment variable not set. Cannot create tables."
+        )
         raise ValueError("DATABASE_URL not set for create_tables_direct.")
 
-    logger.info(f"Directly creating tables for database: {db_url.split('@')[-1] if '@' in db_url else db_url}")
+    logger.info(
+        f"Directly creating tables for database: {db_url.split('@')[-1] if '@' in db_url else db_url}"
+    )
     try:
         engine = create_engine(db_url)
         Base.metadata.create_all(engine)
@@ -71,12 +83,15 @@ def create_tables_direct(db_url: Optional[str] = None):
         logger.error(f"Error creating tables directly: {e}", exc_info=True)
         raise
 
+
 if __name__ == "__main__":
     # Default action is to apply migrations.
     # You could add command-line arguments to choose action, e.g.,
     # `python init_db.py migrate` or `python init_db.py create_direct`
 
-    ACTION = os.getenv("DB_INIT_ACTION", "migrate").lower() # Default to migrate
+    ACTION = os.getenv(
+        "DB_INIT_ACTION", "migrate"
+    ).lower()  # Default to migrate
 
     logger.info(f"Database initialization script started. Action: {ACTION}")
 
@@ -84,10 +99,14 @@ if __name__ == "__main__":
         if ACTION == "migrate":
             apply_migrations()
         elif ACTION == "create_direct":
-            logger.warning("Executing direct table creation. This bypasses Alembic migrations.")
+            logger.warning(
+                "Executing direct table creation. This bypasses Alembic migrations."
+            )
             create_tables_direct()
         else:
-            logger.error(f"Unknown DB_INIT_ACTION: {ACTION}. Supported actions: 'migrate', 'create_direct'.")
+            logger.error(
+                f"Unknown DB_INIT_ACTION: {ACTION}. Supported actions: 'migrate', 'create_direct'."
+            )
             exit(1)
 
         logger.info("Database initialization process completed.")

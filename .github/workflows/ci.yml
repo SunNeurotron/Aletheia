@@ -206,4 +206,3 @@ jobs:
           echo "Final cleanup..."
           docker system prune -f --volumes 2>/dev/null || true
           echo "✅ Cleanup completed"
-```
