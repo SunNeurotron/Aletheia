@@ -1,7 +1,8 @@
-import requests # To make HTTP requests
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import requests  # To make HTTP requests
 
 # --- Configuration ---
 # Base URL for the Aletheia-Stats API.
@@ -11,15 +12,19 @@ API_BASE_URL = os.getenv("DEMO_API_BASE_URL", "http://localhost:8000/api/v1")
 
 # Credentials for mock authentication (should match what's in presentation/api.py MOCK_USERS_DB)
 USERNAME = os.getenv("DEMO_USERNAME", "testuser")
-PASSWORD = os.getenv("DEMO_PASSWORD", "testpassword") # Ensure this matches the mock password
+PASSWORD = os.getenv(
+    "DEMO_PASSWORD", "testpassword"
+)  # Ensure this matches the mock password
 
 # Global session for requests, can store the token
 session = requests.Session()
+
 
 # --- Helper Functions ---
 def print_json(data: Any, indent: int = 2) -> None:
     """Prints JSON data in a readable format."""
     print(json.dumps(data, indent=indent, ensure_ascii=False))
+
 
 def get_auth_token() -> Optional[str]:
     """Authenticates with the API and retrieves a JWT token."""
@@ -28,13 +33,13 @@ def get_auth_token() -> Optional[str]:
         "username": USERNAME,
         "password": PASSWORD,
     }
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    print(f"Attempting to get auth token from: {token_url} for user: {USERNAME}")
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
+    print(
+        f"Attempting to get auth token from: {token_url} for user: {USERNAME}"
+    )
     try:
         response = requests.post(token_url, data=payload, headers=headers)
-        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
         token_data = response.json()
         access_token = token_data.get("access_token")
         if access_token:
@@ -42,7 +47,9 @@ def get_auth_token() -> Optional[str]:
             session.headers.update({"Authorization": f"Bearer {access_token}"})
             return access_token
         else:
-            print("Authentication failed: 'access_token' not found in response.")
+            print(
+                "Authentication failed: 'access_token' not found in response."
+            )
             print("Response content:")
             print_json(response.json())
             return None
@@ -62,7 +69,10 @@ def get_auth_token() -> Optional[str]:
         print(f"An unexpected error occurred during authentication: {e}")
         return None
 
-def perform_ttest_analysis(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+
+def perform_ttest_analysis(
+    payload: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
     """
     Sends a request to the /analyze/ttest endpoint.
     Assumes token is already in session.headers.
@@ -95,6 +105,7 @@ def perform_ttest_analysis(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         print(f"An unexpected error occurred during t-test analysis: {e}")
         return None
 
+
 def get_experiment_details(experiment_id: str) -> Optional[Dict[str, Any]]:
     """Retrieves details for a specific experiment."""
     exp_url = f"{API_BASE_URL}/experiments/{experiment_id}"
@@ -110,8 +121,11 @@ def get_experiment_details(experiment_id: str) -> Optional[Dict[str, Any]]:
         print(f"HTTP error retrieving experiment {experiment_id}: {http_err}")
         return None
     except requests.exceptions.RequestException as req_err:
-        print(f"Request error retrieving experiment {experiment_id}: {req_err}")
+        print(
+            f"Request error retrieving experiment {experiment_id}: {req_err}"
+        )
         return None
+
 
 # --- Main Demo Logic ---
 def run_demo():
@@ -131,7 +145,10 @@ def run_demo():
         "experiment_name": "Demo T-Test (Significant)",
         "experiment_description": "A t-test performed by the demo script, expecting significance.",
         "alpha": 0.05,
-        "additional_parameters": {"source": "demo_script_v1.0", "dataset": "synthetic_set_A"}
+        "additional_parameters": {
+            "source": "demo_script_v1.0",
+            "dataset": "synthetic_set_A",
+        },
     }
     analysis_result_1 = perform_ttest_analysis(ttest_payload_1)
 
@@ -147,15 +164,25 @@ def run_demo():
         "group_a": [10, 11, 12, 10.5, 11.5, 10.8, 11.2],
         "group_b": [10.2, 11.1, 11.8, 10.7, 11.3, 10.9, 11.5],
         "experiment_name": "Demo T-Test (Non-Significant)",
-        "alpha": 0.01, # Using a stricter alpha
-        "additional_parameters": {"source": "demo_script_v1.0", "dataset": "synthetic_set_B"}
+        "alpha": 0.01,  # Using a stricter alpha
+        "additional_parameters": {
+            "source": "demo_script_v1.0",
+            "dataset": "synthetic_set_B",
+        },
     }
     analysis_result_2 = perform_ttest_analysis(ttest_payload_2)
-    if analysis_result_2 and analysis_result_2.get("result", {}).get("is_significant_05") is False:
-        print("\nAs expected (with alpha=0.05 default for flag), this test was likely not significant at 0.05.")
+    if (
+        analysis_result_2
+        and analysis_result_2.get("result", {}).get("is_significant_05")
+        is False
+    ):
+        print(
+            "\nAs expected (with alpha=0.05 default for flag), this test was likely not significant at 0.05."
+        )
     elif analysis_result_2:
-        print("\nNote: The significance flag 'is_significant_05' is based on alpha=0.05 hardcoded in TTestResult, not the input alpha for the test itself.")
-
+        print(
+            "\nNote: The significance flag 'is_significant_05' is based on alpha=0.05 hardcoded in TTestResult, not the input alpha for the test itself."
+        )
 
     # 4. Retrieve details of the first experiment (if created)
     if experiment_id_1:
@@ -163,21 +190,28 @@ def run_demo():
 
     # 5. Example of a request that might fail validation (e.g., insufficient data)
     ttest_payload_fail = {
-        "group_a": [1.0, 2.0], # Too few samples
+        "group_a": [1.0, 2.0],  # Too few samples
         "group_b": [3.0, 4.0, 5.0],
-        "experiment_name": "Demo T-Test (Validation Fail)"
+        "experiment_name": "Demo T-Test (Validation Fail)",
     }
-    print("\n--- Attempting a request expected to fail server-side validation ---")
+    print(
+        "\n--- Attempting a request expected to fail server-side validation ---"
+    )
     perform_ttest_analysis(ttest_payload_fail)
 
-
     print("\n--- Demo Script Finished ---")
-    print(f"To see detailed API docs, visit: {API_BASE_URL.replace('/api/v1', '')}/api/docs")
+    print(
+        f"To see detailed API docs, visit: {API_BASE_URL.replace('/api/v1', '')}/api/docs"
+    )
     if os.getenv("MLFLOW_TRACKING_URI"):
-        print(f"To see MLflow runs, visit your MLflow UI (e.g., {os.getenv('MLFLOW_TRACKING_URI')})")
-    else: # Try to guess from docker-compose default
+        print(
+            f"To see MLflow runs, visit your MLflow UI (e.g., {os.getenv('MLFLOW_TRACKING_URI')})"
+        )
+    else:  # Try to guess from docker-compose default
         mlflow_host_port = os.getenv("MLFLOW_PORT_HOST", "5001")
-        print(f"To see MLflow runs, visit your MLflow UI (e.g., http://localhost:{mlflow_host_port})")
+        print(
+            f"To see MLflow runs, visit your MLflow UI (e.g., http://localhost:{mlflow_host_port})"
+        )
 
 
 if __name__ == "__main__":
@@ -197,10 +231,16 @@ if __name__ == "__main__":
             run_demo()
         else:
             print(f"API health check reported an issue: {response.text}")
-            print("Please ensure the Aletheia-Stats API is running (e.g., via docker-compose up).")
+            print(
+                "Please ensure the Aletheia-Stats API is running (e.g., via docker-compose up)."
+            )
     except requests.exceptions.ConnectionError:
-        print(f"ConnectionError: Could not connect to the API at {API_BASE_URL}.")
-        print("Please ensure the Aletheia-Stats API is running (e.g., via `cd aletheia_stats && docker-compose up --build`).")
+        print(
+            f"ConnectionError: Could not connect to the API at {API_BASE_URL}."
+        )
+        print(
+            "Please ensure the Aletheia-Stats API is running (e.g., via `cd aletheia_stats && docker-compose up --build`)."
+        )
     except requests.exceptions.RequestException as e:
         print(f"An error occurred trying to reach the API: {e}")
         print("Please ensure the Aletheia-Stats API is running.")

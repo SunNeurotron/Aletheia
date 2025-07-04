@@ -196,4 +196,3 @@ services:
       db:
         condition: service_healthy # Explicit dependency
     restart: 'no' # This job should run once and exit
-```

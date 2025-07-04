@@ -1,4 +1,4 @@
-Autor: Alant 
+Autor: Alant
 # Aletheia v3.0: AI-Guided Scientific Discovery Platform (MDU Edition)
 
 Aletheia is an end-to-end scientific discovery platform, meticulously engineered for investigating the ABC Conjecture. This version (v3.0) epitomizes the **Unified Development Framework (MDU)**, seamlessly integrating production-grade software engineering principles with the exacting rigor of scientific research.

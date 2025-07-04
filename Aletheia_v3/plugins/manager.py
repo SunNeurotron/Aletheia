@@ -1,9 +1,10 @@
 # Aletheia_v3/plugins/manager.py
 
-import os
 import importlib
 import inspect
-from typing import Dict, Type, List, Optional
+import os
+from typing import Any, Dict, List, Optional, Type
+
 from .plugin_interfaces import AletheiaPluginBase
 
 # Global registry for loaded plugin classes (not instances)
@@ -17,6 +18,7 @@ _ACTIVE_PLUGIN_INSTANCES: Dict[str, AletheiaPluginBase] = {}
 # For simplicity, let's assume a subdirectory `available` within `plugins` for discoverable plugins.
 DEFAULT_PLUGIN_DIRS = [os.path.join(os.path.dirname(__file__), "available")]
 
+
 def discover_plugins(plugin_dirs: Optional[List[str]] = None) -> None:
     """
     Discovers and loads plugin classes from specified directories.
@@ -25,11 +27,13 @@ def discover_plugins(plugin_dirs: Optional[List[str]] = None) -> None:
     if plugin_dirs is None:
         plugin_dirs = DEFAULT_PLUGIN_DIRS
 
-    _PLUGIN_CLASS_REGISTRY.clear() # Clear previous discoveries if re-discovering
+    _PLUGIN_CLASS_REGISTRY.clear()  # Clear previous discoveries if re-discovering
 
     for plugin_dir in plugin_dirs:
         if not os.path.isdir(plugin_dir):
-            print(f"Plugin directory not found or not a directory: {plugin_dir}")
+            print(
+                f"Plugin directory not found or not a directory: {plugin_dir}"
+            )
             continue
 
         print(f"Scanning for plugins in: {plugin_dir}")
@@ -61,19 +65,24 @@ def discover_plugins(plugin_dirs: Optional[List[str]] = None) -> None:
                     # Example: module_import_path = "Aletheia_v3.plugins.available.my_plugin_module"
                     # This structure assumes plugins/available/ is a package.
                     # If plugin_dir is plugins/available, then the package is .available
-                    relative_module_path = f".available.{module_name}" # Relative to 'plugins' package
-                    module = importlib.import_module(relative_module_path, package="Aletheia_v3.plugins")
+                    relative_module_path = f".available.{module_name}"  # Relative to 'plugins' package
+                    module = importlib.import_module(
+                        relative_module_path, package="Aletheia_v3.plugins"
+                    )
                 except ImportError as e:
-                    print(f"Error importing plugin module {module_name} from {plugin_dir}: {e}")
+                    print(
+                        f"Error importing plugin module {module_name} from {plugin_dir}: {e}"
+                    )
                     continue
 
                 for item_name in dir(module):
                     item = getattr(module, item_name)
-                    if inspect.isclass(item) and \
-                       issubclass(item, AletheiaPluginBase) and \
-                       item is not AletheiaPluginBase and \
-                       not inspect.isabstract(item): # Do not load abstract classes or the base itself
-
+                    if (
+                        inspect.isclass(item)
+                        and issubclass(item, AletheiaPluginBase)
+                        and item is not AletheiaPluginBase
+                        and not inspect.isabstract(item)
+                    ):  # Do not load abstract classes or the base itself
                         try:
                             # Instantiate to get name and version for registry key
                             # This assumes plugins can be instantiated without args for this check
@@ -91,20 +100,31 @@ def discover_plugins(plugin_dirs: Optional[List[str]] = None) -> None:
                             plugin_id = f"{module_name}.{item.__name__}"
 
                             if plugin_id in _PLUGIN_CLASS_REGISTRY:
-                                print(f"Warning: Plugin class '{plugin_id}' already registered. Overwriting.")
+                                print(
+                                    f"Warning: Plugin class '{plugin_id}' already registered. Overwriting."
+                                )
                             _PLUGIN_CLASS_REGISTRY[plugin_id] = item
-                            print(f"Discovered plugin class: '{plugin_id}' from {filename}")
+                            print(
+                                f"Discovered plugin class: '{plugin_id}' from {filename}"
+                            )
                         except Exception as e:
-                            print(f"Error processing class {item_name} in {filename}: {e}")
+                            print(
+                                f"Error processing class {item_name} in {filename}: {e}"
+                            )
 
-    print(f"Plugin discovery complete. Found {len(_PLUGIN_CLASS_REGISTRY)} plugin classes.")
+    print(
+        f"Plugin discovery complete. Found {len(_PLUGIN_CLASS_REGISTRY)} plugin classes."
+    )
 
 
 def get_plugin_class(plugin_id: str) -> Optional[Type[AletheiaPluginBase]]:
     """Retrieves a loaded plugin class by its ID."""
     return _PLUGIN_CLASS_REGISTRY.get(plugin_id)
 
-def get_active_plugin_instance(plugin_id: str, config: Dict[str, Any] = None, force_reload: bool = False) -> Optional[AletheiaPluginBase]:
+
+def get_active_plugin_instance(
+    plugin_id: str, config: Dict[str, Any] = None, force_reload: bool = False
+) -> Optional[AletheiaPluginBase]:
     """
     Retrieves an active instance of a plugin.
     If not already instantiated, it creates an instance.
@@ -116,30 +136,39 @@ def get_active_plugin_instance(plugin_id: str, config: Dict[str, Any] = None, fo
     PluginClass = get_plugin_class(plugin_id)
     if PluginClass:
         try:
-            instance = PluginClass() # Assumes constructor takes no args or uses defaults
-            instance.initialize(config) # Call initialize method
+            instance = (
+                PluginClass()
+            )  # Assumes constructor takes no args or uses defaults
+            instance.initialize(config)  # Call initialize method
             _ACTIVE_PLUGIN_INSTANCES[plugin_id] = instance
             print(f"Activated plugin instance: {plugin_id}")
             return instance
         except Exception as e:
-            print(f"Error instantiating or initializing plugin {plugin_id}: {e}")
+            print(
+                f"Error instantiating or initializing plugin {plugin_id}: {e}"
+            )
             return None
     else:
         print(f"Plugin class with ID '{plugin_id}' not found in registry.")
         return None
 
+
 def list_available_plugin_classes() -> List[str]:
     """Lists the IDs of all discovered plugin classes."""
     return list(_PLUGIN_CLASS_REGISTRY.keys())
+
 
 def list_active_plugin_instances() -> List[str]:
     """Lists the IDs of all currently active plugin instances."""
     return list(_ACTIVE_PLUGIN_INSTANCES.keys())
 
+
 def shutdown_all_plugins():
     """Calls terminate() on all active plugin instances and clears them."""
     print("Shutting down all active plugins...")
-    for plugin_id, instance in list(_ACTIVE_PLUGIN_INSTANCES.items()): # Iterate over a copy
+    for plugin_id, instance in list(
+        _ACTIVE_PLUGIN_INSTANCES.items()
+    ):  # Iterate over a copy
         try:
             instance.terminate()
         except Exception as e:
@@ -155,7 +184,7 @@ def shutdown_all_plugins():
 # The above line would run discovery when manager.py is imported.
 # It's often better to call discover_plugins() explicitly at application startup.
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage (requires dummy plugins in plugins/available/)
 
     # Create dummy structure for testing:
@@ -175,15 +204,19 @@ if __name__ == '__main__':
         os.makedirs(example_plugin_dir)
         with open(os.path.join(example_plugin_dir, "__init__.py"), "w") as f:
             f.write("# Makes 'available' a package\n")
-        with open(os.path.join(example_plugin_dir, "dummy_eval_plugin.py"), "w") as f:
-            f.write("from Aletheia_v3.plugins.plugin_interfaces import QualityEvaluatorPlugin\n\n"
-                    "class DummyEvaluator(QualityEvaluatorPlugin):\n"
-                    "    @property\n"
-                    "    def name(self):\n        return 'DummyQualityEval'\n"
-                    "    @property\n"
-                    "    def version(self):\n        return '1.0'\n"
-                    "    def evaluate_quality(self, a: int, b: int) -> float:\n"
-                    "        return 0.05 * (a + b - 10) # Arbitrary logic\n")
+        with open(
+            os.path.join(example_plugin_dir, "dummy_eval_plugin.py"), "w"
+        ) as f:
+            f.write(
+                "from Aletheia_v3.plugins.plugin_interfaces import QualityEvaluatorPlugin\n\n"
+                "class DummyEvaluator(QualityEvaluatorPlugin):\n"
+                "    @property\n"
+                "    def name(self):\n        return 'DummyQualityEval'\n"
+                "    @property\n"
+                "    def version(self):\n        return '1.0'\n"
+                "    def evaluate_quality(self, a: int, b: int) -> float:\n"
+                "        return 0.05 * (a + b - 10) # Arbitrary logic\n"
+            )
 
     print("Running plugin manager example...")
     discover_plugins()
@@ -192,15 +225,23 @@ if __name__ == '__main__':
     if list_available_plugin_classes():
         plugin_id_to_test = list_available_plugin_classes()[0]
         print(f"\nActivating plugin: {plugin_id_to_test}")
-        instance = get_active_plugin_instance(plugin_id_to_test, config={"setting": "value"})
+        instance = get_active_plugin_instance(
+            plugin_id_to_test, config={"setting": "value"}
+        )
         if instance:
             print(f"Instance type: {type(instance)}")
-            if hasattr(instance, "evaluate_quality"): # Check if it's a QualityEvaluatorPlugin
-                print(f"Dummy quality for (20,30) from plugin: {instance.evaluate_quality(20,30)}")
+            if hasattr(
+                instance, "evaluate_quality"
+            ):  # Check if it's a QualityEvaluatorPlugin
+                print(
+                    f"Dummy quality for (20,30) from plugin: {instance.evaluate_quality(20,30)}"
+                )
 
         print(f"Active plugin instances: {list_active_plugin_instances()}")
         shutdown_all_plugins()
-        print(f"Active plugin instances after shutdown: {list_active_plugin_instances()}")
+        print(
+            f"Active plugin instances after shutdown: {list_active_plugin_instances()}"
+        )
     else:
         print("No plugins found to test.")
 
@@ -211,6 +252,4 @@ if __name__ == '__main__':
     # if not os.listdir(example_plugin_dir): # Only remove if empty
     #    os.rmdir(example_plugin_dir)
 
-```
-
-**To make this runnable and testable in the current environment, I also need to create the `Aletheia_v3/plugins/available/__init__.py` file.**
+# To make this runnable and testable in the current environment, I also need to create the `Aletheia_v3/plugins/available/__init__.py` file.

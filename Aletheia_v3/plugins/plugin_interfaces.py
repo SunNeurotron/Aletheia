@@ -1,19 +1,22 @@
 # Aletheia_v3/plugins/plugin_interfaces.py
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List
 
 # Import types from the core application if needed for method signatures.
 # Use TYPE_CHECKING to avoid circular imports at runtime but allow type hints.
 if TYPE_CHECKING:
     from Aletheia_v3.core.domain import ABCQuality, ABCTriple
+
     # from skopt.space import Space # If search_space object is passed
+
 
 class AletheiaPluginBase(ABC):
     """
     Base class for all Aletheia plugins.
     Provides common attributes like name and version.
     """
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -32,7 +35,9 @@ class AletheiaPluginBase(ABC):
         Called by the plugin manager after loading.
         """
         if config:
-            print(f"Plugin {self.name} v{self.version} initialized with config: {config}")
+            print(
+                f"Plugin {self.name} v{self.version} initialized with config: {config}"
+            )
         else:
             print(f"Plugin {self.name} v{self.version} initialized.")
 
@@ -50,13 +55,18 @@ class SearchStrategyPlugin(AletheiaPluginBase):
     """
 
     @abstractmethod
-    def suggest_candidates(self,
-                           history_X: List[List[float]] = None, # List of previously evaluated parameter sets
-                           history_y: List[float] = None,       # List of corresponding objective values
-                           n_suggestions: int = 1,
-                           search_space_dimensions = None, # skopt.space.Space object or similar
-                           optimizer_state: Any = None # e.g., the GaussianProcessRegressor model from skopt
-                          ) -> List[List[float]]: # List of new candidate parameter sets
+    def suggest_candidates(
+        self,
+        history_X: List[
+            List[float]
+        ] = None,  # List of previously evaluated parameter sets
+        history_y: List[
+            float
+        ] = None,  # List of corresponding objective values
+        n_suggestions: int = 1,
+        search_space_dimensions=None,  # skopt.space.Space object or similar
+        optimizer_state: Any = None,  # e.g., the GaussianProcessRegressor model from skopt
+    ) -> List[List[float]]:  # List of new candidate parameter sets
         """
         Suggests a new batch of candidate points to evaluate.
 
@@ -105,7 +115,9 @@ class DataPostprocessorPlugin(AletheiaPluginBase):
     """
 
     @abstractmethod
-    def process_hits(self, hits: List['ABCQuality'], job_metadata: Dict[str, Any] = None) -> Any:
+    def process_hits(
+        self, hits: List["ABCQuality"], job_metadata: Dict[str, Any] = None
+    ) -> Any:
         """
         Processes a list of discovered ABCQuality objects.
         Can be used for custom filtering, analysis, visualization data prep, or external logging.
@@ -122,8 +134,11 @@ class ParameterSpaceModifierPlugin(AletheiaPluginBase):
     Interface for plugins that can dynamically modify the search space
     during optimization, or suggest entirely new search spaces.
     """
+
     @abstractmethod
-    def modify_search_space(self, current_search_space, history_X=None, history_y=None):
+    def modify_search_space(
+        self, current_search_space, history_X=None, history_y=None
+    ):
         """
         Allows modification of the search space dimensions or bounds.
         This is an advanced feature.
@@ -135,6 +150,7 @@ class ParameterSpaceModifierPlugin(AletheiaPluginBase):
         """
         pass
 
+
 # Example of how a plugin might look (not a plugin itself, but for thought):
 # class MyCustomSearch(SearchStrategyPlugin):
 #     name = "MySearch"
@@ -145,4 +161,3 @@ class ParameterSpaceModifierPlugin(AletheiaPluginBase):
 
 # This set of interfaces provides a starting point for various extensibility points.
 # More interfaces can be added as needed (e.g., for UI components, data storage backends).
-```

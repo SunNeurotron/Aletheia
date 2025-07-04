@@ -1,7 +1,9 @@
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
 
 # --- Schemas para Autenticación ---
 # Reutilizando la estructura general, podrían estar en aletheia_common si son idénticos
@@ -9,21 +11,41 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 class TokenData(BaseModel):
     username: Optional[str] = None
     # scopes: List[str] = [] # Si se usan scopes/roles en el token
 
+
 # --- Schemas para T-Test ---
 
+
 class TTestInputData(BaseModel):
-    group_a_data: List[float] = Field(..., min_items=3, description="Data for group A, minimum 3 data points.")
-    group_b_data: List[float] = Field(..., min_items=3, description="Data for group B, minimum 3 data points.")
-    alpha: float = Field(0.05, gt=0, lt=1, description="Significance level for the t-test.")
+    group_a_data: List[float] = Field(
+        ...,
+        min_items=3,
+        description="Data for group A, minimum 3 data points.",
+    )
+    group_b_data: List[float] = Field(
+        ...,
+        min_items=3,
+        description="Data for group B, minimum 3 data points.",
+    )
+    alpha: float = Field(
+        0.05, gt=0, lt=1, description="Significance level for the t-test."
+    )
+
 
 class TTestRequest(TTestInputData):
-    experiment_name: Optional[str] = Field(None, description="Name for the experiment.")
-    experiment_description: Optional[str] = Field(None, description="Description for the experiment.")
-    parameters: Optional[Dict[str, Any]] = Field(None, description="Additional parameters to log.")
+    experiment_name: Optional[str] = Field(
+        None, description="Name for the experiment."
+    )
+    experiment_description: Optional[str] = Field(
+        None, description="Description for the experiment."
+    )
+    parameters: Optional[Dict[str, Any]] = Field(
+        None, description="Additional parameters to log."
+    )
 
 
 class TTestResultSchema(BaseModel):
@@ -48,12 +70,21 @@ class ExperimentResponse(BaseModel):
     id: UUID
     name: Optional[str] = None
     description: Optional[str] = None
-    group_a_data_summary: Dict[str, Any] # e.g., {"count": len, "mean": np.mean(data)} - Simplificado aquí
-    group_b_data_summary: Dict[str, Any] # Para no devolver toda la data en cada listado
+    group_a_data_summary: Dict[
+        str, Any
+    ]  # e.g., {"count": len, "mean": np.mean(data)} - Simplificado aquí
+    group_b_data_summary: Dict[
+        str, Any
+    ]  # Para no devolver toda la data en cada listado
     parameters: Optional[Dict[str, Any]] = None
-    result: Optional[TTestResultSchema] = None # Puede ser None si el experimento aún no se ha procesado
+    result: Optional[TTestResultSchema] = (
+        None  # Puede ser None si el experimento aún no se ha procesado
+    )
     mlflow_run_id: Optional[str] = None
-    tracking_warnings: Optional[List[str]] = Field(default_factory=list, description="List of warnings related to MLflow tracking or other non-critical issues.")
+    tracking_warnings: Optional[List[str]] = Field(
+        default_factory=list,
+        description="List of warnings related to MLflow tracking or other non-critical issues.",
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -61,9 +92,11 @@ class ExperimentResponse(BaseModel):
         orm_mode = True
         # Pydantic V1 orm_mode. For V2, it's from_attributes = True
 
+
 class PaginatedExperimentResponse(BaseModel):
     total: int
     items: List[ExperimentResponse]
+
 
 # --- Schema para Usuario ---
 # Similar a aletheia_common.auth.UserAuth, pero definido aquí para independencia si es necesario
@@ -77,8 +110,11 @@ class UserSchema(BaseModel):
     class Config:
         orm_mode = True
 
+
 # --- Schema para Health Check ---
 class HealthCheckResponse(BaseModel):
     status: str = "OK"
     module: str = "Aletheia-Stats"
-    version: Optional[str] = None # Podría leerse de una variable de entorno o un archivo
+    version: Optional[str] = (
+        None  # Podría leerse de una variable de entorno o un archivo
+    )

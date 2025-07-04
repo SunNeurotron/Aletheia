@@ -3,10 +3,8 @@
 import os
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 config = context.config
 
@@ -16,13 +14,16 @@ if config.config_file_name is not None:
 # Ajustar el path para importar Base desde la ubicación correcta de los modelos del módulo
 # Ejemplo: from ..module_name.infrastructure.sqlalchemy_models import Base
 # target_metadata = Base.metadata
-target_metadata = None # Placeholder - El usuario debe configurar esto
+target_metadata = None  # Placeholder - El usuario debe configurar esto
+
 
 def get_module_database_url():
     # Priorizar MODULE_DATABASE_URL, luego DATABASE_URL (si es compartido), luego config
-    return os.getenv("MODULE_DATABASE_URL",
-                     os.getenv("DATABASE_URL",
-                               config.get_main_option("sqlalchemy.url")))
+    return os.getenv(
+        "MODULE_DATABASE_URL",
+        os.getenv("DATABASE_URL", config.get_main_option("sqlalchemy.url")),
+    )
+
 
 def run_migrations_offline() -> None:
     url = get_module_database_url()
@@ -34,6 +35,7 @@ def run_migrations_offline() -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
+
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section)
@@ -52,6 +54,7 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

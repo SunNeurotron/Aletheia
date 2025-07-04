@@ -1,7 +1,8 @@
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Tuple, Optional
-from uuid import UUID, uuid4
 import datetime
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import UUID, uuid4
+
 
 @dataclass(frozen=True)
 class TTestResult:
@@ -23,6 +24,7 @@ class TTestResult:
         normality_p_value_group_b: P-value from Shapiro-Wilk test for group B.
         comment: Optional comment, e.g., if normality assumption was violated.
     """
+
     statistic: float
     p_value: float
     degrees_freedom: float
@@ -53,6 +55,7 @@ class Experiment:
         created_at: Timestamp of when the experiment was created.
         mlflow_run_id: Optional ID of the corresponding MLflow run.
     """
+
     id: UUID = field(default_factory=uuid4)
     name: Optional[str] = None
     description: Optional[str] = None
@@ -60,10 +63,14 @@ class Experiment:
     group_b_data: List[float] = field(default_factory=list)
     parameters: Dict[str, Any] = field(default_factory=dict)
     result: Optional[TTestResult] = None
-    created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)) # Use timezone aware utcnow
-    updated_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)) # Add updated_at
+    created_at: datetime.datetime = field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )  # Use timezone aware utcnow
+    updated_at: datetime.datetime = field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )  # Add updated_at
     mlflow_run_id: Optional[str] = None
-    tracking_warnings: List[str] = field(default_factory=list) # New field
+    tracking_warnings: List[str] = field(default_factory=list)  # New field
 
     def add_tracking_warning(self, message: str):
         self.tracking_warnings.append(message)
@@ -76,15 +83,16 @@ class Experiment:
             "id": str(self.id),
             "name": self.name,
             "description": self.description,
-            "group_a_data": self.group_a_data, # Consider summarizing this for to_dict if large
-            "group_b_data": self.group_b_data, # Consider summarizing this for to_dict if large
+            "group_a_data": self.group_a_data,  # Consider summarizing this for to_dict if large
+            "group_b_data": self.group_b_data,  # Consider summarizing this for to_dict if large
             "parameters": self.parameters,
             "result": res_dict,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat(), # Add updated_at
+            "updated_at": self.updated_at.isoformat(),  # Add updated_at
             "mlflow_run_id": self.mlflow_run_id,
-            "tracking_warnings": self.tracking_warnings, # Add tracking_warnings
+            "tracking_warnings": self.tracking_warnings,  # Add tracking_warnings
         }
+
 
 # Example usage (optional, for testing or demonstration)
 if __name__ == "__main__":
@@ -101,7 +109,7 @@ if __name__ == "__main__":
         is_significant_05=True,
         normality_p_value_group_a=0.56,
         normality_p_value_group_b=0.67,
-        comment="Sample groups appear normally distributed."
+        comment="Sample groups appear normally distributed.",
     )
     print(f"Sample TTestResult: {sample_ttest_result}")
 
@@ -116,4 +124,6 @@ if __name__ == "__main__":
     )
     print(f"Sample Experiment (dict): {sample_experiment.to_dict()}")
     print(f"Sample Experiment ID: {sample_experiment.id}")
-    print(f"Sample Experiment MLflow Run ID: {sample_experiment.mlflow_run_id}")
+    print(
+        f"Sample Experiment MLflow Run ID: {sample_experiment.mlflow_run_id}"
+    )

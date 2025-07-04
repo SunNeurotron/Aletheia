@@ -80,4 +80,3 @@ spec:
 #    The current setup (separate subdomains) is cleaner if subdomains are available.
 # 5. Service Ports: The backend service ports (80 in these examples) must match the
 #    `port` defined in the corresponding Kubernetes `Service` manifest (not the `targetPort`).
-```
