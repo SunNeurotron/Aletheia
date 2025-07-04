@@ -1,3 +1,17 @@
+# Copyright 2025 Alant
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Aletheia_v3/api/api_server.py
 import logging  # Import logging module
 import os  # For LOG_LEVEL env var
@@ -22,11 +36,12 @@ logging.basicConfig(
 )
 # --- Application Setup ---
 # Metadata for API documentation
-API_VERSION = "3.0.0-MDU"
+API_VERSION = "4.0.0"
 API_TITLE = "Aletheia AI-Guided Scientific Discovery Platform"
 API_DESCRIPTION = """
-Aletheia v3.0 (MDU Edition) for AI-guided research into the ABC Conjecture.
-Features include JWT authentication, MLflow experiment tracking, and a robust testing suite.
+Aletheia v4.0 for AI-guided research into the ABC Conjecture.
+This version includes a PARI/GP mathematical core, a plugin architecture, advanced scalability configurations (Kubernetes),
+and collaborative features with role-based access control.
 """
 
 # Main FastAPI application instance
@@ -46,7 +61,7 @@ app.dependency_overrides[get_user_retriever_dependency_placeholder] = (
 )
 
 
-# Import routers
+# Import routers from the new modular structure
 from .routers import (
     attribution_router,
     auth_router,
@@ -66,12 +81,13 @@ async def startup_event():
     """
     Actions to perform on application startup.
     """
-    logger.info("Aletheia_v3 FastAPI application startup...")
+    logger.info(f"Aletheia API v{API_VERSION} starting up...")
     try:
-        # initialize_database() # Commented out: Alembic will now handle table creation and migrations.
-        logger.info("Database auto-creation (create_all) is DISABLED.")
+        # Alembic now handles all DB schema management via docker-compose.
+        # No need for `init_db()` or `Base.metadata.create_all()` here.
         logger.info(
-            "Ensure Alembic migrations are run to set up the database schema."
+            "Database initialization via `create_all()` is DISABLED. "
+            "Alembic migrations are expected to manage the schema."
         )
     except Exception as e:
         logger.exception(
@@ -84,44 +100,26 @@ async def shutdown_event():
     """
     Actions to perform on application shutdown.
     """
-    logger.info("Aletheia_v3 FastAPI application shutdown...")
+    logger.info("Aletheia API application shutting down...")
     # Cleanup tasks can go here.
 
 
-# Include all the routers.
-# Note: The prefix for some routers (like /researchers) is defined within the router itself.
-# Others (like /searches, /token) are defined at the root level.
-app.include_router(auth_router.router)  # Includes /token, /users/me
-app.include_router(
-    search_router.router
-)  # Includes /searches, /searches/{job_id}
-app.include_router(researcher_router.router)  # Includes /researchers/*
-app.include_router(conjecture_router.router)  # Includes /conjectures/*
-app.include_router(
-    attribution_router.router
-)  # Includes /hits/{hit_id}/attributions/*
-app.include_router(meta_router.router)  # Includes /health
+# --- Include Routers ---
+# Modular router inclusion improves organization
+app.include_router(auth_router.router)
+app.include_router(search_router.router)
+app.include_router(researcher_router.router)
+app.include_router(conjecture_router.router)
+app.include_router(attribution_router.router)
+app.include_router(meta_router.router)
+logger.info("All API routers have been included.")
 
 
 # --- Main guard for running with Uvicorn (optional, for direct execution) ---
 if __name__ == "__main__":
-    # This allows running the app directly with `python api_server.py`
-    # Uvicorn is the ASGI server.
-    # Host 0.0.0.0 makes it accessible externally (e.g., from Docker).
-    # Reload=True is useful for development, automatically reloads on code changes.
+    # This allows running the app directly with `python -m Aletheia_v3.api.api_server`
+    # from the project root.
     import uvicorn
-
-    # Configure basic logging for direct Uvicorn run if not already configured by FastAPI/Uvicorn
-    # This is more for when running `python Aletheia_v3/api/api_server.py` directly.
-    # Uvicorn itself has logging, and FastAPI might add handlers.
-    # Ensure a basic config if no other logging is set up by this point for the __main__ block.
-    if (
-        not logging.getLogger().hasHandlers()
-    ):  # Check if root logger has handlers
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s - %(levelname)s - %(message)s",
-        )
 
     logger.info(
         "Starting Uvicorn server directly for development via __main__..."
@@ -132,25 +130,3 @@ if __name__ == "__main__":
         port=8000,
         reload=True,
     )
-    # In docker-compose, uvicorn is typically started like:
-    # uvicorn Aletheia_v3.api.api_server:app --host 0.0.0.0 --port 8000 --log-config uvicorn_log_config.yml
-    # Note the module path `Aletheia_v3.api.api_server:app` when run from project root.
-    # The `if __name__ == "__main__":` block uses `api_server:app` because it's run from within the `api` dir.
-    # For consistency with Docker, it's better to rely on the docker-compose command.
-    # This block is more for local, non-Dockerized testing of this specific file.
-    # To run from project root: `python -m Aletheia_v3.api.api_server`
-    # Then uvicorn.run("Aletheia_v3.api.api_server:app"...) would be needed.
-    # For simplicity and standard Docker execution, this direct run method is secondary.
-    # The primary way to run is `docker-compose up`.
-
-    # To make `python Aletheia_v3/api/api_server.py` work from the project root,
-    # you might need to adjust PYTHONPATH or use `uvicorn Aletheia_v3.api.api_server:app ...` directly.
-    # The current uvicorn.run("api_server:app"...) assumes you `cd Aletheia_v3/api` then `python api_server.py`.
-
-    # Corrected uvicorn run command for direct execution from project root,
-    # assuming PYTHONPATH includes the project root.
-    # uvicorn.run("Aletheia_v3.api.api_server:app", host="0.0.0.0", port=8000, reload=True)
-    # For this to work, ensure Aletheia_v3's parent directory is in PYTHONPATH or run as module:
-    # `python -m Aletheia_v3.api.api_server`
-    # If running as a script from Aletheia_v3/api/: uvicorn api_server:app ...
-    # The provided docker-compose.yml will handle the correct invocation path for uvicorn.

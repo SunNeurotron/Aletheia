@@ -1,0 +1,48 @@
+Aletheia Platform
+Copyright 2025 Alant
+
+This product includes software developed by Alant.
+
+This product is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+This product may include third-party software components licensed under
+various open source licenses. For details on these components and their
+licenses, please refer to the documentation accompanying this product or
+visit the respective project websites.
+
+Portions of this software may utilize the following libraries:
+- cypari2 (LGPL-2.1-or-later): For PARI/GP integration.
+- FastAPI (MIT License): Web framework.
+- SQLAlchemy (MIT License): ORM.
+- Alembic (MIT License): Database migrations.
+- Pydantic (MIT License): Data validation.
+- Celery (BSD-3-Clause): Distributed task queue.
+- MLflow (Apache-2.0): MLOps platform.
+- Scikit-Optimize (BSD-3-Clause): Bayesian optimization.
+- Streamlit (Apache-2.0): Dashboarding.
+- httpx (BSD-3-Clause): HTTP client.
+- passlib (BSD-3-Clause): Password hashing.
+- python-jose (MIT License): JWT handling.
+- Uvicorn (BSD-3-Clause): ASGI server.
+- Psycopg2 (LGPL-3.0-or-later): PostgreSQL adapter.
+- Redis (BSD-3-Clause): In-memory data store (broker/backend for Celery).
+- Plotly (MIT License): Charting library.
+- Pandas (BSD-3-Clause): Data manipulation.
+
+For the full text of these licenses, please see the LICENSE file or the
+respective project's license documentation.
+
+The Aletheia project aims to foster open and collaborative scientific discovery.
+We encourage contributions and use of this software in accordance with its licensing terms.
+
+Contact: [Project Aletheia Maintainers - contact@alant.com] (Placeholder)

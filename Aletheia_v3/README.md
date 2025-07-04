@@ -201,10 +201,12 @@ If you make changes to the SQLAlchemy models in `Aletheia_v3/infrastructure/mode
 
 ## License and Disclaimer
 
-This project is distributed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
-Please also review the [DISCLAIMER.md](DISCLAIMER.md) file for important limitations and responsibilities associated with the use of this software.
+This project is licensed under the Apache License 2.0. Copyright 2025 Alant.
+See the `LICENSE` file in this directory and the root `NOTICE` file for details.
+Please also review the `DISCLAIMER.md` file for important limitations and responsibilities associated with the use of this software.
 
-*(Note: The `LICENSE` and `DISCLAIMER.md` files are expected to be in the `Aletheia_v3` root, carried over from the previous version or added if missing).*
+*(Note: The `LICENSE`, `NOTICE` and `DISCLAIMER.md` files are expected to be in the `Aletheia_v3` root or project root, carried over from the previous version or added if missing).*
 
 ---
-Author: Alant - 01/07/2025
+Author: Alant
+Year: 2025
