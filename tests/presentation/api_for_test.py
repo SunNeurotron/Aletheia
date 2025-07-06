@@ -1,247 +1,398 @@
 """
 Test-local FastAPI application setup.
-
-This module creates a FastAPI app instance using components from their
-test-local temporary locations to ensure they are importable in the sandbox.
 """
 import uuid
-from typing import List
-from fastapi import FastAPI, Depends, HTTPException, status
+from typing import List, Dict, Set, Optional, Any
+from collections import defaultdict, deque
 
-# Import components from their test-local temporary locations
+from fastapi import FastAPI, Depends, HTTPException, status, Query
+
 from tests.application.use_cases.use_cases_for_test import (
-    KnowledgeSynthesisUseCase,
-    CreateConceptInput,
-    ExtractUCMsUseCase,
-    ExtractUCMsInput,
-    UCMExtractionResult,
-    FormClustersUseCase,
-    FormClusterInput,
-    ClusterFormationResult,
-    DerivePropositionsUseCase,
-    DerivePropositionInput,
-    PropositionDerivationResult,
-    ConstructMiniTheoryUseCase,
-    ConstructMiniTheoryInput,
-    MiniTheoryConstructionResult,
-    ConstructComprehensiveTheoryUseCase, # Added
-    ConstructComprehensiveTheoryInput,   # Added
-    ComprehensiveTheoryResult,           # Added
-    ConstructUnifiedModelUseCase,        # Added
-    ConstructUnifiedModelInput,
-    UnifiedModelResult,
-    IngestDocumentUseCase,
-    IngestDocumentInput,
-    IngestDocumentResult,
-    LinkConceptsUseCase, # Added
-    LinkConceptsInput,   # Added
-    LinkConceptsResult   # Added
+    KnowledgeSynthesisUseCase, CreateConceptInput, ExtractUCMsUseCase, ExtractUCMsInput, UCMExtractionResult,
+    FormClustersUseCase, FormClusterInput, ClusterFormationResult, DerivePropositionsUseCase, DerivePropositionInput,
+    PropositionDerivationResult, ConstructMiniTheoryUseCase, ConstructMiniTheoryInput, MiniTheoryConstructionResult,
+    ConstructComprehensiveTheoryUseCase, ConstructComprehensiveTheoryInput, ComprehensiveTheoryResult,
+    ConstructUnifiedModelUseCase, ConstructUnifiedModelInput, UnifiedModelResult, IngestDocumentUseCase,
+    IngestDocumentInput, IngestDocumentResult, LinkConceptsUseCase, LinkConceptsInput, LinkConceptsResult
 )
 from tests.application.ports.ports_for_test import (
-    ConceptRepository as ConceptRepoProtocol,
-    RelationshipRepository as RelationshipRepoProtocol,
+    ConceptRepository as ConceptRepoProtocol, RelationshipRepository as RelationshipRepoProtocol
 )
-from tests.domain.domain_for_test import ScientificConcept
+from tests.domain.domain_for_test import ScientificConcept, ConceptType
 from tests.infrastructure.database.repos_for_test import (
-    InMemoryConceptRepository,
-    InMemoryRelationshipRepository,
+    InMemoryConceptRepository, InMemoryRelationshipRepository
 )
 
-# Create singletons for the test app context
-# These will be fresh for each test run if tests/presentation/test_api.py re-imports this module
-# or if we explicitly reset them. The fixture in test_api.py will handle resetting.
 _test_concept_repo_singleton = InMemoryConceptRepository()
 _test_relationship_repo_singleton = InMemoryRelationshipRepository()
 
+# --- Visualization Helper Functions ---
 
-def get_test_concept_repo() -> ConceptRepoProtocol: # Hint with the (forward-declared) protocol
-    return _test_concept_repo_singleton
+def _get_hierarchy_level(concept_type: ConceptType) -> int:
+    levels = {
+        ConceptType.UCM: 0, ConceptType.CLUSTER: 1, ConceptType.PROPOSITION: 2,
+        ConceptType.MINI_THEORY: 3, ConceptType.COMPREHENSIVE_THEORY: 4,
+        ConceptType.UNIFIED_MODEL: 5, ConceptType.DOCUMENT_SOURCE: -1
+    }
+    return levels.get(concept_type, -2)
 
-def get_test_relationship_repo() -> RelationshipRepoProtocol: # Hint with the (forward-declared) protocol
-    return _test_relationship_repo_singleton
+def _calculate_max_depth( # BFS iterative approach
+    concept: Optional[ScientificConcept],
+    repo: ConceptRepoProtocol,
+    # visited_in_path is not directly used in BFS in the same way, BFS handles cycles naturally
+    # We might need a global visited for the entire traversal if we were building a graph,
+    # but for depth from a single root, BFS's own queue/level tracking handles it.
+    visited_placeholder: Optional[Set[uuid.UUID]] = None # Keep signature, but won't use as before
+) -> int:
+    if not concept: return -1
+    if concept.type == ConceptType.UCM: return 0
 
-def get_test_knowledge_synthesis_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
-    relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo),
-) -> KnowledgeSynthesisUseCase:
-    return KnowledgeSynthesisUseCase(concept_repo, relationship_repo)
+    queue = deque([(concept, 0)]) # Store (concept_obj, current_depth_from_start_concept)
+    max_depth_to_ucm_found = -1
 
-def get_extract_ucms_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
-) -> ExtractUCMsUseCase:
-    return ExtractUCMsUseCase(concept_repo=concept_repo)
+    # Visited set for BFS to avoid re-processing nodes in THIS traversal
+    bfs_visited_nodes: Set[uuid.UUID] = {concept.id}
 
-def get_form_clusters_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
-) -> FormClustersUseCase:
-    return FormClustersUseCase(concept_repo=concept_repo)
+    while queue:
+        current_concept, current_depth = queue.popleft()
 
-def get_derive_propositions_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
-    relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)
-) -> DerivePropositionsUseCase:
-    return DerivePropositionsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
+        if current_concept.type == ConceptType.UCM:
+            # We found a UCM. The depth from the original 'concept' to this UCM is 'current_depth'.
+            if max_depth_to_ucm_found == -1 or current_depth > max_depth_to_ucm_found:
+                max_depth_to_ucm_found = current_depth
+            # Continue BFS to find potentially longer paths to other UCMs
 
-def get_construct_mini_theory_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
-) -> ConstructMiniTheoryUseCase:
-    return ConstructMiniTheoryUseCase(concept_repo=concept_repo)
+        children_to_explore: List[ScientificConcept] = []
+        if current_concept.member_concept_ids:
+            for member_id in current_concept.member_concept_ids:
+                member = repo.get_by_id(member_id)
+                if member:
+                    children_to_explore.append(member)
 
-def get_construct_comprehensive_theory_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
-) -> ConstructComprehensiveTheoryUseCase:
-    return ConstructComprehensiveTheoryUseCase(concept_repo=concept_repo)
+        if current_concept.type == ConceptType.PROPOSITION and current_concept.derived_from_ucm_ids:
+            for ucm_id in current_concept.derived_from_ucm_ids:
+                ucm_member = repo.get_by_id(ucm_id)
+                if ucm_member and ucm_member.type == ConceptType.UCM: # Ensure it's a UCM
+                    children_to_explore.append(ucm_member) # Treat these as children for depth calculation
 
-def get_construct_unified_model_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
-) -> ConstructUnifiedModelUseCase:
-    return ConstructUnifiedModelUseCase(concept_repo=concept_repo)
+        for child in children_to_explore:
+            if child.id not in bfs_visited_nodes:
+                bfs_visited_nodes.add(child.id)
+                queue.append((child, current_depth + 1))
 
-# get_extract_ucms_use_case is already defined
+    return max_depth_to_ucm_found
 
-def get_ingest_document_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
-    extract_ucms_uc: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case)
-) -> IngestDocumentUseCase:
-    return IngestDocumentUseCase(concept_repo=concept_repo, extract_ucms_use_case=extract_ucms_uc)
 
-def get_link_concepts_use_case(
-    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
-    relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)
-) -> LinkConceptsUseCase:
-    return LinkConceptsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
+def _trace_to_ucms(
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_set: Optional[Set[uuid.UUID]] = None
+) -> Set[uuid.UUID]:
+    if not concept: return set()
+    if visited_set is None: visited_set = set()
+    if concept.id in visited_set: return set()
+
+    path_visited = visited_set.copy()
+    path_visited.add(concept.id)
+
+    if concept.type == ConceptType.UCM: return {concept.id}
+
+    ucms_found: Set[uuid.UUID] = set()
+    if concept.member_concept_ids:
+        for member_id in concept.member_concept_ids:
+            member = repo.get_by_id(member_id)
+            if member: ucms_found.update(_trace_to_ucms(member, repo, path_visited))
+
+    if concept.type == ConceptType.PROPOSITION and concept.derived_from_ucm_ids:
+        for ucm_id in concept.derived_from_ucm_ids:
+            ucm_cpt = repo.get_by_id(ucm_id)
+            if ucm_cpt and ucm_cpt.type == ConceptType.UCM:
+                 ucms_found.add(ucm_id)
+    return ucms_found
+
+def _trace_to_unified_models(
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol,
+    all_concepts_list: List[ScientificConcept], visited_set: Optional[Set[uuid.UUID]] = None
+) -> Set[uuid.UUID]:
+    if not concept: return set()
+    if visited_set is None: visited_set = set()
+    if concept.id in visited_set: return set()
+
+    path_visited = visited_set.copy()
+    path_visited.add(concept.id)
+
+    found_models: Set[uuid.UUID] = set()
+    if concept.type == ConceptType.UNIFIED_MODEL:
+        found_models.add(concept.id)
+
+    for potential_parent in all_concepts_list:
+        if potential_parent.member_concept_ids and concept.id in potential_parent.member_concept_ids:
+            found_models.update(
+                _trace_to_unified_models(potential_parent, repo, all_concepts_list, path_visited)
+            )
+    return found_models
+
+
+def _calculate_depth_to_ucm(
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_set: Optional[Set[uuid.UUID]] = None
+) -> int:
+    _infinity = float('inf')
+    if not concept: return -1
+    if visited_set is None: visited_set = set()
+    if concept.id in visited_set: return -1
+
+    path_visited = visited_set.copy()
+    path_visited.add(concept.id)
+
+    if concept.type == ConceptType.UCM: return 0
+
+    min_child_depth = _infinity
+    if concept.member_concept_ids:
+        for member_id in concept.member_concept_ids:
+            member = repo.get_by_id(member_id)
+            depth = _calculate_depth_to_ucm(member, repo, path_visited)
+            if depth != -1:
+                 min_child_depth = min(min_child_depth, float(depth) + 1.0)
+
+    if concept.type == ConceptType.PROPOSITION and concept.derived_from_ucm_ids:
+        if any( (m := repo.get_by_id(ucm_id)) and m.type == ConceptType.UCM for ucm_id in concept.derived_from_ucm_ids ):
+            min_child_depth = min(min_child_depth, 1.0)
+
+    return -1 if min_child_depth == _infinity else int(min_child_depth)
+
+
+def _calculate_depth_to_model(
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol,
+    all_concepts_list: List[ScientificConcept], visited_set: Optional[Set[uuid.UUID]] = None
+) -> int:
+    _infinity = float('inf')
+    if not concept: return -1
+    if visited_set is None: visited_set = set()
+    if concept.id in visited_set: return -1
+
+    path_visited = visited_set.copy()
+    path_visited.add(concept.id)
+
+    if concept.type == ConceptType.UNIFIED_MODEL: return 0
+
+    min_parent_depth = _infinity
+    for potential_parent in all_concepts_list:
+        if potential_parent.member_concept_ids and concept.id in potential_parent.member_concept_ids:
+            depth = _calculate_depth_to_model(potential_parent, repo, all_concepts_list, path_visited)
+            if depth != -1:
+                min_parent_depth = min(min_parent_depth, float(depth) + 1.0)
+
+    return -1 if min_parent_depth == _infinity else int(min_parent_depth)
+
+# --- End Visualization Helper Functions ---
+
+def get_test_concept_repo() -> ConceptRepoProtocol: return _test_concept_repo_singleton
+def get_test_relationship_repo() -> RelationshipRepoProtocol: return _test_relationship_repo_singleton
+
+# ... (DI functions)
+def get_test_knowledge_synthesis_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo), relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)) -> KnowledgeSynthesisUseCase: return KnowledgeSynthesisUseCase(concept_repo, relationship_repo)
+def get_extract_ucms_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)) -> ExtractUCMsUseCase: return ExtractUCMsUseCase(concept_repo=concept_repo)
+def get_form_clusters_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)) -> FormClustersUseCase: return FormClustersUseCase(concept_repo=concept_repo)
+def get_derive_propositions_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo), relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)) -> DerivePropositionsUseCase: return DerivePropositionsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
+def get_construct_mini_theory_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)) -> ConstructMiniTheoryUseCase: return ConstructMiniTheoryUseCase(concept_repo=concept_repo)
+def get_construct_comprehensive_theory_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)) -> ConstructComprehensiveTheoryUseCase: return ConstructComprehensiveTheoryUseCase(concept_repo=concept_repo)
+def get_construct_unified_model_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)) -> ConstructUnifiedModelUseCase: return ConstructUnifiedModelUseCase(concept_repo=concept_repo)
+def get_ingest_document_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo), extract_ucms_uc: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case) ) -> IngestDocumentUseCase: return IngestDocumentUseCase(concept_repo=concept_repo, extract_ucms_use_case=extract_ucms_uc)
+def get_link_concepts_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo), relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)) -> LinkConceptsUseCase: return LinkConceptsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
 
 
 def create_test_app() -> FastAPI:
-    app = FastAPI(
-        title="Aletheia Test API - Hypercubic Unified System",
-        description="Test API for Scientific Discovery System.",
-        version="0.1.0-test",
-    )
+    app = FastAPI(title="Aletheia Test API", description="Test API", version="0.1.0-test")
 
-    # --- Eje Z/Y Basic Concept Endpoints ---
+    # ... (Basic Concept, Eje Y Construction, Eje X Endpoints)
     @app.post("/concepts/", response_model=ScientificConcept, status_code=status.HTTP_201_CREATED, tags=["Concepts"])
-    def create_new_concept_endpoint(
-        input_data: CreateConceptInput,
-        use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
-    ):
-        return use_case.create_concept(input_data)
-
+    def create_new_concept_endpoint(input_data: CreateConceptInput, use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case)): return use_case.create_concept(input_data)
     @app.get("/concepts/", response_model=List[ScientificConcept], tags=["Concepts"])
-    def list_all_concepts_endpoint(
-        use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
-    ):
-        return use_case.get_all_concepts()
-
+    def list_all_concepts_endpoint(use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case)): return use_case.get_all_concepts()
     @app.get("/concepts/{concept_id}", response_model=ScientificConcept, tags=["Concepts"])
-    def get_single_concept_endpoint(
-        concept_id: uuid.UUID,
-        use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
-    ):
-        try:
-            return use_case.get_concept_details(concept_id)
-        except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-    # --- Eje Y - Progressive Construction Endpoints ---
+    def get_single_concept_endpoint(concept_id: uuid.UUID, use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case)):
+        try: return use_case.get_concept_details(concept_id)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     @app.post("/eje_y/ucm_extraction/", response_model=UCMExtractionResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def extract_ucms_endpoint(
-        input_data: ExtractUCMsInput,
-        use_case: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case),
-    ):
-        """Extracts Unit Conceptual Mínimas (UCMs) from document text."""
-        return use_case.execute(input_data)
-
+    def extract_ucms_endpoint(input_data: ExtractUCMsInput, use_case: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case)): return use_case.execute(input_data)
     @app.post("/eje_y/cluster_formation/", response_model=ClusterFormationResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def form_cluster_endpoint(
-        input_data: FormClusterInput,
-        use_case: FormClustersUseCase = Depends(get_form_clusters_use_case),
-    ):
-        """Forms a conceptual cluster from a list of UCM IDs."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e: # Catching potential ValueErrors from use case (e.g. UCM not found)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    def form_cluster_endpoint(input_data: FormClusterInput, use_case: FormClustersUseCase = Depends(get_form_clusters_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     @app.post("/eje_y/proposition_derivation/", response_model=PropositionDerivationResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def derive_proposition_endpoint(
-        input_data: DerivePropositionInput,
-        use_case: DerivePropositionsUseCase = Depends(get_derive_propositions_use_case),
-    ):
-        """Derives a proposition from a given conceptual cluster ID."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e: # Catching potential ValueErrors from use case (e.g. Cluster not found)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    def derive_proposition_endpoint(input_data: DerivePropositionInput, use_case: DerivePropositionsUseCase = Depends(get_derive_propositions_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     @app.post("/eje_y/mini_theory_construction/", response_model=MiniTheoryConstructionResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def construct_mini_theory_endpoint(
-        input_data: ConstructMiniTheoryInput,
-        use_case: ConstructMiniTheoryUseCase = Depends(get_construct_mini_theory_use_case),
-    ):
-        """Constructs a mini-theory from a list of proposition IDs."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e: # Catching potential ValueErrors (e.g. proposition not found / not a proposition)
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    def construct_mini_theory_endpoint(input_data: ConstructMiniTheoryInput, use_case: ConstructMiniTheoryUseCase = Depends(get_construct_mini_theory_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     @app.post("/eje_y/comprehensive_theories/", response_model=ComprehensiveTheoryResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def construct_comprehensive_theory_endpoint(
-        input_data: ConstructComprehensiveTheoryInput,
-        use_case: ConstructComprehensiveTheoryUseCase = Depends(get_construct_comprehensive_theory_use_case),
-    ):
-        """Constructs a Comprehensive Theory from a list of Mini-Theory IDs."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
+    def construct_comprehensive_theory_endpoint(input_data: ConstructComprehensiveTheoryInput, use_case: ConstructComprehensiveTheoryUseCase = Depends(get_construct_comprehensive_theory_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     @app.post("/eje_y/unified_models/", response_model=UnifiedModelResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
-    def construct_unified_model_endpoint(
-        input_data: ConstructUnifiedModelInput,
-        use_case: ConstructUnifiedModelUseCase = Depends(get_construct_unified_model_use_case),
-    ):
-        """Constructs a Unified Model from a list of Comprehensive Theory IDs."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    # --- Eje X - Document Ingestion Endpoint ---
+    def construct_unified_model_endpoint(input_data: ConstructUnifiedModelInput, use_case: ConstructUnifiedModelUseCase = Depends(get_construct_unified_model_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     @app.post("/eje_x/documents/ingest/", response_model=IngestDocumentResult, status_code=status.HTTP_201_CREATED, tags=["Eje X - Ingestion"])
-    def ingest_document_endpoint(
-        input_data: IngestDocumentInput,
-        use_case: IngestDocumentUseCase = Depends(get_ingest_document_use_case),
-    ):
-        """Ingests a document and extracts UCMs."""
-        try:
-            return use_case.execute(input_data)
-        except Exception as e:
-            # Log the exception e
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {str(e)}")
-
+    def ingest_document_endpoint(input_data: IngestDocumentInput, use_case: IngestDocumentUseCase = Depends(get_ingest_document_use_case)):
+        try: return use_case.execute(input_data)
+        except Exception as e: raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error: {str(e)}")
     @app.post("/eje_x/relationships/", response_model=LinkConceptsResult, status_code=status.HTTP_201_CREATED, tags=["Eje X - Ontology"])
-    def link_concepts_endpoint(
-        input_data: LinkConceptsInput,
-        use_case: LinkConceptsUseCase = Depends(get_link_concepts_use_case),
-    ):
-        """Creates a new directed relationship between two concepts."""
-        try:
-            return use_case.execute(input_data)
-        except ValueError as e: # For concept not found
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        except Exception as e:
-            # Log the exception e
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {str(e)}")
+    def link_concepts_endpoint(input_data: LinkConceptsInput, use_case: LinkConceptsUseCase = Depends(get_link_concepts_use_case)):
+        try: return use_case.execute(input_data)
+        except ValueError as e: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        except Exception as e: raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error: {str(e)}")
 
+
+    # --- Eje Y - Visualization Endpoints ---
+    @app.get("/eje_y/visualization/hierarchy_graph/{concept_id}", response_model=Dict[str, Any], tags=["Eje Y - Visualization"])
+    def get_hierarchy_graph_endpoint(
+        concept_id: uuid.UUID, max_depth_param: int = Query(5, alias="max_depth", ge=1, le=10),
+        concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
+    ):
+        root_concept = concept_repo.get_by_id(concept_id)
+        if not root_concept: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Concept not found")
+
+        nodes: List[Dict[str, Any]] = []
+        edges: List[Dict[str, Any]] = []
+        globally_added_nodes: Set[uuid.UUID] = set()
+
+        # build_graph_recursive using BFS logic
+        queue = deque([(root_concept, 0, set())]) # (concept, depth, path_visited_for_cycle_detection)
+
+        if root_concept.id not in globally_added_nodes: # Add root node first
+            globally_added_nodes.add(root_concept.id)
+            nodes.append({
+                "id": str(root_concept.id), "label": root_concept.name[:50], "type": root_concept.type.value,
+                "level": _get_hierarchy_level(root_concept.type),
+                "properties": {
+                    "description_snippet": root_concept.description[:100] + ("..." if len(root_concept.description) > 100 else ""),
+                    "member_count": len(root_concept.member_concept_ids or [])
+                }
+            })
+
+        while queue:
+            current_c, current_d, path_visited = queue.popleft()
+
+            if current_d >= max_depth_param:
+                continue
+
+            current_path_specific_visited = path_visited.copy()
+            current_path_specific_visited.add(current_c.id)
+
+            # Process members
+            if current_c.member_concept_ids:
+                for member_id in current_c.member_concept_ids:
+                    if member_id in current_path_specific_visited: continue # Cycle in this path
+                    member = concept_repo.get_by_id(member_id)
+                    if member:
+                        edges.append({"source": str(current_c.id), "target": str(member_id), "type": "contains"})
+                        if member.id not in globally_added_nodes:
+                            globally_added_nodes.add(member.id)
+                            nodes.append({
+                                "id": str(member.id), "label": member.name[:50], "type": member.type.value,
+                                "level": _get_hierarchy_level(member.type),
+                                "properties": {"description_snippet": member.description[:100], "member_count": len(member.member_concept_ids or [])}
+                            })
+                        queue.append((member, current_d + 1, current_path_specific_visited))
+
+            # Process derived UCMs for propositions
+            if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
+                for ucm_id in current_c.derived_from_ucm_ids:
+                    if ucm_id in current_path_specific_visited: continue # Cycle
+                    ucm_member = concept_repo.get_by_id(ucm_id)
+                    if ucm_member:
+                        edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
+                        if ucm_member.id not in globally_added_nodes:
+                            globally_added_nodes.add(ucm_member.id)
+                            nodes.append({
+                                "id": str(ucm_member.id), "label": ucm_member.name[:50],
+                                "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
+                                "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
+                            })
+                        # Do not add UCMs to queue for further expansion in this context, they are leaves of this specific link type
+
+        actual_max_depth_val = 0
+        if nodes and root_concept:
+            root_level = _get_hierarchy_level(root_concept.type)
+            node_levels = [n["level"] for n in nodes if isinstance(n.get("level"), int) and n["level"] >= 0]
+            if node_levels:
+                 max_node_abs_level = max(node_levels)
+                 if root_level >= 0 and max_node_abs_level >= root_level:
+                     actual_max_depth_val = max_node_abs_level - root_level
+                 elif node_levels :
+                     actual_max_depth_val = max_node_abs_level
+                 actual_max_depth_val = max(0, actual_max_depth_val)
+
+        return {
+            "nodes": nodes, "edges": edges,
+            "metadata": {
+                "root_id": str(concept_id), "requested_max_depth": max_depth_param,
+                "actual_max_depth_rendered": actual_max_depth_val,
+                "total_nodes_rendered": len(nodes), "total_edges_rendered": len(edges),
+            }
+        }
+
+    @app.get("/eje_y/visualization/synthesis_statistics", response_model=Dict[str, Any], tags=["Eje Y - Visualization"])
+    def get_synthesis_statistics_endpoint(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)):
+        all_concepts = concept_repo.list_all()
+        type_counts: defaultdict[str, int] = defaultdict(int)
+        for c_obj in all_concepts: type_counts[c_obj.type.value] += 1
+
+        ucm_c = type_counts.get(ConceptType.UCM.value,0); cl_c = type_counts.get(ConceptType.CLUSTER.value,0)
+        prop_c = type_counts.get(ConceptType.PROPOSITION.value,0); mt_c = type_counts.get(ConceptType.MINI_THEORY.value,0)
+        ct_c = type_counts.get(ConceptType.COMPREHENSIVE_THEORY.value,0); um_c = type_counts.get(ConceptType.UNIFIED_MODEL.value,0)
+
+        ratios = {"ucm_to_cluster": cl_c/ucm_c if ucm_c else 0,
+                  "cluster_to_proposition": prop_c/cl_c if cl_c else 0,
+                  "proposition_to_mini_theory": mt_c/prop_c if prop_c else 0,
+                  "mini_theory_to_comprehensive": ct_c/mt_c if mt_c else 0,
+                  "comprehensive_to_unified": um_c/ct_c if ct_c else 0}
+
+        deep_paths: List[Dict[str, Any]] = []
+        ums = [c_obj for c_obj in all_concepts if c_obj.type == ConceptType.UNIFIED_MODEL]
+        for m in sorted(ums, key=lambda x: x.name)[:5]:
+            # Pass empty set for visited_in_path for each top-level call
+            depth = _calculate_max_depth(m, concept_repo, set())
+            deep_paths.append({"model_id":str(m.id),"model_name":m.name,"depth_to_ucm": depth})
+        # Sort by depth (handle -1 as lowest for sorting, then format to "N/A")
+        deep_paths_sorted = sorted(deep_paths, key=lambda x: x["depth_to_ucm"] if x["depth_to_ucm"] != -1 else -float('inf'), reverse=True)
+        for item in deep_paths_sorted: item["depth_to_ucm"] = item["depth_to_ucm"] if item["depth_to_ucm"] != -1 else "N/A"
+
+        return {"total_concepts":len(all_concepts),"type_distribution":dict(type_counts),"synthesis_ratios":ratios,
+                "deepest_hierarchies_sample":deep_paths_sorted[:3],
+                "synthesis_efficiency":{"total_ucms":ucm_c,"total_unified_models":um_c,
+                                      "compression_ratio":ucm_c/um_c if um_c else 0}}
+
+    @app.get("/eje_y/visualization/concept_lineage/{concept_id}", response_model=Dict[str, Any], tags=["Eje Y - Visualization"])
+    def get_concept_lineage_endpoint(concept_id: uuid.UUID, concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)):
+        concept = concept_repo.get_by_id(concept_id)
+        if not concept: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Concept not found")
+        all_concepts_list = concept_repo.list_all()
+
+        ucm_ids = _trace_to_ucms(concept, concept_repo, set())
+        um_ids = _trace_to_unified_models(concept, concept_repo, all_concepts_list, set())
+
+        ucm_srcs = []
+        for uid in ucm_ids:
+            c_obj = concept_repo.get_by_id(uid)
+            ucm_srcs.append({"id":str(uid),"name": (c_obj.name if c_obj else "Unknown UCM")})
+
+        um_parts = []
+        for uid_model in um_ids:
+            c_obj_model = concept_repo.get_by_id(uid_model)
+            um_parts.append({"id":str(uid_model),"name": (c_obj_model.name if c_obj_model else "Unknown Model")})
+
+        return {"target_concept":{"id":str(concept.id),"name":concept.name,"type":concept.type.value},
+                "ucm_sources":ucm_srcs, "part_of_unified_models":um_parts,
+                "calculated_depths":{
+                    "min_depth_to_ucm":_calculate_depth_to_ucm(concept,concept_repo,set()),
+                    "min_depth_to_model":_calculate_depth_to_model(concept,concept_repo,all_concepts_list,set())}}
     return app
 
-# This allows test_api.py to do: from tests.presentation.api_for_test import app_for_testing
 app_for_testing = create_test_app()
 
-# Function to reset singletons, callable from test_api.py's fixture
 def reset_test_repo_singletons():
     global _test_concept_repo_singleton, _test_relationship_repo_singleton
     _test_concept_repo_singleton = InMemoryConceptRepository()
     _test_relationship_repo_singleton = InMemoryRelationshipRepository()
-    # print("DEBUG: Test repo singletons have been reset in api_for_test.py")
