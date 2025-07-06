@@ -1,5 +1,8 @@
 """
 Test-local FastAPI application setup.
+
+This module creates a FastAPI app instance using components from their
+test-local temporary locations to ensure they are importable in the sandbox.
 """
 import uuid
 from typing import List, Dict, Set, Optional, Any
@@ -36,62 +39,69 @@ def _get_hierarchy_level(concept_type: ConceptType) -> int:
     }
     return levels.get(concept_type, -2)
 
-def _calculate_max_depth( # BFS iterative approach
+def _calculate_max_depth(
     concept: Optional[ScientificConcept],
     repo: ConceptRepoProtocol,
-    # visited_in_path is not directly used in BFS in the same way, BFS handles cycles naturally
-    # We might need a global visited for the entire traversal if we were building a graph,
-    # but for depth from a single root, BFS's own queue/level tracking handles it.
-    visited_placeholder: Optional[Set[uuid.UUID]] = None # Keep signature, but won't use as before
+    # visited_in_path is not directly used in this BFS version in the same way as recursion for cycle detection per path,
+    # BFS naturally handles shortest paths and avoids cycles in its own traversal if nodes are marked visited globally for the BFS.
+    # However, to keep function signature same if other parts of code expect it, it's kept.
+    # For this BFS, we use a local 'bfs_visited_nodes'
+    visited_in_path_placeholder: Optional[Set[uuid.UUID]] = None
 ) -> int:
-    if not concept: return -1
-    if concept.type == ConceptType.UCM: return 0
+    if not concept:
+        return -1
+    if concept.type == ConceptType.UCM:
+        return 0
 
-    queue = deque([(concept, 0)]) # Store (concept_obj, current_depth_from_start_concept)
-    max_depth_to_ucm_found = -1
+    # BFS queue stores (concept_object, current_depth_from_original_start_concept)
+    queue = deque([(concept, 0)])
+    # Visited set specifically for this BFS traversal to avoid re-queuing and cycles
+    bfs_visited_this_traversal: Set[uuid.UUID] = {concept.id}
 
-    # Visited set for BFS to avoid re-processing nodes in THIS traversal
-    bfs_visited_nodes: Set[uuid.UUID] = {concept.id}
+    max_depth_to_any_ucm = -1 # Max depth found so far to any UCM from the starting 'concept'
 
     while queue:
-        current_concept, current_depth = queue.popleft()
+        current_c, depth_from_start = queue.popleft()
 
-        if current_concept.type == ConceptType.UCM:
-            # We found a UCM. The depth from the original 'concept' to this UCM is 'current_depth'.
-            if max_depth_to_ucm_found == -1 or current_depth > max_depth_to_ucm_found:
-                max_depth_to_ucm_found = current_depth
-            # Continue BFS to find potentially longer paths to other UCMs
+        # If current_c is a UCM, this path ends. Update max_depth if this path is longer.
+        if current_c.type == ConceptType.UCM:
+            if depth_from_start > max_depth_to_any_ucm:
+                max_depth_to_any_ucm = depth_from_start
+            # Continue processing other paths in queue; a UCM is a leaf in downward traversal for depth.
 
-        children_to_explore: List[ScientificConcept] = []
-        if current_concept.member_concept_ids:
-            for member_id in current_concept.member_concept_ids:
+        # Explore children (members or derived UCMs for propositions)
+        children_to_visit: List[ScientificConcept] = []
+        if current_c.member_concept_ids:
+            for member_id in current_c.member_concept_ids:
                 member = repo.get_by_id(member_id)
                 if member:
-                    children_to_explore.append(member)
+                    children_to_visit.append(member)
 
-        if current_concept.type == ConceptType.PROPOSITION and current_concept.derived_from_ucm_ids:
-            for ucm_id in current_concept.derived_from_ucm_ids:
-                ucm_member = repo.get_by_id(ucm_id)
-                if ucm_member and ucm_member.type == ConceptType.UCM: # Ensure it's a UCM
-                    children_to_explore.append(ucm_member) # Treat these as children for depth calculation
+        if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
+            for ucm_id in current_c.derived_from_ucm_ids:
+                ucm_child = repo.get_by_id(ucm_id)
+                # We only consider it a child for depth if it's a UCM.
+                if ucm_child and ucm_child.type == ConceptType.UCM:
+                    children_to_visit.append(ucm_child)
 
-        for child in children_to_explore:
-            if child.id not in bfs_visited_nodes:
-                bfs_visited_nodes.add(child.id)
-                queue.append((child, current_depth + 1))
+        for child_c in children_to_visit:
+            if child_c.id not in bfs_visited_this_traversal:
+                bfs_visited_this_traversal.add(child_c.id)
+                queue.append((child_c, depth_from_start + 1))
 
-    return max_depth_to_ucm_found
+    return max_depth_to_any_ucm
 
 
 def _trace_to_ucms(
-    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_set: Optional[Set[uuid.UUID]] = None
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_in_path: Optional[Set[uuid.UUID]] = None
 ) -> Set[uuid.UUID]:
+    # This remains recursive as it's a set collection, not just path length.
     if not concept: return set()
-    if visited_set is None: visited_set = set()
-    if concept.id in visited_set: return set()
+    if visited_in_path is None: visited_in_path = set()
+    if concept.id in visited_in_path: return set()
 
-    path_visited = visited_set.copy()
-    path_visited.add(concept.id)
+    current_path_visited = visited_in_path.copy()
+    current_path_visited.add(concept.id)
 
     if concept.type == ConceptType.UCM: return {concept.id}
 
@@ -99,7 +109,7 @@ def _trace_to_ucms(
     if concept.member_concept_ids:
         for member_id in concept.member_concept_ids:
             member = repo.get_by_id(member_id)
-            if member: ucms_found.update(_trace_to_ucms(member, repo, path_visited))
+            if member: ucms_found.update(_trace_to_ucms(member, repo, current_path_visited))
 
     if concept.type == ConceptType.PROPOSITION and concept.derived_from_ucm_ids:
         for ucm_id in concept.derived_from_ucm_ids:
@@ -110,14 +120,15 @@ def _trace_to_ucms(
 
 def _trace_to_unified_models(
     concept: Optional[ScientificConcept], repo: ConceptRepoProtocol,
-    all_concepts_list: List[ScientificConcept], visited_set: Optional[Set[uuid.UUID]] = None
+    all_concepts_list: List[ScientificConcept], visited_in_path: Optional[Set[uuid.UUID]] = None
 ) -> Set[uuid.UUID]:
+    # This remains recursive.
     if not concept: return set()
-    if visited_set is None: visited_set = set()
-    if concept.id in visited_set: return set()
+    if visited_in_path is None: visited_in_path = set()
+    if concept.id in visited_in_path: return set()
 
-    path_visited = visited_set.copy()
-    path_visited.add(concept.id)
+    current_path_visited = visited_in_path.copy()
+    current_path_visited.add(concept.id)
 
     found_models: Set[uuid.UUID] = set()
     if concept.type == ConceptType.UNIFIED_MODEL:
@@ -126,21 +137,22 @@ def _trace_to_unified_models(
     for potential_parent in all_concepts_list:
         if potential_parent.member_concept_ids and concept.id in potential_parent.member_concept_ids:
             found_models.update(
-                _trace_to_unified_models(potential_parent, repo, all_concepts_list, path_visited)
+                _trace_to_unified_models(potential_parent, repo, all_concepts_list, current_path_visited)
             )
     return found_models
 
 
 def _calculate_depth_to_ucm(
-    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_set: Optional[Set[uuid.UUID]] = None
+    concept: Optional[ScientificConcept], repo: ConceptRepoProtocol, visited_in_path: Optional[Set[uuid.UUID]] = None
 ) -> int:
+    # This remains recursive.
     _infinity = float('inf')
     if not concept: return -1
-    if visited_set is None: visited_set = set()
-    if concept.id in visited_set: return -1
+    if visited_in_path is None: visited_in_path = set()
+    if concept.id in visited_in_path: return -1
 
-    path_visited = visited_set.copy()
-    path_visited.add(concept.id)
+    current_path_visited = visited_in_path.copy()
+    current_path_visited.add(concept.id)
 
     if concept.type == ConceptType.UCM: return 0
 
@@ -148,7 +160,7 @@ def _calculate_depth_to_ucm(
     if concept.member_concept_ids:
         for member_id in concept.member_concept_ids:
             member = repo.get_by_id(member_id)
-            depth = _calculate_depth_to_ucm(member, repo, path_visited)
+            depth = _calculate_depth_to_ucm(member, repo, current_path_visited)
             if depth != -1:
                  min_child_depth = min(min_child_depth, float(depth) + 1.0)
 
@@ -161,22 +173,23 @@ def _calculate_depth_to_ucm(
 
 def _calculate_depth_to_model(
     concept: Optional[ScientificConcept], repo: ConceptRepoProtocol,
-    all_concepts_list: List[ScientificConcept], visited_set: Optional[Set[uuid.UUID]] = None
+    all_concepts_list: List[ScientificConcept], visited_in_path: Optional[Set[uuid.UUID]] = None
 ) -> int:
+    # This remains recursive.
     _infinity = float('inf')
     if not concept: return -1
-    if visited_set is None: visited_set = set()
-    if concept.id in visited_set: return -1
+    if visited_in_path is None: visited_in_path = set()
+    if concept.id in visited_in_path: return -1
 
-    path_visited = visited_set.copy()
-    path_visited.add(concept.id)
+    current_path_visited = visited_in_path.copy()
+    current_path_visited.add(concept.id)
 
     if concept.type == ConceptType.UNIFIED_MODEL: return 0
 
     min_parent_depth = _infinity
     for potential_parent in all_concepts_list:
         if potential_parent.member_concept_ids and concept.id in potential_parent.member_concept_ids:
-            depth = _calculate_depth_to_model(potential_parent, repo, all_concepts_list, path_visited)
+            depth = _calculate_depth_to_model(potential_parent, repo, all_concepts_list, current_path_visited)
             if depth != -1:
                 min_parent_depth = min(min_parent_depth, float(depth) + 1.0)
 
@@ -257,60 +270,65 @@ def create_test_app() -> FastAPI:
         edges: List[Dict[str, Any]] = []
         globally_added_nodes: Set[uuid.UUID] = set()
 
-        # build_graph_recursive using BFS logic
-        queue = deque([(root_concept, 0, set())]) # (concept, depth, path_visited_for_cycle_detection)
-
-        if root_concept.id not in globally_added_nodes: # Add root node first
-            globally_added_nodes.add(root_concept.id)
-            nodes.append({
-                "id": str(root_concept.id), "label": root_concept.name[:50], "type": root_concept.type.value,
-                "level": _get_hierarchy_level(root_concept.type),
-                "properties": {
-                    "description_snippet": root_concept.description[:100] + ("..." if len(root_concept.description) > 100 else ""),
-                    "member_count": len(root_concept.member_concept_ids or [])
-                }
-            })
+        # Iterative BFS for graph building
+        queue = deque([(root_concept, 0)]) # (concept, current_depth_from_root)
+        # Path visited is not needed for BFS cycle detection if we use globally_added_nodes for queuing
 
         while queue:
-            current_c, current_d, path_visited = queue.popleft()
+            current_c, current_d = queue.popleft()
+
+            if current_c.id not in globally_added_nodes:
+                globally_added_nodes.add(current_c.id)
+                nodes.append({
+                    "id": str(current_c.id), "label": current_c.name[:50], "type": current_c.type.value,
+                    "level": _get_hierarchy_level(current_c.type),
+                    "properties": {
+                        "description_snippet": current_c.description[:100] + ("..." if len(current_c.description) > 100 else ""),
+                        "member_count": len(current_c.member_concept_ids or [])
+                    }
+                })
 
             if current_d >= max_depth_param:
-                continue
-
-            current_path_specific_visited = path_visited.copy()
-            current_path_specific_visited.add(current_c.id)
+                continue # Don't explore children if max depth reached for this node
 
             # Process members
             if current_c.member_concept_ids:
                 for member_id in current_c.member_concept_ids:
-                    if member_id in current_path_specific_visited: continue # Cycle in this path
                     member = concept_repo.get_by_id(member_id)
                     if member:
                         edges.append({"source": str(current_c.id), "target": str(member_id), "type": "contains"})
-                        if member.id not in globally_added_nodes:
-                            globally_added_nodes.add(member.id)
-                            nodes.append({
-                                "id": str(member.id), "label": member.name[:50], "type": member.type.value,
-                                "level": _get_hierarchy_level(member.type),
-                                "properties": {"description_snippet": member.description[:100], "member_count": len(member.member_concept_ids or [])}
-                            })
-                        queue.append((member, current_d + 1, current_path_specific_visited))
+                        if member.id not in globally_added_nodes: # Add to queue only if not globally processed as a node
+                            # It will be added to nodes list when popped from queue if still not globally_added_nodes
+                            # To prevent re-queuing if already processed or in queue, check globally_added_nodes
+                            # but for strict BFS, usually check visited before adding to queue.
+                            # For graph structure, we want to add all reachable nodes up to depth.
+                             queue.append((member, current_d + 1))
+                        elif member.id not in {n['id'] for n in nodes}: # If visited but somehow not in nodes list (should not happen with this logic)
+                            # This case is tricky, means it was visited by another path but not added to nodes.
+                            # The current globally_added_nodes check when popping should handle it.
+                            # The main thing is to add it to queue if its children need to be explored.
+                            # If already added to nodes, we still might need to explore its children if current_d+1 <= max_depth_param
+                            # Re-add to queue if not already processed to its full depth from *this* path.
+                            # This needs a more complex visited structure for BFS like (node_id, depth_visited_at)
+                            # For simplicity, if globally added, assume its subgraph is (or will be) explored.
+                            pass
+
 
             # Process derived UCMs for propositions
             if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
-                for ucm_id in current_c.derived_from_ucm_ids:
-                    if ucm_id in current_path_specific_visited: continue # Cycle
-                    ucm_member = concept_repo.get_by_id(ucm_id)
-                    if ucm_member:
-                        edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
-                        if ucm_member.id not in globally_added_nodes:
-                            globally_added_nodes.add(ucm_member.id)
-                            nodes.append({
-                                "id": str(ucm_member.id), "label": ucm_member.name[:50],
-                                "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
-                                "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
-                            })
-                        # Do not add UCMs to queue for further expansion in this context, they are leaves of this specific link type
+                if current_d < max_depth_param: # Only add UCMs if proposition itself is not at max_depth
+                    for ucm_id in current_c.derived_from_ucm_ids:
+                        ucm_member = concept_repo.get_by_id(ucm_id)
+                        if ucm_member:
+                            edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
+                            if ucm_member.id not in globally_added_nodes:
+                                globally_added_nodes.add(ucm_member.id)
+                                nodes.append({
+                                    "id": str(ucm_member.id), "label": ucm_member.name[:50],
+                                    "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
+                                    "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
+                                })
+                                # UCMs are leaves, don't add to queue for further member exploration
 
         actual_max_depth_val = 0
         if nodes and root_concept:
@@ -352,12 +370,11 @@ def create_test_app() -> FastAPI:
         deep_paths: List[Dict[str, Any]] = []
         ums = [c_obj for c_obj in all_concepts if c_obj.type == ConceptType.UNIFIED_MODEL]
         for m in sorted(ums, key=lambda x: x.name)[:5]:
-            # Pass empty set for visited_in_path for each top-level call
-            depth = _calculate_max_depth(m, concept_repo, set())
+            depth = _calculate_max_depth(m, concept_repo, set()) # Pass empty set for visited
             deep_paths.append({"model_id":str(m.id),"model_name":m.name,"depth_to_ucm": depth})
-        # Sort by depth (handle -1 as lowest for sorting, then format to "N/A")
         deep_paths_sorted = sorted(deep_paths, key=lambda x: x["depth_to_ucm"] if x["depth_to_ucm"] != -1 else -float('inf'), reverse=True)
         for item in deep_paths_sorted: item["depth_to_ucm"] = item["depth_to_ucm"] if item["depth_to_ucm"] != -1 else "N/A"
+
 
         return {"total_concepts":len(all_concepts),"type_distribution":dict(type_counts),"synthesis_ratios":ratios,
                 "deepest_hierarchies_sample":deep_paths_sorted[:3],
