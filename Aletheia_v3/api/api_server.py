@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Main FastAPI application server for Aletheia v3.
+
+This module initializes the FastAPI application, sets up logging,
+configures global metadata for the API documentation, includes all the
+API routers from the `routers` submodule, and defines application
+startup and shutdown event handlers.
+"""
+
 # Aletheia_v3/api/api_server.py
 import logging  # Import logging module
 import os  # For LOG_LEVEL env var

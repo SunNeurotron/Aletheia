@@ -51,27 +51,39 @@ search_space = [
 # However, for this specific structure where a Celery task calls this use case,
 # it might be reset per task invocation if the module is re-imported or the variable is managed.
 # For simplicity in this context, it's kept as is from the original structure.
-_found_hits_during_search: List[ABCQuality] = (
-    []
-)  # Stores hits from a single run
-_active_quality_evaluator_plugin: Optional[QualityEvaluatorPlugin] = (
-    None  # Holds active plugin instance
-)
+
+_found_hits_during_search: List[ABCQuality] = []
+"""List to store ABCQuality objects found during a single optimization run.
+It is reset at the beginning of each `IntelligentSearchUseCase.search` call.
+"""
+
+_active_quality_evaluator_plugin: Optional[QualityEvaluatorPlugin] = None
+"""Holds the active quality evaluator plugin instance for the current search run.
+It is reset at the beginning of each `IntelligentSearchUseCase.search` call.
+"""
 
 
 @use_named_args(search_space)
 def _objective_function(log_a: float, log_b: float) -> float:
     """
-    Objective function for Bayesian optimization.
+    Objective function for Bayesian optimization by `gp_minimize`.
 
-    It takes logarithm-transformed 'a' and 'b', converts them back,
-    calculates the quality of the (a,b,c) triple (potentially using a plugin),
-    adds a structural bonus, and returns the negative of this combined score
-    (since gp_minimize minimizes functions).
+    This function takes logarithm-transformed 'a' and 'b' values,
+    converts them to integers, and calculates a score to be minimized.
+    The score is the negative of (quality + structural_bonus), effectively maximizing
+    quality and bonus.
 
-    @param log_a: Logarithm of the first term 'a'.
-    @param log_b: Logarithm of the second term 'b'.
-    @returns: Negative of (quality + bonus), or 0.0 if constraints are not met.
+    It interacts with module-level state:
+    - Reads `_active_quality_evaluator_plugin` to determine the quality calculation method.
+    - Appends found high-quality triples to `_found_hits_during_search`.
+
+    :param log_a: Logarithm of the first term 'a'.
+    :type log_a: float
+    :param log_b: Logarithm of the second term 'b'.
+    :type log_b: float
+    :return: Negative of (quality + bonus), or 0.0 if constraints are not met or
+             the combined score is not positive. This is because `gp_minimize` minimizes.
+    :rtype: float
     """
     global _found_hits_during_search, _active_quality_evaluator_plugin
     a = int(math.exp(log_a))
@@ -132,15 +144,28 @@ class IntelligentSearchUseCase:
         plugin_config: Optional[Dict[str, Any]] = None,
     ) -> List[ABCQuality]:
         """
-        Performs the Bayesian optimization search.
-        Can optionally use a QualityEvaluatorPlugin if specified.
+        Performs Bayesian optimization to search for high-quality abc-triples.
 
-        @param n_calls: Total number of evaluations of the objective function.
-        @param n_random_starts: Number of initial random evaluations before Bayesian optimization starts.
-        @param random_state: Seed for reproducibility.
-        @param quality_evaluator_plugin_id: Optional ID of a quality evaluator plugin to use.
-        @param plugin_config: Optional configuration for the plugin.
-        @returns: A list of unique ABCQuality objects found, sorted by quality in descending order.
+        This method initializes and manages the search process, including setting up
+        any specified quality evaluator plugin and resetting module-level state
+        (`_found_hits_during_search`, `_active_quality_evaluator_plugin`) for the current run.
+
+        :param n_calls: Total number of evaluations of the objective function.
+        :type n_calls: int
+        :param n_random_starts: Number of initial random evaluations before
+                                Bayesian optimization starts.
+        :type n_random_starts: int
+        :param random_state: Seed for reproducibility.
+        :type random_state: int
+        :param quality_evaluator_plugin_id: Optional ID of a quality evaluator
+                                            plugin to use. If provided, this plugin
+                                            will be used for quality calculation.
+        :type quality_evaluator_plugin_id: Optional[str]
+        :param plugin_config: Optional configuration dictionary for the plugin.
+        :type plugin_config: Optional[Dict[str, Any]]
+        :return: A list of unique `ABCQuality` objects found, sorted by quality
+                 in descending order.
+        :rtype: List[ABCQuality]
         """
         global _found_hits_during_search, _active_quality_evaluator_plugin
         _found_hits_during_search = []  # Reset for each new search execution
