@@ -366,7 +366,11 @@ class ConstructUnifiedModelUseCase:
         all_th = [th for t in cts if t.properties and "common_themes" in t.properties and isinstance(t.properties["common_themes"],list) for th in t.properties["common_themes"][:2]]
         top_th = [th for th,_ in Counter(all_th).most_common(2)]
         arch_name = str(arch.get('type','')).title()
-        return f"Unified {arch_name} Model of {', '.join(t.title() for t in top_th)}" if top_th else f"Unified {arch_name} Model based on {(cts[0].name if cts[0].name else 'Unknown')[:30]}..."
+        if top_th:
+            return f"Unified {arch_name} Model of {', '.join(t.title() for t in top_th)}"
+        else:
+            first_theory_name = cts[0].name if cts[0].name is not None else "Unknown_Theory"
+            return f"Unified {arch_name} Model based on {first_theory_name[:30]}..."
     def _generate_model_description(self, cts:List[ScientificConcept], arch:Dict[str,Any], metrics:Dict[str,Any])->str:
         return f"Unified Model integrating {len(cts)} TCs via {arch.get('type','')} arch. Aggregates ~{metrics.get('aggregated_mini_theories',0)} MTs, ~{metrics.get('aggregated_propositions',0)} Props. Coherence: ~{metrics.get('overall_theoretical_coherence',0.0):.2f}, Density: ~{metrics.get('overall_integration_density',0.0):.2f}."
     def _create_formalization_structure(self, level:str, arch:Dict[str,Any], cts:List[ScientificConcept])->Dict[str,Any]:
@@ -434,7 +438,7 @@ class LinkConceptsInput(BaseModel):
     target_concept_id: uuid.UUID
     relationship_type: RelationshipType
     description: Optional[str] = None
-    weight: float = Field(default=1.0, ge=0.0, le=1.0) # Weight as probability/score
+    weight: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_sources: List[Evidence] = Field(default_factory=list)
 
 class LinkConceptsResult(BaseModel):
@@ -456,8 +460,6 @@ class LinkConceptsUseCase:
 
         description = input_data.description
         if description is None:
-            # Auto-generate description based on type and concept names
-            # Replace underscores with spaces and convert to lowercase for readability
             rel_type_readable = input_data.relationship_type.value.lower().replace('_', ' ')
             description = f"{source_concept.name} {rel_type_readable} {target_concept.name}."
 

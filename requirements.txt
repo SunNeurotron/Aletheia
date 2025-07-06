@@ -4,8 +4,8 @@ uvicorn[standard]==0.23.2
 
 # Database
 sqlalchemy==2.0.20
-psycopg2-binary==2.9.6
-alembic==1.12.0
+# psycopg2-binary==2.9.6  # Temporarily removed
+# alembic==1.12.0  # Temporarily removed
 
 # ML/Stats
 # mlflow==2.7.1 # Temporarily commented out due to pyarrow build issues in sandbox
@@ -31,7 +31,7 @@ isort==5.12.0
 flake8==6.1.0
 mypy==1.5.1
 types-sqlalchemy # For SQLAlchemy stubs with MyPy
-types-psycopg2
+# types-psycopg2 # Temporarily removed
 types-requests # If we use requests directly, or for httpx stubs if not explicit
 
 # Pre-commit (tool itself)
