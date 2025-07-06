@@ -18,6 +18,13 @@ from tests.application.use_cases.use_cases_for_test import (
     ConstructUnifiedModelUseCase, ConstructUnifiedModelInput, UnifiedModelResult, IngestDocumentUseCase,
     IngestDocumentInput, IngestDocumentResult, LinkConceptsUseCase, LinkConceptsInput, LinkConceptsResult
 )
+# Import new Eje X analysis use cases and DTOs
+from tests.application.use_cases.eje_x_analysis_for_test import (
+    PropositionTypeExtractorUseCase,
+    EvidenceQualityEvaluatorUseCase,
+    EnhancedExtractUCMsAndPropositionsUseCase,
+    EnhancedExtractionResult
+)
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol, RelationshipRepository as RelationshipRepoProtocol
 )
@@ -212,6 +219,29 @@ def get_ingest_document_use_case(concept_repo: ConceptRepoProtocol = Depends(get
 def get_link_concepts_use_case(concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo), relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)) -> LinkConceptsUseCase: return LinkConceptsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
 
 
+# DI for new Eje X Use Cases
+def get_proposition_type_extractor_use_case() -> PropositionTypeExtractorUseCase:
+    return PropositionTypeExtractorUseCase()
+
+def get_evidence_quality_evaluator_use_case() -> EvidenceQualityEvaluatorUseCase:
+    return EvidenceQualityEvaluatorUseCase()
+
+def get_enhanced_extract_ucms_and_propositions_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
+    # We need the basic ExtractUCMsUseCase to be injectable
+    ucm_extractor: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case),
+    proposition_extractor: PropositionTypeExtractorUseCase = Depends(get_proposition_type_extractor_use_case),
+    evidence_evaluator: EvidenceQualityEvaluatorUseCase = Depends(get_evidence_quality_evaluator_use_case)
+) -> EnhancedExtractUCMsAndPropositionsUseCase:
+    return EnhancedExtractUCMsAndPropositionsUseCase(
+        concept_repo=concept_repo,
+        ucm_extractor=ucm_extractor,
+        proposition_extractor=proposition_extractor,
+        evidence_evaluator=evidence_evaluator
+    )
+# --- End Eje X DI functions
+
+
 def create_test_app() -> FastAPI:
     app = FastAPI(title="Aletheia Test API", description="Test API", version="0.1.0-test")
 
@@ -256,6 +286,23 @@ def create_test_app() -> FastAPI:
         except ValueError as e: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
         except Exception as e: raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error: {str(e)}")
 
+    # --- Eje X - Enhanced Extraction Endpoint ---
+    @app.post("/eje_x/enhanced_extraction/", response_model=EnhancedExtractionResult, status_code=status.HTTP_201_CREATED, tags=["Eje X - Analysis"])
+    def enhanced_extraction_endpoint(
+        input_data: ExtractUCMsInput, # Reuses the same input DTO as basic UCM extraction
+        use_case: EnhancedExtractUCMsAndPropositionsUseCase = Depends(get_enhanced_extract_ucms_and_propositions_use_case),
+    ):
+        """
+        Performs enhanced extraction: UCMs with evaluated evidence quality,
+        and typed propositions from the document text.
+        """
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e: # Catch specific errors if use case raises them
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        except Exception as e:
+            # Log generic exceptions here
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred during enhanced extraction: {str(e)}")
 
     # --- Eje Y - Visualization Endpoints ---
     @app.get("/eje_y/visualization/hierarchy_graph/{concept_id}", response_model=Dict[str, Any], tags=["Eje Y - Visualization"])
@@ -268,19 +315,58 @@ def create_test_app() -> FastAPI:
 
         nodes: List[Dict[str, Any]] = []
         edges: List[Dict[str, Any]] = []
-        globally_added_nodes: Set[uuid.UUID] = set()
 
-        # Iterative BFS for graph building
-        queue = deque([(root_concept, 0)]) # (concept, current_depth_from_root)
-        # Path visited is not needed for BFS cycle detection if we use globally_added_nodes for queuing
+        # BFS queue stores (concept_object, current_depth_from_root_concept)
+        queue = deque([(root_concept, 0)])
+        # visited_for_bfs ensures we don't add the same concept to the queue multiple times, preventing cycles and redundant processing
+        visited_for_bfs: Set[uuid.UUID] = {root_concept.id}
 
         while queue:
             current_c, current_d = queue.popleft()
 
-            if current_c.id not in globally_added_nodes:
-                globally_added_nodes.add(current_c.id)
-                nodes.append({
-                    "id": str(current_c.id), "label": current_c.name[:50], "type": current_c.type.value,
+            # Add node to output list if not already added (it might be added if it's a root_concept)
+            # For BFS, nodes are typically added when first discovered (i.e., when added to queue or when popped)
+            # Let's ensure it's added here to capture all nodes that are processed.
+            # The globally_added_nodes was for recursive, for BFS, visited_for_bfs serves this.
+            # We need a separate set for nodes *actually added to the output list* to avoid duplicates in `nodes` list.
+            # However, since BFS processes each node once due to visited_for_bfs, we can add it here.
+
+            # This logic was flawed. We add to 'nodes' when discovered and added to 'visited_for_bfs'.
+            # The first node (root_concept) needs to be added before the loop.
+
+            # Re-thinking: add to nodes when *first encountered* and added to queue/visited_for_bfs
+            # For root:
+            nodes.append({
+                "id": str(root_concept.id), "label": root_concept.name[:50], "type": root_concept.type.value,
+                "level": _get_hierarchy_level(root_concept.type),
+                "properties": {
+                    "description_snippet": root_concept.description[:100] + ("..." if len(root_concept.description) > 100 else ""),
+                    "member_count": len(root_concept.member_concept_ids or [])
+                }
+            })
+            # The loop will then process its children. The root is already in visited_for_bfs.
+
+            # The loop should start with current_c = root_concept already processed for nodes list.
+            # The items in queue are *children* to be processed.
+            # Let's reset:
+        nodes = []
+        edges = []
+        queue = deque([(root_concept, 0)])
+        # visited_for_bfs tracks nodes whose children have been or will be added to the queue.
+        # It ensures we don't expand the same node multiple times.
+        visited_for_bfs_expansion: Set[uuid.UUID] = set()
+
+
+        while queue:
+            current_c, current_d = queue.popleft()
+
+            # Add current_c to nodes list if not already there
+            # This check is important if a node can be reached by multiple paths of different lengths
+            # and we only want it once in the nodes list.
+            current_c_id_str = str(current_c.id)
+            if not any(n["id"] == current_c_id_str for n in nodes):
+                 nodes.append({
+                    "id": current_c_id_str, "label": current_c.name[:50], "type": current_c.type.value,
                     "level": _get_hierarchy_level(current_c.type),
                     "properties": {
                         "description_snippet": current_c.description[:100] + ("..." if len(current_c.description) > 100 else ""),
@@ -288,8 +374,10 @@ def create_test_app() -> FastAPI:
                     }
                 })
 
-            if current_d >= max_depth_param:
-                continue # Don't explore children if max depth reached for this node
+            if current_c.id in visited_for_bfs_expansion or current_d >= max_depth_param :
+                continue # Already expanded this node's children OR too deep
+
+            visited_for_bfs_expansion.add(current_c.id)
 
             # Process members
             if current_c.member_concept_ids:
@@ -297,38 +385,25 @@ def create_test_app() -> FastAPI:
                     member = concept_repo.get_by_id(member_id)
                     if member:
                         edges.append({"source": str(current_c.id), "target": str(member_id), "type": "contains"})
-                        if member.id not in globally_added_nodes: # Add to queue only if not globally processed as a node
-                            # It will be added to nodes list when popped from queue if still not globally_added_nodes
-                            # To prevent re-queuing if already processed or in queue, check globally_added_nodes
-                            # but for strict BFS, usually check visited before adding to queue.
-                            # For graph structure, we want to add all reachable nodes up to depth.
-                             queue.append((member, current_d + 1))
-                        elif member.id not in {n['id'] for n in nodes}: # If visited but somehow not in nodes list (should not happen with this logic)
-                            # This case is tricky, means it was visited by another path but not added to nodes.
-                            # The current globally_added_nodes check when popping should handle it.
-                            # The main thing is to add it to queue if its children need to be explored.
-                            # If already added to nodes, we still might need to explore its children if current_d+1 <= max_depth_param
-                            # Re-add to queue if not already processed to its full depth from *this* path.
-                            # This needs a more complex visited structure for BFS like (node_id, depth_visited_at)
-                            # For simplicity, if globally added, assume its subgraph is (or will be) explored.
-                            pass
-
+                        # Add member to queue for its children to be processed
+                        # if member.id not in visited_for_bfs_expansion: # This check was preventing ucm2
+                        queue.append((member, current_d + 1))
 
             # Process derived UCMs for propositions
             if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
-                if current_d < max_depth_param: # Only add UCMs if proposition itself is not at max_depth
-                    for ucm_id in current_c.derived_from_ucm_ids:
-                        ucm_member = concept_repo.get_by_id(ucm_id)
-                        if ucm_member:
-                            edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
-                            if ucm_member.id not in globally_added_nodes:
-                                globally_added_nodes.add(ucm_member.id)
-                                nodes.append({
-                                    "id": str(ucm_member.id), "label": ucm_member.name[:50],
-                                    "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
-                                    "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
-                                })
-                                # UCMs are leaves, don't add to queue for further member exploration
+                # These UCMs are children, but we don't expand them further in this graph context typically
+                for ucm_id in current_c.derived_from_ucm_ids:
+                    ucm_member = concept_repo.get_by_id(ucm_id)
+                    if ucm_member:
+                        edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
+                        # Add UCM to nodes list if not already there
+                        ucm_member_id_str = str(ucm_member.id)
+                        if not any(n["id"] == ucm_member_id_str for n in nodes):
+                            nodes.append({
+                                "id": ucm_member_id_str, "label": ucm_member.name[:50],
+                                "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
+                                "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
+                            })
 
         actual_max_depth_val = 0
         if nodes and root_concept:

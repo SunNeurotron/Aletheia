@@ -26,6 +26,10 @@ from tests.domain.domain_for_test import (
     ConceptType,
     DirectedRelationship,
     RelationshipType,
+    # New Enums and models for Eje X
+    PropositionType,
+    EpistemicStatus,
+    EvidenceStrength,
 )
 
 
@@ -253,3 +257,87 @@ class TestDirectedRelationship:
 # For now, I've commented out the Hypothesis examples to keep the initial set of tests focused
 # on the direct validation and core Pydantic behaviors. They can be uncommented and expanded
 # if deeper property-based testing is desired.
+
+
+class TestEjeXDomainEnhancements:
+    """Tests for domain model enhancements related to Eje X deep analysis."""
+
+    def test_proposition_type_enum(self):
+        assert PropositionType.CAUSAL.value == "CAUSAL"
+        assert PropositionType.TEMPORAL.value == "TEMPORAL"
+        assert PropositionType.UNKNOWN.value == "UNKNOWN"
+        # Check if it can be used in a model
+        assert ScientificConcept(
+            name="Test Prop Type", description="d", type=ConceptType.PROPOSITION,
+            proposition_type=PropositionType.CORRELATIONAL
+        ).proposition_type == PropositionType.CORRELATIONAL
+
+    def test_epistemic_status_enum(self):
+        assert EpistemicStatus.SUPPORTED.value == "SUPPORTED"
+        assert EpistemicStatus.FALSIFIED.value == "FALSIFIED"
+        # Check if it can be used in a model
+        assert ScientificConcept(
+            name="Test Epistemic", description="d", type=ConceptType.HYPOTHESIS,
+            epistemic_status=EpistemicStatus.CONJECTURED
+        ).epistemic_status == EpistemicStatus.CONJECTURED
+
+    def test_evidence_strength_enum(self):
+        assert EvidenceStrength.STRONG.value == "STRONG"
+        assert EvidenceStrength.ANECDOTAL.value == "ANECDOTAL"
+        # Check if it can be used in a model
+        assert Evidence(
+            source_doi="d", source_citation="c", snippet="s", confidence=0.5,
+            evidence_strength=EvidenceStrength.MODERATE
+        ).evidence_strength == EvidenceStrength.MODERATE
+
+    def test_evidence_model_with_new_fields(self):
+        ev = Evidence(
+            source_doi="10.123/test",
+            source_citation="Test J 2024",
+            snippet="Important finding showing X.",
+            confidence=0.9,
+            evidence_strength=EvidenceStrength.STRONG,
+            assessment_rationale="Based on multiple replications and strong methodology."
+        )
+        assert ev.evidence_strength == EvidenceStrength.STRONG
+        assert ev.assessment_rationale == "Based on multiple replications and strong methodology."
+
+    def test_evidence_model_new_fields_optional(self):
+        ev = Evidence(
+            source_doi="10.123/test2",
+            source_citation="Test J2 2024",
+            snippet="Another finding.",
+            confidence=0.7
+        )
+        assert ev.evidence_strength is None
+        assert ev.assessment_rationale is None
+
+    def test_scientific_concept_model_with_new_fields_for_proposition(self):
+        concept = ScientificConcept(
+            name="Causal Claim About X",
+            description="X is proposed to cause Y under certain conditions.",
+            type=ConceptType.PROPOSITION,
+            proposition_type=PropositionType.CAUSAL,
+            epistemic_status=EpistemicStatus.CONJECTURED
+        )
+        assert concept.proposition_type == PropositionType.CAUSAL
+        assert concept.epistemic_status == EpistemicStatus.CONJECTURED
+
+    def test_scientific_concept_model_new_fields_optional(self):
+        # For a non-proposition type, these fields should typically be None
+        concept_ucm = ScientificConcept(
+            name="Basic UCM",
+            description="A fundamental unit.",
+            type=ConceptType.UCM
+        )
+        assert concept_ucm.proposition_type is None
+        assert concept_ucm.epistemic_status is None
+
+        # For a proposition type, they can also be None if not specified
+        concept_prop_optional = ScientificConcept(
+            name="Vague Proposition",
+            description="Something might be related to something else.",
+            type=ConceptType.PROPOSITION
+        )
+        assert concept_prop_optional.proposition_type is None
+        assert concept_prop_optional.epistemic_status is None

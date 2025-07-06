@@ -44,6 +44,43 @@ class ModelArchitectureType(str, Enum):
     HYBRID = "HYBRID"
 
 
+class PropositionType(str, Enum):
+    """Types of propositions based on their logical structure."""
+    CAUSAL = "CAUSAL"                    # X causes Y
+    CORRELATIONAL = "CORRELATIONAL"      # X correlates with Y
+    DEFINITIONAL = "DEFINITIONAL"        # X is defined as Y
+    CONDITIONAL = "CONDITIONAL"          # If X then Y
+    COMPARATIVE = "COMPARATIVE"          # X is greater/less than Y
+    EXISTENTIAL = "EXISTENTIAL"          # X exists/occurs
+    COMPOSITIONAL = "COMPOSITIONAL"      # X consists of Y parts
+    METHODOLOGICAL = "METHODOLOGICAL"    # X was measured using Y
+    TEMPORAL = "TEMPORAL"                # X happens before/after Y
+    UNKNOWN = "UNKNOWN"                  # Default or unclassified
+
+
+class EpistemicStatus(str, Enum):
+    """The epistemological status of a proposition or concept."""
+    ASSERTED = "ASSERTED"                # Claimed without strong backing yet
+    CONJECTURED = "CONJECTURED"          # Proposed as a possibility
+    SUPPORTED = "SUPPORTED"              # Has some supporting evidence
+    WELL_SUPPORTED = "WELL_SUPPORTED"    # Has strong supporting evidence
+    VERIFIED = "VERIFIED"                # Generally accepted as true, high degree of confirmation
+    DISPUTED = "DISPUTED"                # Controversial or contested
+    FALSIFIED = "FALSIFIED"              # Shown to be false
+    UNKNOWN = "UNKNOWN"                  # Status not determined
+
+
+class EvidenceStrength(str, Enum):
+    """The assessed strength of a piece of evidence."""
+    STRONG = "STRONG"
+    MODERATE = "MODERATE"
+    WEAK = "WEAK"
+    ANECDOTAL = "ANECDOTAL"
+    INSUFFICIENT = "INSUFFICIENT"        # Not enough information to assess
+    CONTRADICTORY = "CONTRADICTORY"      # Evidence itself is contradictory or points against
+    UNKNOWN = "UNKNOWN"
+
+
 class Evidence(BaseModel):
     """
     Represents a piece of evidence extracted from a source document.
@@ -58,6 +95,9 @@ class Evidence(BaseModel):
     source_citation: str
     snippet: str
     confidence: float = Field(..., ge=0.0, le=1.0)
+    # New fields for Eje X enhancements
+    evidence_strength: Optional[EvidenceStrength] = None
+    assessment_rationale: Optional[str] = None
 
 
 class ScientificConcept(BaseModel):
@@ -92,6 +132,9 @@ class ScientificConcept(BaseModel):
     member_concept_ids: Optional[List[uuid.UUID]] = None
     derived_from_cluster_id: Optional[uuid.UUID] = None
     derived_from_ucm_ids: Optional[List[uuid.UUID]] = None
+    # New fields for Eje X enhancements (primarily for PROPOSITION type concepts)
+    proposition_type: Optional[PropositionType] = None
+    epistemic_status: Optional[EpistemicStatus] = None
 
     model_config = {"frozen": True}
 

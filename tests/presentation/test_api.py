@@ -457,6 +457,76 @@ class TestEjeXAPI:
         response = client.post("/eje_x/relationships/", json=link_payload)
         assert response.status_code == 422, response.text # Pydantic validation error
 
+    # --- Test for Enhanced Extraction Endpoint (Eje X - Analysis) ---
+    def test_enhanced_extraction_endpoint_success(self):
+        payload = {
+            "document_text": "Clinical trials show DrugX causes pain relief. This study, published in a reputable journal (Nature, 2023), involved a randomized controlled trial. Another paper suggests a correlation between FactorA and OutcomeB.",
+            "source_doi": "doi:10.xxxx/enhanced.extraction.test",
+            "source_citation": "Enhanced Extraction Test et al., 2024"
+        }
+        response = client.post("/eje_x/enhanced_extraction/", json=payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "ucms_created" in data
+        assert "typed_propositions" in data
+        assert "document_level_quality_score" in data # Optional, so could be None
+
+        # Check UCMs
+        assert len(data["ucms_created"]) > 0 # Expect UCMs like "Clinical trials", "DrugX", "pain relief", "FactorA", "OutcomeB" etc.
+        # Check if evidence on UCMs was enhanced
+        first_ucm_with_evidence = None
+        for ucm in data["ucms_created"]:
+            if ucm["evidence_sources"]:
+                first_ucm_with_evidence = ucm
+                break
+
+        assert first_ucm_with_evidence is not None, "At least one UCM should have evidence to check enhancement"
+        evidence_item = first_ucm_with_evidence["evidence_sources"][0]
+        assert "evidence_strength" in evidence_item # New field
+        assert evidence_item["evidence_strength"] is not None # Should be populated
+        assert "assessment_rationale" in evidence_item
+        assert evidence_item["assessment_rationale"] is not None
+        assert "OverallScore:" in evidence_item["assessment_rationale"]
+        # Example: "randomized controlled trial" and "Nature" should yield high scores
+        if "DrugX" in first_ucm_with_evidence["name"] or "pain relief" in first_ucm_with_evidence["name"]:
+             # This specific evidence snippet is tied to the UCM "Clinical trials" by the extractor usually.
+             # The test here is more about whether *an* evidence got processed.
+             # A more precise test would mock the UCM extractor to return specific UCMs with known evidence snippets.
+             # For now, check if any evidence got a good strength, assuming some positive keywords hit.
+            strength_values = [ev.get("evidence_strength") for ucm in data["ucms_created"] for ev in ucm.get("evidence_sources", []) if ev.get("evidence_strength")]
+            assert "STRONG" in strength_values or "MODERATE" in strength_values
+
+
+        # Check Typed Propositions
+        assert len(data["typed_propositions"]) > 0
+
+        # Made subject check more flexible for causal proposition due to simple regex
+        causal_found = any(p["proposition_type"] == "CAUSAL" and "drugx" in p.get("subject","").lower() for p in data["typed_propositions"])
+        assert causal_found, "Expected a CAUSAL proposition for DrugX"
+
+        correlational_found = any(p["proposition_type"] == "CORRELATIONAL" and p.get("subject","").lower() == "factora" for p in data["typed_propositions"])
+        assert correlational_found, "Expected a CORRELATIONAL proposition for FactorA"
+
+        # Check document level score (can be None if no evidence scores were parsable)
+        if data["document_level_quality_score"] is not None:
+            assert 0.0 <= data["document_level_quality_score"] <= 1.0
+
+
+    def test_enhanced_extraction_endpoint_empty_text(self):
+        payload = {
+            "document_text": "", # Empty text
+            "source_doi": "doi:10.xxxx/empty.text.test",
+            "source_citation": "Empty Text Test, 2024"
+        }
+        response = client.post("/eje_x/enhanced_extraction/", json=payload)
+        assert response.status_code == 201, response.text # Should still succeed, just produce no UCMs/Props
+        data = response.json()
+        assert len(data["ucms_created"]) == 0
+        assert len(data["typed_propositions"]) == 0
+        assert data["document_level_quality_score"] is None
+
+
     # --- Tests for Mini-Theory Construction Endpoint ---
 
     def test_construct_mini_theory_endpoint_success(self):
