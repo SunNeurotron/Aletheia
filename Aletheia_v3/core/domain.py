@@ -34,9 +34,12 @@ def gcd(a: int, b: int) -> int:
     Computes the greatest common divisor (GCD) of two integers a and b
     using PARI/GP via cypari2.
 
-    @param a: The first integer.
-    @param b: The second integer.
-    @returns: The greatest common divisor of a and b.
+    :param a: The first integer.
+    :type a: int
+    :param b: The second integer.
+    :type b: int
+    :return: The greatest common divisor of a and b.
+    :rtype: int
     """
     # PARI's gcd is very efficient and handles large numbers.
     # It returns a PARI GEN object, so convert to Python int.
@@ -45,6 +48,10 @@ def gcd(a: int, b: int) -> int:
 
 @dataclass(frozen=True)
 class ABCTriple:
+    """
+    Represents an abc-triple (a, b, c) where a, b, c are positive integers,
+    a and b are coprime, and a + b = c.
+    """
     a: int
     b: int
     c: int
@@ -52,6 +59,9 @@ class ABCTriple:
 
 @dataclass(frozen=True)
 class ABCQuality:
+    """
+    Represents an abc-triple along with its calculated quality 'q'.
+    """
     triple: ABCTriple
     quality: float
 
@@ -64,31 +74,37 @@ def get_quality(a: int, b: int) -> float:
     in the context of the abc conjecture. It relates the magnitude of c to the
     product of its distinct prime factors (the radical of abc).
 
-    @equations:
-        The abc conjecture states that for any epsilon > 0, there are only finitely
-        many triples (a, b, c) of coprime positive integers with a + b = c such that
-        c > rad(abc)^(1+epsilon).
+    .. math::
+        q(a,b,c) = \\frac{\\log(c)}{\\log(\\text{rad}(abc))}
 
-        The quality q is defined as:
-        q(a,b,c) = log(c) / log(rad(a*b*c))
-        where rad(n) is the radical of n, i.e., the product of the distinct prime
-        factors of n.
-        rad(n) = product_{p|n, p prime} p
+    where :math:`\\text{rad}(n)` is the radical of n, i.e., the product of the distinct prime
+    factors of n:
 
-    @references:
+    .. math::
+        \\text{rad}(n) = \\prod_{p|n, p \\text{ prime}} p
+
+    The abc conjecture states that for any :math:`\\epsilon > 0`, there are only finitely
+    many triples (a, b, c) of coprime positive integers with a + b = c such that
+    :math:`c > \\text{rad}(abc)^{1+\\epsilon}`.
+
+    References:
         1. Oesterlé, J. (1988). "Nouvelles approches du 'théorème' de Fermat".
            Séminaire Bourbaki, Vol. 1987/88, Astérisque No. 161-162, exp. no. 694, pp. 165-186.
         2. Masser, D. W. (1985). "Open problems". Proceedings of the Symposium on
            Analytic Number Theory. London: Imperial College.
 
-    @param a: The first term of the potential triple. Must be a positive integer.
-    @param b: The second term of the potential triple. Must be a positive integer.
-    @returns: The quality 'q' of the triple (a, b, a+b). Returns 0.0 if:
-              - a or b is not positive.
-              - a and b are not coprime (gcd(a,b) != 1).
-              - a >= b (to ensure uniqueness and avoid redundant checks, as (a,b,c) and (b,a,c) are equivalent for quality calculation after ordering).
-              - rad(abc) >= c (which implies q <= 1 or is undefined if rad=0 or 1).
-              - rad(abc) = 0 (should not happen with positive a,b,c).
+    :param a: The first term of the potential triple. Must be a positive integer.
+    :type a: int
+    :param b: The second term of the potential triple. Must be a positive integer.
+    :type b: int
+    :return: The quality 'q' of the triple (a, b, a+b). Returns 0.0 if:
+             - a or b is not positive.
+             - a and b are not coprime (gcd(a,b) != 1).
+             - a >= b (to ensure uniqueness and avoid redundant checks, as (a,b,c)
+               and (b,a,c) are equivalent for quality calculation after ordering).
+             - rad(abc) >= c (which implies q <= 1 or is undefined if rad=0 or 1).
+             - rad(abc) = 0 or rad(abc) = 1 (denominator log(rad(abc)) would be undefined or zero).
+    :rtype: float
     """
     if not (isinstance(a, int) and isinstance(b, int) and a > 0 and b > 0):
         return 0.0
@@ -105,14 +121,18 @@ def get_quality(a: int, b: int) -> float:
     @lru_cache(maxsize=1024)  # Adjust maxsize based on expected unique numbers
     def _radical(n_val: int) -> int:
         """
-        Computes the radical (square-free kernel) of an integer 'n' using PARI/GP (via cypari2)
-        for prime factorization. The radical of 'n' is the product of its distinct prime factors.
-        This function is cached using functools.lru_cache.
+        Computes the radical (square-free kernel) of an integer 'n' using PARI/GP
+        (via cypari2) for prime factorization. The radical of 'n' is the product
+        of its distinct prime factors. This function is cached using
+        `functools.lru_cache`.
 
         Example: rad(72) = rad(2^3 * 3^2) = 2 * 3 = 6.
 
-        @param n_val: The integer for which to compute the radical.
-        @returns: The radical of n_val. Returns 0 if n_val is 0, 1 if n_val is +/-1.
+        :param n_val: The integer for which to compute the radical.
+        :type n_val: int
+        :return: The radical of n_val. Returns 0 if n_val is 0, 1 if n_val is +/-1.
+        :rtype: int
+        :raises Exception: Propagates exceptions from PARI/GP factorization.
         """
         if n_val == 0:
             return 0

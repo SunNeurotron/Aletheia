@@ -12,6 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+API router for managing and monitoring intelligent search jobs for abc-triples.
+
+Provides endpoints to:
+- Create new search jobs (which are processed asynchronously via Celery).
+- Retrieve the status and results of existing search jobs.
+"""
+
 import logging
 import uuid
 from typing import List
@@ -53,7 +61,24 @@ async def create_new_search_job(
     """
     Creates a new intelligent search job for abc-triples.
 
-    - **n_calls**: The budget (number of evaluations) for the Bayesian optimization.
+    The job is added to the database and a Celery task is enqueued for
+    asynchronous processing of the Bayesian optimization search.
+
+    - **n_calls** (in request body): The budget (number of evaluations) for
+      the Bayesian optimization.
+
+    :param request: The job creation request containing parameters like `n_calls`.
+    :type request: main_schemas.JobCreateRequest
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Authenticated user, must have the 'researcher' role.
+    :type current_user: aletheia_common.auth.jwt_handler.UserAuth
+    :raises HTTPException:
+        - 401 if unauthorized.
+        - 403 if user lacks the 'researcher' role.
+        - 500 if the Celery task fails to be enqueued.
+    :return: Details of the initialized job, including its ID and initial status.
+    :rtype: main_schemas.JobResponse
     """
     job_id = str(uuid.uuid4())
 
@@ -90,7 +115,20 @@ async def get_search_job_status_and_results(
     current_user: CommonUserAuth = Depends(require_roles({"researcher"})),
 ):
     """
-    Retrieves the status and results of a specific search job.
+    Retrieves the status and results of a specific search job by its ID.
+
+    :param job_id: The unique identifier of the search job.
+    :type job_id: str
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Authenticated user, must have the 'researcher' role.
+    :type current_user: aletheia_common.auth.jwt_handler.UserAuth
+    :raises HTTPException:
+        - 401 if unauthorized.
+        - 403 if user lacks the 'researcher' role.
+        - 404 if the job with the specified ID is not found.
+    :return: The details of the search job, including its status and any results if completed.
+    :rtype: main_schemas.JobResponse
     """
     db_job = db.query(JobDB).filter(JobDB.id == job_id).first()
     if db_job is None:
