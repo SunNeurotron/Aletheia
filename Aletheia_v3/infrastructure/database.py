@@ -12,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Database configuration and session management for the Aletheia_v3 module.
+
+This module sets up the SQLAlchemy engine, session factory (`SessionLocal`),
+and the declarative base (`Base`) for ORM models. It also provides a
+FastAPI dependency (`get_db_session`) for injecting database sessions into
+API route handlers.
+
+The database connection URL is configured via the
+`ALETHEIA_V3_DATABASE_URL` environment variable.
+"""
+
 import logging  # Añadir logging
 import os
 
@@ -22,54 +34,67 @@ from sqlalchemy.orm import sessionmaker
 logger = logging.getLogger(__name__)
 
 # Environment variable for the full database URL
-# This aligns with how Alembic's env.py is often configured.
 ALETHEIA_V3_DATABASE_URL_ENV_VAR = "ALETHEIA_V3_DATABASE_URL"
-DEFAULT_ALETHEIA_V3_DATABASE_URL = (
-    "postgresql://user:password@db:5432/abc_db"  # Default for docker-compose
-)
+"""Environment variable name for the Aletheia_v3 module's database URL."""
 
-SQLALCHEMY_DATABASE_URL = os.getenv(
+DEFAULT_ALETHEIA_V3_DATABASE_URL = "postgresql://user:password@db:5432/abc_db"
+"""Default database URL, typically used in docker-compose setups if the env var is not set."""
+
+SQLALCHEMY_DATABASE_URL: str = os.getenv(
     ALETHEIA_V3_DATABASE_URL_ENV_VAR, DEFAULT_ALETHEIA_V3_DATABASE_URL
 )
+"""The actual database URL being used, loaded from environment or default."""
 
-if SQLALCHEMY_DATABASE_URL.startswith(
-    "postgres://"
-):  # SQLAlchemy <1.4 compatibilidad con psycopg2
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    # Ensure compatibility with SQLAlchemy versions that prefer 'postgresql://'
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
         "postgres://", "postgresql://", 1
     )
 
+# Log the database URL being used (excluding credentials for security)
+db_url_log_display = SQLALCHEMY_DATABASE_URL
+if "@" in db_url_log_display:
+    db_url_log_display = db_url_log_display.split("@", 1)[1] # Show only host/db part
 logger.info(
-    f"Aletheia_v3 Infrastructure: Using database URL: {SQLALCHEMY_DATABASE_URL[:SQLALCHEMY_DATABASE_URL.find('@') if '@' in SQLALCHEMY_DATABASE_URL else len(SQLALCHEMY_DATABASE_URL)]}..."
-)  # Log sin creds
+    f"Aletheia_v3 Infrastructure: Using database at host/db: {db_url_log_display}"
+)
 
-# SQLAlchemy engine
-# `echo=True` can be useful for debugging SQL queries during development
+engine = None
 try:
-    engine = create_engine(
-        SQLALCHEMY_DATABASE_URL
-    )  # Add echo=True for query logging if needed
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    """The SQLAlchemy engine instance, connected to the database specified by `SQLALCHEMY_DATABASE_URL`."""
 except Exception as e:
     logger.critical(
-        f"Failed to create SQLAlchemy engine for Aletheia_v3: {e}",
+        f"Failed to create SQLAlchemy engine for Aletheia_v3 with URL {db_url_log_display}: {e}",
         exc_info=True,
     )
-    engine = None  # Allow app to start but DB operations will fail
+    # engine remains None, allowing app to start but DB operations will fail.
+    # Health checks or startup routines should verify engine availability.
 
-# SessionLocal class for creating database sessions
-# autocommit=False and autoflush=False are standard settings for FastAPI/Celery integration
-# where commit and flush operations are handled explicitly.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+"""A factory for creating new SQLAlchemy `Session` objects.
+Configured with autocommit=False and autoflush=False, suitable for FastAPI
+dependencies where session lifecycle is managed per request.
+"""
 
-# Base class for declarative models
-# All SQLAlchemy models will inherit from this class.
 Base = declarative_base()
+"""Base class for all SQLAlchemy ORM models in the Aletheia_v3 module.
+Models should inherit from this `Base` to be registered with SQLAlchemy's metadata.
+"""
 
 
 def get_db_session():
     """
-    Dependency provider for FastAPI to get a database session.
-    It ensures the session is closed after the request is finished.
+    FastAPI dependency to provide a SQLAlchemy database session per request.
+
+    This function yields a new database session from `SessionLocal` and ensures
+    that the session is closed after the request processing is complete,
+    regardless of whether an exception occurred.
+
+    Usage:
+        @app.get("/items/")
+        async def read_items(db: Session = Depends(get_db_session)):
+            # ... use db session ...
     """
     db = SessionLocal()
     try:

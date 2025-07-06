@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+API router for managing attributions of contributions to discovered abc-hits.
+
+Allows researchers to record their contributions (e.g., verification,
+analysis, related work) to specific hits.
+"""
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -43,11 +50,36 @@ logger = logging.getLogger(__name__)
     status_code=status.HTTP_201_CREATED,
 )
 async def add_attribution_to_hit(
-    hit_id: int,  # Path parameter from prefix
+    hit_id: int,
     attribution_in: main_schemas.AttributionCreate,
     db: Session = Depends(get_db_session),
     current_user: CommonUserAuth = Depends(require_roles({"researcher"})),
-):
+) -> main_schemas.AttributionResponse:
+    """
+    Adds a new attribution or contribution by a researcher to a specific abc-hit.
+
+    The contribution type must be one of the predefined values in
+    `ContributionTypeEnum`.
+
+    :param hit_id: The ID of the abc-hit to which the attribution is being added.
+    :type hit_id: int
+    :param attribution_in: The attribution creation request data, including
+                           `contribution_type` and optional `details`.
+    :type attribution_in: main_schemas.AttributionCreate
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Authenticated user with the 'researcher' role.
+    :type current_user: aletheia_common.auth.jwt_handler.UserAuth
+    :raises HTTPException:
+        - 401 (Unauthorized): If the user is not authenticated.
+        - 403 (Forbidden): If the user lacks the 'researcher' role.
+        - 404 (Not Found): If the specified `hit_id` does not exist.
+        - 422 (Unprocessable Entity): If `contribution_type` is invalid.
+        - 500 (Internal Server Error): If the authenticated researcher cannot be
+                                       retrieved from the database.
+    :return: The newly created attribution record.
+    :rtype: main_schemas.AttributionResponse
+    """
     researcher = (
         db.query(ResearcherDB)
         .filter(ResearcherDB.username == current_user.username)

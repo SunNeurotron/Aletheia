@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Celery worker configuration and task definitions for Aletheia_v3.
+
+This module initializes the Celery application, configures it with a broker
+(Redis) and result backend, sets up MLflow for experiment tracking, defines
+task queues, and includes the primary asynchronous task for intelligent
+discovery of abc-triples (`intelligent_discovery_task`).
+"""
+
 # infrastructure/celery_worker.py
 import os
 import time  # For potential delays or retries
@@ -32,26 +41,32 @@ from .database import (
 from .models import HitDB, JobDB
 
 # Configure Celery
-# The broker URL points to the Redis service defined in docker-compose.yml.
-# The backend URL also points to Redis, used for storing task results (if needed).
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
-CELERY_RESULT_BACKEND = os.getenv(
+CELERY_BROKER_URL: str = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
+"""URL for the Celery message broker (Redis). Loaded from environment variable."""
+
+CELERY_RESULT_BACKEND: str = os.getenv(
     "CELERY_RESULT_BACKEND", "redis://redis:6379/0"
 )
+"""URL for the Celery result backend (Redis). Loaded from environment variable."""
 
 celery_app = Celery(
-    "tasks",  # Name of the Celery application
+    "tasks",
     broker=CELERY_BROKER_URL,
     backend=CELERY_RESULT_BACKEND,
 )
+"""The Celery application instance, configured with broker and backend.
+Name 'tasks' is conventional for the main application module.
+"""
 
-# MLflow Tracking URI - points to the MLflow service in docker-compose.yml
-MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+# MLflow Configuration
+MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
+"""URI for the MLflow tracking server. Loaded from environment variable."""
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-# Optionally, set an experiment name. If it doesn't exist, MLflow creates it.
-MLFLOW_EXPERIMENT_NAME = os.getenv(
+
+MLFLOW_EXPERIMENT_NAME: str = os.getenv(
     "MLFLOW_EXPERIMENT_NAME", "ABC Conjecture Research"
 )
+"""Name of the MLflow experiment to use for logging runs. Loaded from environment variable."""
 experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
 if experiment is None:
     mlflow.create_experiment(MLFLOW_EXPERIMENT_NAME)
@@ -63,19 +78,27 @@ from kombu import Exchange, Queue
 # Optional Celery configuration (can also be in a separate celeryconfig.py)
 # Define default and example custom queues
 default_exchange = Exchange("default", type="direct")
+"""Default Celery exchange."""
 math_exchange = Exchange("math_ops", type="direct")
+"""Custom Celery exchange for math-related operations."""
 
-CELERY_TASK_QUEUES = (
+CELERY_TASK_QUEUES: tuple = (
     Queue("default", default_exchange, routing_key="default"),
     Queue("math_heavy", math_exchange, routing_key="math.heavy"),
     Queue("math_light", math_exchange, routing_key="math.light"),
 )
-CELERY_TASK_DEFAULT_QUEUE = "default"
-CELERY_TASK_DEFAULT_EXCHANGE = "default"
-CELERY_TASK_DEFAULT_ROUTING_KEY = "default"
+"""Tuple defining available Celery task queues and their bindings."""
 
+CELERY_TASK_DEFAULT_QUEUE: str = "default"
+"""Default queue for tasks if not specified otherwise."""
+CELERY_TASK_DEFAULT_EXCHANGE: str = "default"
+"""Default exchange for tasks."""
+CELERY_TASK_DEFAULT_ROUTING_KEY: str = "default"
+"""Default routing key for tasks."""
+
+# Update Celery app configuration
 celery_app.conf.update(
-    task_serializer="json",
+    task_serializer="json",  # Use JSON for task serialization
     accept_content=["json"],  # Ensure tasks accept JSON content
     result_serializer="json",
     timezone="UTC",
@@ -97,9 +120,26 @@ celery_app.conf.update(
 def intelligent_discovery_task(job_id: str, n_calls: int):
     """
     Celery task to perform intelligent discovery for abc-triples.
-    This task is triggered by the API server.
 
-    It updates job status, runs the search, records hits, and logs to MLflow.
+    This asynchronous task is triggered by an API request. It performs the
+    computationally intensive search for abc-triples using Bayesian optimization,
+    updates the job status in the database, records any found hits, and logs
+    experiment parameters, metrics, and tags to MLflow.
+
+    The task is routed to the 'math_heavy' queue due to its potentially
+    long-running and CPU-intensive nature.
+
+    :param job_id: The unique identifier of the job, used for tracking and
+                   database updates.
+    :type job_id: str
+    :param n_calls: The number of evaluations (budget) for the Bayesian
+                    optimization search.
+    :type n_calls: int
+    :return: A dictionary containing the status of the task, job ID,
+             number of hits found, and the best quality score.
+    :rtype: dict
+    :raises Exception: Propagates exceptions occurring during task execution,
+                       allowing Celery to mark the task as failed.
     """
     print(
         f"[{job_id}] Task received. n_calls: {n_calls}. Connecting to MLflow: {MLFLOW_TRACKING_URI}"
