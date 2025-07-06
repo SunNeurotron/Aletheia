@@ -115,7 +115,7 @@ class TestConceptAPI:
 class TestEjeYAPI:
     def test_extract_ucms_endpoint_success(self):
         payload = {
-            "document_text": "Key protein P53 is often mutated in cancer. This affects cell cycle.",
+            "document_text": "Important Findings include P53 and Cancer. Also BRCA1 Gene.",
             "source_doi": "doi:10.1234/cancer.res.2024",
             "source_citation": "Smith et al. Cancer Research 2024"
         }
@@ -123,7 +123,14 @@ class TestEjeYAPI:
         assert response.status_code == 201, response.text
         data = response.json()
         assert "ucms_created" in data
-        assert len(data["ucms_created"]) == 2
+
+        # Expected UCMs: "Important Findings", "P53", "Cancer", "BRCA1 Gene"
+        # "Also" is a stopword.
+        created_names = {ucm["name"] for ucm in data["ucms_created"]}
+        expected_names = {"Important Findings", "P53", "Cancer", "BRCA1 Gene"}
+        assert created_names == expected_names
+        assert len(data["ucms_created"]) == 4
+
         for ucm in data["ucms_created"]:
             assert ucm["type"] == "UCM"
             assert ucm["verification_hash"] is not None
