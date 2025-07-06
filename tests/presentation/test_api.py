@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.presentation.api_for_test import app_for_testing, reset_test_repo_singletons
+from tests.domain.domain_for_test import ConceptType # Added for visualization tests
 
 client = TestClient(app_for_testing)
 
@@ -528,3 +529,175 @@ class TestEjeXAPI:
         response = client.post("/eje_y/mini_theory_construction/", json=mt_payload)
         assert response.status_code == 400, response.text
         assert f"Invalid or non-PROPOSITION concept ID provided: {ucm_id}" in response.json()["detail"]
+
+
+class TestVisualizationAPI:
+    """Tests for the Eje Y Visualization API endpoints."""
+
+    def _create_sample_hierarchy(self):
+        """Helper to create a UCM -> Cluster -> Prop -> MT -> CT -> UM hierarchy."""
+        # UCMs
+        ucm1_resp = client.post("/concepts/", json={"name": "VisUCM1", "description": "Viz UCM 1", "type": "UCM"})
+        ucm2_resp = client.post("/concepts/", json={"name": "VisUCM2", "description": "Viz UCM 2", "type": "UCM"})
+        ucm1_id = ucm1_resp.json()["id"]
+        ucm2_id = ucm2_resp.json()["id"]
+
+        # Cluster
+        cl_resp = client.post("/eje_y/cluster_formation/", json={"ucm_ids": [ucm1_id, ucm2_id], "cluster_name": "VisCluster"})
+        cl_id = cl_resp.json()["cluster_created"]["id"]
+
+        # Proposition (derived from UCM1 directly for lineage test, and from cluster)
+        prop_resp = client.post("/eje_y/proposition_derivation/", json={
+            "cluster_id": cl_id,
+            "proposition_text": "VisProposition",
+            "derived_ucm_ids": [ucm1_id] # Explicitly link to UCM1
+        })
+        prop_id = prop_resp.json()["proposition_created"]["id"]
+
+        # Mini-Theory
+        mt_resp = client.post("/eje_y/mini_theory_construction/", json={"proposition_ids": [prop_id], "mini_theory_name": "VisMT"})
+        mt_id = mt_resp.json()["mini_theory_created"]["id"]
+
+        # Comprehensive Theory
+        ct_resp = client.post("/eje_y/comprehensive_theories/", json={"mini_theory_ids": [mt_id], "theory_name": "VisCT"})
+        ct_id = ct_resp.json()["theory_created"]["id"]
+
+        # Unified Model
+        um_resp = client.post("/eje_y/unified_models/", json={"comprehensive_theory_ids": [ct_id], "model_name": "VisUM"})
+        um_id = um_resp.json()["model_created"]["id"]
+
+        return {"ucm1": ucm1_id, "ucm2": ucm2_id, "cluster": cl_id, "proposition": prop_id, "mt": mt_id, "ct": ct_id, "um": um_id}
+
+    def test_get_hierarchy_graph_success(self):
+        ids = self._create_sample_hierarchy()
+
+        response = client.get(f"/eje_y/visualization/hierarchy_graph/{ids['um']}")
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        assert "nodes" in data and "edges" in data and "metadata" in data
+        assert len(data["nodes"]) >= 6 # UM, CT, MT, Prop, Cluster, UCM1, UCM2 (UCM1 might be listed twice if prop also adds it)
+                                      # Let's be more precise based on current graph builder: UM, CT, MT, Prop, Cluster, UCM1, UCM2
+
+        node_ids = {node["id"] for node in data["nodes"]}
+        expected_node_ids = {str(ids[key]) for key in ids}
+        assert expected_node_ids.issubset(node_ids) # All created concepts should be nodes
+
+        # Check root ID in metadata
+        assert data["metadata"]["root_id"] == ids["um"]
+        assert data["metadata"]["total_nodes_rendered"] == len(data["nodes"])
+
+        # Check an edge, e.g., UM contains CT
+        um_to_ct_edge = any(edge["source"] == ids["um"] and edge["target"] == ids["ct"] for edge in data["edges"])
+        assert um_to_ct_edge
+
+        # Check proposition to UCM edge (derived_from_ucm)
+        prop_to_ucm1_edge = any(edge["source"] == ids["proposition"] and edge["target"] == ids["ucm1"] and edge["type"] == "derived_from_ucm" for edge in data["edges"])
+        assert prop_to_ucm1_edge
+
+
+    def test_get_hierarchy_graph_not_found(self):
+        non_existent_id = uuid.uuid4()
+        response = client.get(f"/eje_y/visualization/hierarchy_graph/{non_existent_id}")
+        assert response.status_code == 404, response.text
+
+    def test_get_hierarchy_graph_max_depth_param(self):
+        ids = self._create_sample_hierarchy() # UM is depth 5 from UCMs
+
+        # Request depth 1 from UM (should only show UM and its direct child CT)
+        response = client.get(f"/eje_y/visualization/hierarchy_graph/{ids['um']}?max_depth=1")
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        # Expected nodes: UM, CT
+        assert len(data["nodes"]) == 2
+        node_ids = {node["id"] for node in data["nodes"]}
+        assert ids["um"] in node_ids
+        assert ids["ct"] in node_ids
+        assert ids["mt"] not in node_ids # MT is child of CT, so depth 2 from UM
+
+    def test_get_synthesis_statistics_success(self):
+        ids = self._create_sample_hierarchy() # Creates 1 of each type from UCM to UM (2 UCMs total)
+
+        response = client.get("/eje_y/visualization/synthesis_statistics")
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        assert data["total_concepts"] == 7 # ucm1, ucm2, cluster, prop, mt, ct, um
+        assert data["type_distribution"][ConceptType.UCM.value] == 2
+        assert data["type_distribution"][ConceptType.CLUSTER.value] == 1
+        assert data["type_distribution"][ConceptType.PROPOSITION.value] == 1
+        assert data["type_distribution"][ConceptType.MINI_THEORY.value] == 1
+        assert data["type_distribution"][ConceptType.COMPREHENSIVE_THEORY.value] == 1
+        assert data["type_distribution"][ConceptType.UNIFIED_MODEL.value] == 1
+
+        assert data["synthesis_ratios"]["ucm_to_cluster"] == 1/2 # 1 cluster / 2 UCMs
+        assert data["synthesis_ratios"]["comprehensive_to_unified"] == 1/1
+
+        assert len(data["deepest_hierarchies_sample"]) >= 1
+        assert data["deepest_hierarchies_sample"][0]["model_id"] == ids["um"]
+        # Depth from UM to UCM is 5 (UM-0, CT-1, MT-2, Prop-3, Cluster-4, UCM-5)
+        # _calculate_max_depth(concept, repo) returns depth from concept to UCMs.
+        # For UM, it should trace down 5 levels to UCM.
+        assert data["deepest_hierarchies_sample"][0]["depth_to_ucm"] == 5
+
+
+        assert data["synthesis_efficiency"]["total_ucms"] == 2
+        assert data["synthesis_efficiency"]["total_unified_models"] == 1
+        assert data["synthesis_efficiency"]["compression_ratio"] == 2/1
+
+
+    def test_get_concept_lineage_success_for_proposition(self):
+        ids = self._create_sample_hierarchy()
+
+        response = client.get(f"/eje_y/visualization/concept_lineage/{ids['proposition']}")
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        assert data["target_concept"]["id"] == ids["proposition"]
+
+        # Proposition was derived from UCM1 and Cluster (which contains UCM1, UCM2)
+        # _trace_to_ucms should find UCM1 (direct) and UCM1, UCM2 (via cluster member)
+        ucm_source_ids = {ucm["id"] for ucm in data["ucm_sources"]}
+        assert ids["ucm1"] in ucm_source_ids
+        assert ids["ucm2"] in ucm_source_ids
+        assert len(ucm_source_ids) == 2
+
+
+        # Proposition is part of VisUM
+        model_ids = {model["id"] for model in data["part_of_unified_models"]}
+        assert ids["um"] in model_ids
+        assert len(model_ids) == 1
+
+        # Depth from Proposition to UCM is 1 (direct link to UCM1, or via Cluster to UCMs)
+        assert data["calculated_depths"]["min_depth_to_ucm"] == 1
+        # Depth from Proposition to UM is 2 (Prop -> MT -> CT -> UM means Prop is 3 levels below UM)
+        # _calculate_depth_to_model counts levels upwards. Prop (0) -> MT (1) -> CT (2) -> UM (3)
+        assert data["calculated_depths"]["min_depth_to_model"] == 3
+
+
+    def test_get_concept_lineage_success_for_ucm(self):
+        ids = self._create_sample_hierarchy()
+
+        response = client.get(f"/eje_y/visualization/concept_lineage/{ids['ucm1']}")
+        assert response.status_code == 200, response.text
+        data = response.json()
+
+        assert data["target_concept"]["id"] == ids["ucm1"]
+        ucm_source_ids = {ucm["id"] for ucm in data["ucm_sources"]}
+        assert ids["ucm1"] in ucm_source_ids # UCM traces to itself
+        assert len(ucm_source_ids) == 1
+
+        model_ids = {model["id"] for model in data["part_of_unified_models"]}
+        assert ids["um"] in model_ids
+        assert len(model_ids) == 1
+
+        assert data["calculated_depths"]["min_depth_to_ucm"] == 0
+        # UCM1 -> Cluster -> Prop -> MT -> CT -> UM
+        assert data["calculated_depths"]["min_depth_to_model"] == 5
+
+
+    def test_get_concept_lineage_not_found(self):
+        non_existent_id = uuid.uuid4()
+        response = client.get(f"/eje_y/visualization/concept_lineage/{non_existent_id}")
+        assert response.status_code == 404, response.text
