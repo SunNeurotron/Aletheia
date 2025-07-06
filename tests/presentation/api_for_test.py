@@ -30,9 +30,12 @@ from tests.application.use_cases.use_cases_for_test import (
     ConstructUnifiedModelUseCase,        # Added
     ConstructUnifiedModelInput,
     UnifiedModelResult,
-    IngestDocumentUseCase, # Added
-    IngestDocumentInput,   # Added
-    IngestDocumentResult   # Added
+    IngestDocumentUseCase,
+    IngestDocumentInput,
+    IngestDocumentResult,
+    LinkConceptsUseCase, # Added
+    LinkConceptsInput,   # Added
+    LinkConceptsResult   # Added
 )
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol,
@@ -98,9 +101,15 @@ def get_construct_unified_model_use_case(
 
 def get_ingest_document_use_case(
     concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
-    extract_ucms_uc: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case) # Reuse existing
+    extract_ucms_uc: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case)
 ) -> IngestDocumentUseCase:
     return IngestDocumentUseCase(concept_repo=concept_repo, extract_ucms_use_case=extract_ucms_uc)
+
+def get_link_concepts_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
+    relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)
+) -> LinkConceptsUseCase:
+    return LinkConceptsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
 
 
 def create_test_app() -> FastAPI:
@@ -207,7 +216,21 @@ def create_test_app() -> FastAPI:
         """Ingests a document and extracts UCMs."""
         try:
             return use_case.execute(input_data)
-        except Exception as e: # Catch generic exceptions for now during early dev
+        except Exception as e:
+            # Log the exception e
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {str(e)}")
+
+    @app.post("/eje_x/relationships/", response_model=LinkConceptsResult, status_code=status.HTTP_201_CREATED, tags=["Eje X - Ontology"])
+    def link_concepts_endpoint(
+        input_data: LinkConceptsInput,
+        use_case: LinkConceptsUseCase = Depends(get_link_concepts_use_case),
+    ):
+        """Creates a new directed relationship between two concepts."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e: # For concept not found
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        except Exception as e:
             # Log the exception e
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {str(e)}")
 

@@ -14,7 +14,9 @@ from tests.domain.domain_for_test import (
     Evidence,
     ConceptType,
     TheoryIntegrationMethod,
-    ModelArchitectureType
+    ModelArchitectureType,
+    RelationshipType,
+    DirectedRelationship
 )
 from tests.application.ports.ports_for_test import ConceptRepository, RelationshipRepository
 
@@ -109,14 +111,14 @@ class FormClustersUseCase:
     def __init__(self, concept_repo: ConceptRepository): self.concept_repo = concept_repo
     def execute(self, input_data: FormClusterInput) -> ClusterFormationResult:
         member_ucms = []
-        for ucm_id_val in input_data.ucm_ids: # Renamed to avoid clash with ucm variable
+        for ucm_id_val in input_data.ucm_ids:
             ucm = self.concept_repo.get_by_id(ucm_id_val)
             if not ucm or ucm.type != ConceptType.UCM:
                 raise ValueError(f"Invalid or non-UCM concept ID provided: {ucm_id_val}")
             member_ucms.append(ucm)
-        if not member_ucms: raise ValueError("No UCMs provided to form a cluster.") # Corrected this message for test
+        if not member_ucms: raise ValueError("No UCMs provided to form a cluster.")
         all_keywords = []; stopwords_cluster = {"the", "a", "an", "is", "of", "to", "in", "and", "for", "with", "on", "it", "this", "that", "was", "were", "has", "had", "not", "but"}
-        for ucm_item in member_ucms: # Renamed to avoid clash
+        for ucm_item in member_ucms:
             text = (ucm_item.name + " " + ucm_item.description).lower()
             words = re.findall(r'\b\w+\b', text)
             all_keywords.extend([w for w in words if w not in stopwords_cluster and len(w) > 2])
@@ -137,7 +139,7 @@ class DerivePropositionsUseCase:
         self.concept_repo = concept_repo; self.relationship_repo = relationship_repo
     def execute(self, input_data: DerivePropositionInput) -> PropositionDerivationResult:
         cluster = self.concept_repo.get_by_id(input_data.cluster_id)
-        if not cluster or cluster.type != ConceptType.CLUSTER: raise ValueError(f"Invalid or non-CLUSTER concept ID provided for proposition derivation: {input_data.cluster_id}") # Corrected message
+        if not cluster or cluster.type != ConceptType.CLUSTER: raise ValueError(f"Invalid or non-CLUSTER concept ID provided for proposition derivation: {input_data.cluster_id}")
         member_ucms = [ucm for ucm_id in (cluster.member_concept_ids or []) if (ucm := self.concept_repo.get_by_id(ucm_id)) and ucm.type == ConceptType.UCM]
         derived_kws = []; stopwords_prop = {"the", "a", "an", "is", "of", "to", "in", "and", "for", "with", "on", "it", "this", "that", "was", "were", "has", "had", "not", "but"}
         if member_ucms:
@@ -170,10 +172,10 @@ class ConstructMiniTheoryUseCase:
     def execute(self, input_data: ConstructMiniTheoryInput) -> MiniTheoryConstructionResult:
         if not input_data.proposition_ids: raise ValueError("At least one proposition ID must be provided.")
         component_propositions = []
-        for prop_id_val in input_data.proposition_ids: # Renamed to avoid clash
+        for prop_id_val in input_data.proposition_ids:
             proposition = self.concept_repo.get_by_id(prop_id_val)
             if not proposition or proposition.type != ConceptType.PROPOSITION:
-                raise ValueError(f"Invalid or non-PROPOSITION concept ID provided: {prop_id_val}") # Corrected message
+                raise ValueError(f"Invalid or non-PROPOSITION concept ID provided: {prop_id_val}")
             component_propositions.append(proposition)
         name = input_data.mini_theory_name or (f"Mini-Theory on: {component_propositions[0].name.split(':')[0][:50]}..." if component_propositions else "Unnamed Mini-Theory")
         desc = input_data.mini_theory_description
@@ -181,7 +183,7 @@ class ConstructMiniTheoryUseCase:
             desc = f"A mini-theory synthesizing {len(component_propositions)} proposition(s), including insights like '{component_propositions[0].name[:70]}...'."
         final_desc = desc if desc is not None else "Synthesized mini-theory."
         props = {"derivation_method": input_data.derivation_method_description or "heuristic_proposition_grouping", "component_proposition_count": len(input_data.proposition_ids)}
-        evidence = [Evidence(source_doi="internal_process:mini_theory_construction", source_citation="Aletheia System", snippet=f"Mini-theory from {len(input_data.proposition_ids)} propositions.", confidence=0.8)]
+        evidence = [Evidence(source_doi="internal_process:mini_theory_construction", source_citation="Aletheia System - Level 2 Synthesis", snippet=f"Mini-theory from {len(input_data.proposition_ids)} propositions.", confidence=0.8)]
         mt = ScientificConcept(name=name, description=final_desc, type=ConceptType.MINI_THEORY, member_concept_ids=input_data.proposition_ids, properties=props, evidence_sources=evidence)
         self.concept_repo.add(mt); return MiniTheoryConstructionResult(mini_theory_created=mt)
 
@@ -199,10 +201,10 @@ class ConstructComprehensiveTheoryUseCase:
         self.stopwords = {"the","a","an","is","are","was","were","of","to","in","and","or","but","for","with","on","at","by","from"}
     def _retrieve_and_validate_mini_theories(self, mts_ids: List[uuid.UUID]) -> List[ScientificConcept]:
         mini_theories = []
-        for mt_id_val in mts_ids: # Renamed
+        for mt_id_val in mts_ids:
             concept = self.concept_repo.get_by_id(mt_id_val)
             if not concept or concept.type != ConceptType.MINI_THEORY:
-                raise ValueError(f"Invalid or non-MINI_THEORY concept ID: {mt_id_val}") # Corrected message
+                raise ValueError(f"Invalid or non-MINI_THEORY concept ID: {mt_id_val}")
             mini_theories.append(concept)
         return mini_theories
     def _extract_keywords_from_theory(self, th: ScientificConcept) -> List[str]:
@@ -235,7 +237,11 @@ class ConstructComprehensiveTheoryUseCase:
     def _generate_integration_rationale(self, comp: Optional[Dict[str,Any]], method: TheoryIntegrationMethod) -> str:
         feas = comp["integration_feasibility"] if comp and "integration_feasibility" in comp else "unknown"
         mval = method.value if isinstance(method, Enum) else method
-        return f"Method: {mval}. Feasibility: {feas}."
+        if mval == TheoryIntegrationMethod.COMPLEMENTARY_SYNTHESIS.value: return f"Theories show {feas} compatibility and complement each other."
+        elif mval == TheoryIntegrationMethod.DIALECTICAL_SYNTHESIS.value: return f"Despite {feas} direct compatibility, dialectical synthesis resolves apparent contradictions."
+        elif mval == TheoryIntegrationMethod.SUBSUMPTION.value: return f"One theory subsumes others based on broader explanatory power."
+        elif mval == TheoryIntegrationMethod.HIERARCHICAL_INTEGRATION.value: return f"Theories are integrated hierarchically with {feas} structural compatibility."
+        else: return f"Theories integrated using {mval} based on {feas} feasibility."
     def _calculate_theoretical_coverage(self, mts: List[ScientificConcept]) -> Dict[str, int]:
         props = set(pid for mt in mts if mt.member_concept_ids for pid in mt.member_concept_ids)
         ucms = 0
@@ -244,11 +250,11 @@ class ConstructComprehensiveTheoryUseCase:
             if p:
                 if p.derived_from_ucm_ids: ucms += len(p.derived_from_ucm_ids)
                 elif p.derived_from_cluster_id:
-                    clu = self.concept_repo.get_by_id(p.derived_from_cluster_id) # Renamed to clu
+                    clu = self.concept_repo.get_by_id(p.derived_from_cluster_id)
                     if clu and clu.member_concept_ids: ucms += len(clu.member_concept_ids)
         return {"proposition_count":len(props), "estimated_distinct_ucm_coverage":ucms}
     def execute(self, input_data: ConstructComprehensiveTheoryInput) -> ComprehensiveTheoryResult:
-        if not input_data.mini_theory_ids: raise ValueError("At least one mini-theory ID must be provided.") # Corrected message
+        if not input_data.mini_theory_ids: raise ValueError("At least one mini-theory ID must be provided.")
         mts = self._retrieve_and_validate_mini_theories(input_data.mini_theory_ids)
         comp_an = self._analyze_theory_compatibility(mts) if len(mts) > 1 else None
         themes = self._extract_common_themes(mts)
@@ -270,10 +276,10 @@ class ConstructUnifiedModelUseCase:
     def __init__(self, concept_repo: ConceptRepository): self.concept_repo=concept_repo
     def _retrieve_and_validate_theories(self, ct_ids: List[uuid.UUID]) -> List[ScientificConcept]:
         cts = []
-        for ct_id_val in ct_ids: # Renamed
+        for ct_id_val in ct_ids:
             concept = self.concept_repo.get_by_id(ct_id_val)
             if not concept or concept.type != ConceptType.COMPREHENSIVE_THEORY:
-                raise ValueError(f"Invalid or non-COMPREHENSIVE_THEORY concept ID: {ct_id_val}") # Corrected message
+                raise ValueError(f"Invalid or non-COMPREHENSIVE_THEORY concept ID: {ct_id_val}")
             cts.append(concept)
         return cts
     def _analyze_theory_landscape(self, cts: List[ScientificConcept]) -> Dict[str,Any]:
@@ -421,3 +427,47 @@ class IngestDocumentUseCase:
             document_concept_id=doc_source_concept.id,
             ucm_extraction_result=ucm_extraction_result
         )
+
+# --- Use Case for Linking Concepts (Eje X - Ontology Building) ---
+class LinkConceptsInput(BaseModel):
+    source_concept_id: uuid.UUID
+    target_concept_id: uuid.UUID
+    relationship_type: RelationshipType
+    description: Optional[str] = None
+    weight: float = Field(default=1.0, ge=0.0, le=1.0) # Weight as probability/score
+    evidence_sources: List[Evidence] = Field(default_factory=list)
+
+class LinkConceptsResult(BaseModel):
+    relationship_created: DirectedRelationship
+
+class LinkConceptsUseCase:
+    def __init__(self, concept_repo: ConceptRepository, relationship_repo: RelationshipRepository):
+        self.concept_repo = concept_repo
+        self.relationship_repo = relationship_repo
+
+    def execute(self, input_data: LinkConceptsInput) -> LinkConceptsResult:
+        source_concept = self.concept_repo.get_by_id(input_data.source_concept_id)
+        if not source_concept:
+            raise ValueError(f"Source concept with ID {input_data.source_concept_id} not found.")
+
+        target_concept = self.concept_repo.get_by_id(input_data.target_concept_id)
+        if not target_concept:
+            raise ValueError(f"Target concept with ID {input_data.target_concept_id} not found.")
+
+        description = input_data.description
+        if description is None:
+            # Auto-generate description based on type and concept names
+            # Replace underscores with spaces and convert to lowercase for readability
+            rel_type_readable = input_data.relationship_type.value.lower().replace('_', ' ')
+            description = f"{source_concept.name} {rel_type_readable} {target_concept.name}."
+
+        relationship = DirectedRelationship(
+            source_concept_id=input_data.source_concept_id,
+            target_concept_id=input_data.target_concept_id,
+            type=input_data.relationship_type,
+            description=description,
+            weight=input_data.weight,
+            evidence_sources=input_data.evidence_sources
+        )
+        self.relationship_repo.add(relationship)
+        return LinkConceptsResult(relationship_created=relationship)

@@ -202,7 +202,7 @@ class TestDirectedRelationship:
         rel = DirectedRelationship(
             source_concept_id=source_id,
             target_concept_id=target_id,
-            type=RelationshipType.SUBCLASS_OF,
+            type=RelationshipType.IS_A, # Changed from SUBCLASS_OF
             description="Test immutability.",
         )
         with pytest.raises(TypeError):
