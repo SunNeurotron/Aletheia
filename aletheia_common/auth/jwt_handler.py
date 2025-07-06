@@ -12,6 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Common JWT (JSON Web Token) authentication and authorization utilities for Aletheia services.
+
+This module provides:
+- Configuration for JWT settings (secret key, algorithm, token expiry).
+- Pydantic models for token data and user representations.
+- Functions to create JWT access tokens.
+- FastAPI dependencies for:
+    - Retrieving the current authenticated user from a token.
+    - Requiring specific roles for accessing endpoints.
+- A pluggable mechanism for applications to provide their own user retrieval logic.
+
+Key components:
+- `oauth2_scheme`, `oauth2_scheme_optional`: FastAPI security schemes.
+- `create_access_token()`: Generates new JWTs.
+- `get_current_active_user()`: Dependency to get the authenticated user.
+- `get_current_active_user_optional()`: Dependency for optional authentication.
+- `require_roles()`: Dependency factory for role-based access control.
+- `get_user_retriever_dependency_placeholder()`: Placeholder to be overridden by
+  the main application with its actual user lookup function.
+"""
+
 import logging
 import os
 from datetime import datetime, timedelta
@@ -35,51 +57,69 @@ logger = logging.getLogger(__name__)
 # --- Configuration ---
 # Use more generic environment variable names that can be shared across services
 GLOBAL_JWT_SECRET_KEY_ENV_VAR = "GLOBAL_JWT_SECRET_KEY"
-GLOBAL_JWT_ALGORITHM_ENV_VAR = "GLOBAL_JWT_ALGORITHM"
-ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR = (
-    "ACCESS_TOKEN_EXPIRE_MINUTES"  # Keep this as it might be app-specific
-)
+"""Environment variable name for the global JWT secret key."""
 
-JWT_SECRET_KEY = os.getenv(
+GLOBAL_JWT_ALGORITHM_ENV_VAR = "GLOBAL_JWT_ALGORITHM"
+"""Environment variable name for the global JWT algorithm."""
+
+ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR = "ACCESS_TOKEN_EXPIRE_MINUTES"
+"""Environment variable name for the access token expiry time in minutes."""
+
+
+JWT_SECRET_KEY: str = os.getenv(
     GLOBAL_JWT_SECRET_KEY_ENV_VAR,
     "a-very-secure-default-secret-key-please-change-in-production-common",
 )
-JWT_ALGORITHM = os.getenv(GLOBAL_JWT_ALGORITHM_ENV_VAR, "HS256")
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES = int(
+"""Secret key used to sign and verify JWTs. Loaded from `GLOBAL_JWT_SECRET_KEY_ENV_VAR`."""
+
+JWT_ALGORITHM: str = os.getenv(GLOBAL_JWT_ALGORITHM_ENV_VAR, "HS256")
+"""Algorithm used for JWT signing and verification. Loaded from `GLOBAL_JWT_ALGORITHM_ENV_VAR`."""
+
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
     os.getenv(ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR, "30")
 )
+"""Default expiration time for access tokens in minutes. Loaded from `ACCESS_TOKEN_EXPIRE_MINUTES_ENV_VAR`."""
 
-# OAuth2PasswordBearer needs a tokenUrl. This should point to the actual token endpoint in the main API.
-# This might need to be configurable if different modules have different token URLs or if there's one central one.
-# For now, assume a central token URL. This will be used by FastAPI's Depends(oauth2_scheme).
-# Defaulting to "/token" as it's a common pattern for non-versioned auth endpoints.
-OAUTH2_SCHEME_TOKEN_URL = os.getenv("OAUTH2_SCHEME_TOKEN_URL", "/token")
+OAUTH2_SCHEME_TOKEN_URL: str = os.getenv("OAUTH2_SCHEME_TOKEN_URL", "/token")
+"""Token URL for the OAuth2PasswordBearer scheme. This should point to the API's token endpoint.
+Loaded from `OAUTH2_SCHEME_TOKEN_URL` environment variable, defaulting to `/token`.
+"""
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=OAUTH2_SCHEME_TOKEN_URL)
-
+"""FastAPI OAuth2PasswordBearer security scheme for required authentication.
+Uses `OAUTH2_SCHEME_TOKEN_URL` for the token endpoint.
+"""
 
 # --- Pydantic Models for Authentication Data ---
 # These models can be shared across modules.
 class TokenData(BaseModel):
+    """
+    Pydantic model representing the data encoded within a JWT token.
+    Typically includes username and scopes (roles/permissions).
+    """
     username: Optional[str] = None
-    scopes: List[str] = (
-        []
-    )  # Using 'scopes' as it's common in OAuth2, can represent roles or permissions
+    scopes: List[str] = []
 
 
-class UserInDB(BaseModel):  # More complete User model, potentially from DB
+class UserInDB(BaseModel):
+    """
+    Pydantic model representing a user object as stored in or retrieved from the database.
+    Includes sensitive information like hashed_password and status fields like 'disabled'.
+    """
     username: str
     email: Optional[str] = None
     full_name: Optional[str] = None
-    hashed_password: Optional[str] = (
-        None  # Store hashed passwords, not plaintext
-    )
+    hashed_password: Optional[str] = None
     roles: List[str] = []
     disabled: bool = False
 
 
-class UserAuth(
-    BaseModel
-):  # User model for authentication context (e.g. in current_user)
+class UserAuth(BaseModel):
+    """
+    Pydantic model representing an authenticated user's identity.
+    This model is typically what `get_current_active_user` returns and contains
+    non-sensitive information safe to use in the application context after authentication.
+    """
     username: str
     roles: List[str] = []
     email: Optional[str] = None
@@ -93,12 +133,15 @@ def create_access_token(
     """
     Creates a new JWT access token.
 
-    Args:
-        data: Dictionary containing the claims to include in the token (e.g., 'sub' for username, 'roles').
-        expires_delta: Optional timedelta object for token expiry. Defaults to JWT_ACCESS_TOKEN_EXPIRE_MINUTES.
-
-    Returns:
-        The encoded JWT string.
+    :param data: Dictionary containing the claims to include in the token
+                 (e.g., 'sub' for username, 'roles', 'email', 'full_name').
+    :type data: Dict[str, Any]
+    :param expires_delta: Optional timedelta object for token expiry.
+                          If None, defaults to `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`.
+    :type expires_delta: Optional[timedelta]
+    :return: The encoded JWT string.
+    :rtype: str
+    :raises Exception: Propagates any exception during JWT encoding.
     """
     to_encode = data.copy()
     if expires_delta:
@@ -326,6 +369,10 @@ def require_any_role(any_of_roles: Set[str]):
 oauth2_scheme_optional = OAuth2PasswordBearer(
     tokenUrl=OAUTH2_SCHEME_TOKEN_URL, auto_error=False
 )
+"""FastAPI OAuth2PasswordBearer security scheme for optional authentication.
+If a token is provided, it's validated; if not, proceeds as anonymous.
+`auto_error=False` prevents FastAPI from automatically raising an error if the token is missing.
+"""
 
 
 async def get_current_active_user_optional(
@@ -335,8 +382,25 @@ async def get_current_active_user_optional(
     ] = Depends(get_user_retriever_dependency_placeholder),
 ) -> Optional[UserAuth]:
     """
-    Attempts to get the current active user from a JWT token, but returns None if token is missing or invalid.
-    This is useful for endpoints that are public but can have enhanced behavior for authenticated users.
+    Attempts to get the current active user from a JWT token, but returns None
+    if the token is missing, invalid, or the user is not active.
+
+    This dependency is useful for endpoints that are publicly accessible but can
+    provide enhanced functionality or data if a valid authenticated user is present.
+
+    It uses the same pluggable user retrieval mechanism as `get_current_active_user`.
+    If the `user_retriever_func` is not overridden by the application, this function
+    will attempt to construct `UserAuth` from token claims only (username, roles, email, full_name)
+    and will not be able to verify the 'disabled' status from a database.
+
+    :param token: Optional token string provided by `oauth2_scheme_optional`.
+    :type token: Optional[str]
+    :param user_retriever_func: The (potentially overridden) function to retrieve
+                                user details from the database.
+    :type user_retriever_func: Callable[[str], Awaitable[Optional[UserInDB]]]
+    :return: A `UserAuth` object if authentication is successful and user is active,
+             otherwise `None`.
+    :rtype: Optional[UserAuth]
     """
     if token is None:
         return None

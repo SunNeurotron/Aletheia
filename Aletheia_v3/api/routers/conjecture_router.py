@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+API router for managing derived conjectures.
+
+Provides endpoints for creating, listing, and retrieving derived conjectures
+proposed by researchers, potentially supported by specific abc-hits.
+"""
+
 import logging
 from typing import List, Optional
 
@@ -50,7 +57,30 @@ async def create_derived_conjecture(
     conjecture_in: main_schemas.ConjectureCreate,
     db: Session = Depends(get_db_session),
     current_user: CommonUserAuth = Depends(require_roles({"researcher"})),
-):
+) -> main_schemas.ConjectureResponse:
+    """
+    Creates a new derived conjecture.
+
+    The conjecture is proposed by the currently authenticated researcher.
+    It can be optionally linked to existing abc-hits as supporting evidence.
+
+    :param conjecture_in: The conjecture creation request data, including title,
+                          description, and optional IDs of supporting hits.
+    :type conjecture_in: main_schemas.ConjectureCreate
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Authenticated user with the 'researcher' role.
+    :type current_user: aletheia_common.auth.jwt_handler.UserAuth
+    :raises HTTPException:
+        - 401 (Unauthorized): If the user is not authenticated.
+        - 403 (Forbidden): If the user lacks the 'researcher' role.
+        - 404 (Not Found): If any of the `supporting_hit_ids` do not correspond
+                           to existing hits.
+        - 500 (Internal Server Error): If the authenticated researcher cannot be
+                                       retrieved from the database.
+    :return: The newly created derived conjecture.
+    :rtype: main_schemas.ConjectureResponse
+    """
     researcher = (
         db.query(ResearcherDB)
         .filter(ResearcherDB.username == current_user.username)
@@ -100,10 +130,28 @@ async def list_derived_conjectures(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db_session),
-    current_user: Optional[CommonUserAuth] = Depends(
-        get_current_active_user_optional  # Use the correctly imported name
-    ),
-):
+    current_user: Optional[CommonUserAuth] = Depends(get_current_active_user_optional),
+) -> List[main_schemas.ConjectureResponse]:
+    """
+    Lists all derived conjectures with pagination.
+
+    This endpoint is publicly accessible if no authentication is provided,
+    or accessible to any authenticated user. The level of detail or
+    filtering might differ based on authentication status in future extensions,
+    but currently, it returns all conjectures.
+
+    :param skip: Number of records to skip for pagination.
+    :type skip: int
+    :param limit: Maximum number of records to return.
+    :type limit: int
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Optional authenticated user. Not currently used for
+                         filtering but available for future enhancements.
+    :type current_user: Optional[aletheia_common.auth.jwt_handler.UserAuth]
+    :return: A list of derived conjectures.
+    :rtype: List[main_schemas.ConjectureResponse]
+    """
     # For list views, eager loading supporting_hits might be important to avoid N+1 if @computed_field accesses it.
     # from sqlalchemy.orm import joinedload
     # conjectures_db = db.query(DerivedConjectureDB).options(joinedload(DerivedConjectureDB.supporting_hits)).order_by(DerivedConjectureDB.created_at.desc()).offset(skip).limit(limit).all()
@@ -129,10 +177,26 @@ async def list_derived_conjectures(
 async def get_derived_conjecture(
     conjecture_id: int,
     db: Session = Depends(get_db_session),
-    current_user: Optional[CommonUserAuth] = Depends(
-        get_current_active_user_optional  # Use the correctly imported name
-    ),
-):
+    current_user: Optional[CommonUserAuth] = Depends(get_current_active_user_optional),
+) -> main_schemas.ConjectureResponse:
+    """
+    Retrieves a specific derived conjecture by its ID.
+
+    This endpoint is publicly accessible if no authentication is provided,
+    or accessible to any authenticated user.
+
+    :param conjecture_id: The unique identifier of the derived conjecture.
+    :type conjecture_id: int
+    :param db: Database session dependency.
+    :type db: sqlalchemy.orm.Session
+    :param current_user: Optional authenticated user. Not currently used for
+                         access control on retrieval but available.
+    :type current_user: Optional[aletheia_common.auth.jwt_handler.UserAuth]
+    :raises HTTPException:
+        - 404 (Not Found): If no conjecture with the given ID exists.
+    :return: The details of the derived conjecture.
+    :rtype: main_schemas.ConjectureResponse
+    """
     # For a single object, lazy loading of `supporting_hits` by the @computed_field is generally fine.
     db_conjecture = (
         db.query(DerivedConjectureDB)

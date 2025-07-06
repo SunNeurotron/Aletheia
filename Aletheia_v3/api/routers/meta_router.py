@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+API router for meta-information and operational endpoints.
+
+Includes routes like health checks that provide information about the
+API's status and version.
+"""
+
 import logging
 
 from fastapi import APIRouter
@@ -27,9 +34,14 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/health", response_model=main_schemas.HealthCheckResponse)
-async def health_check():
+async def health_check() -> main_schemas.HealthCheckResponse:
     """
     Provides a simple health check endpoint for monitoring.
+
+    Returns the current API version, indicating the service is operational.
+
+    :return: Health check response including the API version.
+    :rtype: main_schemas.HealthCheckResponse
     """
     # Access API_VERSION from the main api_server module or define it centrally
     return main_schemas.HealthCheckResponse(version=API_VERSION)
