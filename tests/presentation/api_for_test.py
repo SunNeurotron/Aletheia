@@ -12,6 +12,15 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from tests.application.use_cases.use_cases_for_test import (
     KnowledgeSynthesisUseCase,
     CreateConceptInput,
+    ExtractUCMsUseCase,
+    ExtractUCMsInput,
+    UCMExtractionResult,
+    FormClustersUseCase,
+    FormClusterInput,
+    ClusterFormationResult,
+    DerivePropositionsUseCase,
+    DerivePropositionInput,
+    PropositionDerivationResult,
 )
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol,
@@ -42,6 +51,22 @@ def get_test_knowledge_synthesis_use_case(
 ) -> KnowledgeSynthesisUseCase:
     return KnowledgeSynthesisUseCase(concept_repo, relationship_repo)
 
+def get_extract_ucms_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
+) -> ExtractUCMsUseCase:
+    return ExtractUCMsUseCase(concept_repo=concept_repo)
+
+def get_form_clusters_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
+) -> FormClustersUseCase:
+    return FormClustersUseCase(concept_repo=concept_repo)
+
+def get_derive_propositions_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
+    relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)
+) -> DerivePropositionsUseCase:
+    return DerivePropositionsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
+
 
 def create_test_app() -> FastAPI:
     app = FastAPI(
@@ -50,21 +75,22 @@ def create_test_app() -> FastAPI:
         version="0.1.0-test",
     )
 
-    @app.post("/concepts/", response_model=ScientificConcept, status_code=status.HTTP_201_CREATED)
-    def create_new_concept_endpoint( # Renamed to avoid clash if original api.py is also imported
+    # --- Eje Z/Y Basic Concept Endpoints ---
+    @app.post("/concepts/", response_model=ScientificConcept, status_code=status.HTTP_201_CREATED, tags=["Concepts"])
+    def create_new_concept_endpoint(
         input_data: CreateConceptInput,
         use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
     ):
         return use_case.create_concept(input_data)
 
-    @app.get("/concepts/", response_model=List[ScientificConcept])
-    def list_all_concepts_endpoint( # Renamed
+    @app.get("/concepts/", response_model=List[ScientificConcept], tags=["Concepts"])
+    def list_all_concepts_endpoint(
         use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
     ):
         return use_case.get_all_concepts()
 
-    @app.get("/concepts/{concept_id}", response_model=ScientificConcept)
-    def get_single_concept_endpoint( # Renamed
+    @app.get("/concepts/{concept_id}", response_model=ScientificConcept, tags=["Concepts"])
+    def get_single_concept_endpoint(
         concept_id: uuid.UUID,
         use_case: KnowledgeSynthesisUseCase = Depends(get_test_knowledge_synthesis_use_case),
     ):
@@ -72,6 +98,37 @@ def create_test_app() -> FastAPI:
             return use_case.get_concept_details(concept_id)
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    # --- Eje Y - Progressive Construction Endpoints ---
+    @app.post("/eje_y/ucm_extraction/", response_model=UCMExtractionResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def extract_ucms_endpoint(
+        input_data: ExtractUCMsInput,
+        use_case: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case),
+    ):
+        """Extracts Unit Conceptual Mínimas (UCMs) from document text."""
+        return use_case.execute(input_data)
+
+    @app.post("/eje_y/cluster_formation/", response_model=ClusterFormationResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def form_cluster_endpoint(
+        input_data: FormClusterInput,
+        use_case: FormClustersUseCase = Depends(get_form_clusters_use_case),
+    ):
+        """Forms a conceptual cluster from a list of UCM IDs."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e: # Catching potential ValueErrors from use case (e.g. UCM not found)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    @app.post("/eje_y/proposition_derivation/", response_model=PropositionDerivationResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def derive_proposition_endpoint(
+        input_data: DerivePropositionInput,
+        use_case: DerivePropositionsUseCase = Depends(get_derive_propositions_use_case),
+    ):
+        """Derives a proposition from a given conceptual cluster ID."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e: # Catching potential ValueErrors from use case (e.g. Cluster not found)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return app
 
