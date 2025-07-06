@@ -374,6 +374,88 @@ class TestEjeXAPI:
         response = client.post("/eje_x/documents/ingest/", json=payload)
         assert response.status_code == 422, response.text # Pydantic validation error
 
+    # --- Tests for Link Concepts Endpoint (Eje X - Ontology) ---
+    def test_link_concepts_endpoint_success(self):
+        # 1. Create source and target concepts
+        source_payload = {"name": "Source Concept for Link", "description": "desc", "type": "UCM"}
+        target_payload = {"name": "Target Concept for Link", "description": "desc", "type": "UCM"}
+
+        source_resp = client.post("/concepts/", json=source_payload)
+        assert source_resp.status_code == 201, source_resp.text
+        source_id = source_resp.json()["id"]
+
+        target_resp = client.post("/concepts/", json=target_payload)
+        assert target_resp.status_code == 201, target_resp.text
+        target_id = target_resp.json()["id"]
+
+        # 2. Link them
+        link_payload = {
+            "source_concept_id": source_id,
+            "target_concept_id": target_id,
+            "relationship_type": "CAUSES", # Using string value of RelationshipType
+            "description": "API Link: Source causes Target",
+            "weight": 0.75,
+            "evidence_sources": [{
+                "source_doi": "api/link_test",
+                "source_citation": "API Test Data 2024",
+                "snippet": "Evidence for API link",
+                "confidence": 0.9
+            }]
+        }
+        response = client.post("/eje_x/relationships/", json=link_payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "relationship_created" in data
+        rel = data["relationship_created"]
+        assert rel["source_concept_id"] == source_id
+        assert rel["target_concept_id"] == target_id
+        assert rel["type"] == "CAUSES"
+        assert rel["description"] == "API Link: Source causes Target"
+        assert rel["weight"] == 0.75
+        assert len(rel["evidence_sources"]) == 1
+        assert rel["evidence_sources"][0]["source_doi"] == "api/link_test"
+
+    def test_link_concepts_endpoint_source_not_found(self):
+        target_payload = {"name": "Target Only", "description": "desc", "type": "UCM"}
+        target_resp = client.post("/concepts/", json=target_payload)
+        assert target_resp.status_code == 201, target_resp.text
+        target_id = target_resp.json()["id"]
+
+        non_existent_source_id = str(uuid.uuid4())
+        link_payload = {
+            "source_concept_id": non_existent_source_id,
+            "target_concept_id": target_id,
+            "relationship_type": "RELATED_TO",
+        }
+        response = client.post("/eje_x/relationships/", json=link_payload)
+        assert response.status_code == 404, response.text # Use case raises ValueError, API converts to 404
+        assert non_existent_source_id in response.json()["detail"]
+        assert "Source concept" in response.json()["detail"]
+
+    def test_link_concepts_endpoint_target_not_found(self):
+        source_payload = {"name": "Source Only", "description": "desc", "type": "UCM"}
+        source_resp = client.post("/concepts/", json=source_payload)
+        assert source_resp.status_code == 201, source_resp.text
+        source_id = source_resp.json()["id"]
+
+        non_existent_target_id = str(uuid.uuid4())
+        link_payload = {
+            "source_concept_id": source_id,
+            "target_concept_id": non_existent_target_id,
+            "relationship_type": "RELATED_TO",
+        }
+        response = client.post("/eje_x/relationships/", json=link_payload)
+        assert response.status_code == 404, response.text
+        assert non_existent_target_id in response.json()["detail"]
+        assert "Target concept" in response.json()["detail"]
+
+    def test_link_concepts_endpoint_missing_fields(self):
+        # Missing target_concept_id and relationship_type
+        link_payload = {"source_concept_id": str(uuid.uuid4())}
+        response = client.post("/eje_x/relationships/", json=link_payload)
+        assert response.status_code == 422, response.text # Pydantic validation error
+
     # --- Tests for Mini-Theory Construction Endpoint ---
 
     def test_construct_mini_theory_endpoint_success(self):
