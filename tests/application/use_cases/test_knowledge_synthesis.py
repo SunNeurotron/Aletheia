@@ -5,6 +5,7 @@ import uuid
 import pytest
 from unittest.mock import Mock, MagicMock
 
+from pydantic import ValidationError # Added
 # Adjust import path for the sandboxed environment
 from tests.domain.domain_for_test import ScientificConcept, ConceptType, Evidence
 from tests.application.use_cases.use_cases_for_test import (
@@ -19,10 +20,17 @@ from tests.application.use_cases.use_cases_for_test import (
     DerivePropositionsUseCase, # Added
     DerivePropositionInput,    # Added
     PropositionDerivationResult, # Added
-    ConstructMiniTheoryUseCase, # Added
-    ConstructMiniTheoryInput,   # Added
-    MiniTheoryConstructionResult # Added
+    ConstructMiniTheoryUseCase,
+    ConstructMiniTheoryInput,
+    MiniTheoryConstructionResult,
+    ConstructComprehensiveTheoryUseCase, # Added
+    ConstructComprehensiveTheoryInput,   # Added
+    ComprehensiveTheoryResult,           # Added
+    ConstructUnifiedModelUseCase,        # Added
+    ConstructUnifiedModelInput,          # Added
+    UnifiedModelResult                   # Added
 )
+from tests.domain.domain_for_test import TheoryIntegrationMethod, ModelArchitectureType # Added
 
 # For ConceptRepository and RelationshipRepository, we rely on mocking.
 # The use_cases_for_test.py file includes minimal forward declarations for these
@@ -584,4 +592,173 @@ class TestEjeYUseCases:
 
         input_data = ConstructMiniTheoryInput(proposition_ids=[ucm_id])
         with pytest.raises(ValueError, match=f"Invalid or non-PROPOSITION concept ID provided: {ucm_id}"):
+            use_case.execute(input_data)
+
+
+    # --- Tests for ConstructComprehensiveTheoryUseCase ---
+
+    def test_construct_comprehensive_theory_success_explicit(self, mock_concept_repo):
+        use_case = ConstructComprehensiveTheoryUseCase(concept_repo=mock_concept_repo)
+        mt1_id, mt2_id = uuid.uuid4(), uuid.uuid4()
+        mt1 = ScientificConcept(id=mt1_id, name="MT Alpha", description="About alpha process", type=ConceptType.MINI_THEORY, properties={"key_cluster_keywords_for_prop": ["alpha", "process"]})
+        mt2 = ScientificConcept(id=mt2_id, name="MT Beta", description="About beta mechanism", type=ConceptType.MINI_THEORY, properties={"key_cluster_keywords_for_prop": ["beta", "mechanism", "process"]})
+
+        mock_concept_repo.get_by_id.side_effect = lambda id_val: {mt1_id: mt1, mt2_id: mt2}.get(id_val)
+
+        input_data = ConstructComprehensiveTheoryInput(
+            mini_theory_ids=[mt1_id, mt2_id],
+            theory_name="Custom Comprehensive Theory",
+            theory_description="Integrates MT Alpha and MT Beta.",
+            integration_method=TheoryIntegrationMethod.COMPLEMENTARY_SYNTHESIS
+        )
+        result = use_case.execute(input_data)
+        ct = result.theory_created
+
+        assert ct.type == ConceptType.COMPREHENSIVE_THEORY
+        assert ct.name == "Custom Comprehensive Theory"
+        assert ct.description == "Integrates MT Alpha and MT Beta."
+        assert ct.member_concept_ids == [mt1_id, mt2_id]
+        assert ct.properties["component_mini_theory_count"] == 2
+        assert ct.properties["integration_method"] == TheoryIntegrationMethod.COMPLEMENTARY_SYNTHESIS.value
+        assert "process" in ct.properties["common_themes"]
+        assert result.integration_analysis is not None
+        assert result.integration_analysis["overall_compatibility"] > 0 # Basic check
+        mock_concept_repo.add.assert_called_once_with(ct)
+
+    def test_construct_comprehensive_theory_success_generated_name(self, mock_concept_repo):
+        use_case = ConstructComprehensiveTheoryUseCase(concept_repo=mock_concept_repo)
+        mt1_id = uuid.uuid4()
+        mt1 = ScientificConcept(id=mt1_id, name="MT Gamma", description="Gamma studies", type=ConceptType.MINI_THEORY, properties={"key_cluster_keywords_for_prop": ["gamma", "study"]})
+        mock_concept_repo.get_by_id.return_value = mt1
+
+        input_data = ConstructComprehensiveTheoryInput(mini_theory_ids=[mt1_id]) # Default name/desc
+        result = use_case.execute(input_data)
+        ct = result.theory_created
+
+        ct = result.theory_created
+
+        assert ct.type == ConceptType.COMPREHENSIVE_THEORY
+        assert "Comprehensive Theory of" in ct.name or "Integrated Theory from" in ct.name
+
+        # Check if main parts of the input MT name are in the generated CT name
+        assert "Gamma" in ct.name # From "MT Gamma"
+
+        # Check that the themes stored in properties are reasonable
+        themes_in_props = {t.lower() for t in ct.properties.get("common_themes", [])}
+        assert "gamma" in themes_in_props
+        assert "study" in themes_in_props or "studies" in themes_in_props # Account for "studies" vs "study"
+
+        if result.integration_analysis: # Should be None for single MT input
+            assert result.integration_analysis["overall_compatibility"] == 1.0
+        assert ct.properties["compatibility_score"] == 1.0 # This is set to 1.0 if no analysis
+        mock_concept_repo.add.assert_called_once_with(ct) # Ensure add was called
+
+
+    def test_construct_comprehensive_theory_invalid_mt_id(self, mock_concept_repo):
+        use_case = ConstructComprehensiveTheoryUseCase(concept_repo=mock_concept_repo)
+        non_existent_id = uuid.uuid4()
+        mock_concept_repo.get_by_id.return_value = None
+        input_data = ConstructComprehensiveTheoryInput(mini_theory_ids=[non_existent_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-MINI_THEORY concept ID: {non_existent_id}"):
+            use_case.execute(input_data)
+
+    def test_construct_comprehensive_theory_not_a_mini_theory(self, mock_concept_repo):
+        use_case = ConstructComprehensiveTheoryUseCase(concept_repo=mock_concept_repo)
+        prop_id = uuid.uuid4()
+        prop = ScientificConcept(id=prop_id, name="Just a Proposition", description="...", type=ConceptType.PROPOSITION)
+        mock_concept_repo.get_by_id.return_value = prop
+        input_data = ConstructComprehensiveTheoryInput(mini_theory_ids=[prop_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-MINI_THEORY concept ID: {prop_id}"):
+            use_case.execute(input_data)
+
+    def test_construct_comprehensive_theory_no_ids_provided(self, mock_concept_repo):
+        use_case = ConstructComprehensiveTheoryUseCase(concept_repo=mock_concept_repo)
+        # Pydantic should catch this if min_items is set and input is validated before use case
+        # However, the use case also has a check.
+        with pytest.raises(ValidationError): # Pydantic validation error for min_items
+             ConstructComprehensiveTheoryInput(mini_theory_ids=[])
+
+        # Test internal use case check if Pydantic validation was bypassed (e.g. direct call)
+        # For this, we create input that would pass Pydantic if min_items was 0, then test execute
+        # This specific test is more about the Pydantic model itself.
+        # The use case's own check:
+        input_data_for_usecase_check = ConstructComprehensiveTheoryInput.model_construct(mini_theory_ids=[]) # Bypass Pydantic validation for this test
+        with pytest.raises(ValueError, match="At least one mini-theory ID must be provided."):
+            use_case.execute(input_data_for_usecase_check)
+
+
+    # --- Tests for ConstructUnifiedModelUseCase ---
+
+    def test_construct_unified_model_success_explicit(self, mock_concept_repo):
+        use_case = ConstructUnifiedModelUseCase(concept_repo=mock_concept_repo)
+        ct1_id, ct2_id = uuid.uuid4(), uuid.uuid4()
+        ct1 = ScientificConcept(id=ct1_id, name="CT Alpha", description="Comprehensive Alpha", type=ConceptType.COMPREHENSIVE_THEORY, properties={"common_themes": ["alpha_theme"]})
+        ct2 = ScientificConcept(id=ct2_id, name="CT Beta", description="Comprehensive Beta", type=ConceptType.COMPREHENSIVE_THEORY, properties={"common_themes": ["beta_theme"]})
+
+        mock_concept_repo.get_by_id.side_effect = lambda id_val: {ct1_id: ct1, ct2_id: ct2}.get(id_val)
+
+        input_data = ConstructUnifiedModelInput(
+            comprehensive_theory_ids=[ct1_id, ct2_id],
+            model_name="Custom Unified Model",
+            model_description="Integrates CT Alpha and CT Beta.",
+            architecture_type=ModelArchitectureType.NETWORKED,
+            formalization_level="semi-formal"
+        )
+        result = use_case.execute(input_data)
+        um = result.model_created
+
+        assert um.type == ConceptType.UNIFIED_MODEL
+        assert um.name == "Custom Unified Model"
+        assert um.description == "Integrates CT Alpha and CT Beta."
+        assert um.member_concept_ids == [ct1_id, ct2_id]
+        assert um.properties["component_theory_count"] == 2
+        assert um.properties["architecture_type"] == ModelArchitectureType.NETWORKED.value
+        assert um.properties["formalization_level"] == "semi-formal"
+        assert "architecture_details" in um.properties
+        assert um.properties["architecture_details"]["type"] == ModelArchitectureType.NETWORKED.value
+        assert "model_metrics" in um.properties
+        assert result.model_metrics is not None
+        assert result.architecture_diagram is not None
+        mock_concept_repo.add.assert_called_once_with(um)
+
+    def test_construct_unified_model_success_generated_name(self, mock_concept_repo):
+        use_case = ConstructUnifiedModelUseCase(concept_repo=mock_concept_repo)
+        ct1_id = uuid.uuid4()
+        ct1 = ScientificConcept(id=ct1_id, name="CT Gamma", description="Comprehensive Gamma", type=ConceptType.COMPREHENSIVE_THEORY, properties={"common_themes": ["gamma_theme", "shared_theme"]})
+        mock_concept_repo.get_by_id.return_value = ct1
+
+        input_data = ConstructUnifiedModelInput(comprehensive_theory_ids=[ct1_id]) # Defaults for others
+        result = use_case.execute(input_data)
+        um = result.model_created
+
+        assert um.type == ConceptType.UNIFIED_MODEL
+        assert "Unified Modular Model" in um.name # Default architecture is MODULAR
+        assert "gamma_theme" in um.name.lower() or "shared_theme" in um.name.lower()
+        assert um.properties["architecture_type"] == ModelArchitectureType.MODULAR.value # Default
+        mock_concept_repo.add.assert_called_once_with(um)
+
+    def test_construct_unified_model_no_ct_ids(self, mock_concept_repo):
+        use_case = ConstructUnifiedModelUseCase(concept_repo=mock_concept_repo)
+        with pytest.raises(ValidationError): # Pydantic min_items=1
+            ConstructUnifiedModelInput(comprehensive_theory_ids=[])
+
+        # Test internal use case check (though Pydantic should catch it first)
+        # This requires creating a model bypassing Pydantic's validation if possible
+        # For this test, Pydantic's validation is the primary gate.
+
+    def test_construct_unified_model_ct_not_found(self, mock_concept_repo):
+        use_case = ConstructUnifiedModelUseCase(concept_repo=mock_concept_repo)
+        non_existent_id = uuid.uuid4()
+        mock_concept_repo.get_by_id.return_value = None
+        input_data = ConstructUnifiedModelInput(comprehensive_theory_ids=[non_existent_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-COMPREHENSIVE_THEORY concept ID: {non_existent_id}"):
+            use_case.execute(input_data)
+
+    def test_construct_unified_model_id_not_a_ct(self, mock_concept_repo):
+        use_case = ConstructUnifiedModelUseCase(concept_repo=mock_concept_repo)
+        mt_id = uuid.uuid4()
+        mt = ScientificConcept(id=mt_id, name="Just a Mini-Theory", description="...", type=ConceptType.MINI_THEORY)
+        mock_concept_repo.get_by_id.return_value = mt
+        input_data = ConstructUnifiedModelInput(comprehensive_theory_ids=[mt_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-COMPREHENSIVE_THEORY concept ID: {mt_id}"):
             use_case.execute(input_data)
