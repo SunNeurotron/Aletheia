@@ -12,10 +12,12 @@
 # pytest-cov==4.1.0
 # httpx==0.25.0 # Para TestClient de FastAPI
 
-# Si este módulo depende de aletheia_common:
-# ../aletheia_common # Esto no es estándar para pip, requeriría instalación editable o setuptools.
-# O, si aletheia_common se instala como un paquete:
-# aletheia-common
+# NOTA SOBRE DEPENDENCIAS INTERNAS (ej. aletheia_common):
+# Si este módulo depende de otros módulos locales como `aletheia_common`,
+# la forma de gestionar esta dependencia debe definirse a nivel de proyecto:
+# 1. Si `aletheia_common` es un paquete instalable: añádalo aquí (ej. `aletheia-common`).
+# 2. Si se gestiona mediante PYTHONPATH o instalación editable en un entorno de desarrollo:
+#    no es necesario listarlo aquí como una dependencia pip estándar.
 
 # Definir aquí las dependencias específicas del módulo.
 # Las herramientas de calidad (black, flake8, mypy, isort) se definen en el .pre-commit-config.yaml raíz.
