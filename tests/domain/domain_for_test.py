@@ -5,7 +5,7 @@ in aletheia.domain.models.
 """
 import uuid
 from enum import Enum
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional # Added Optional
 
 from pydantic import BaseModel, Field
 
@@ -16,7 +16,10 @@ class ConceptType(str, Enum):
     MECHANISM = "MECHANISM"
     PHENOMENON = "PHENOMENON"
     HYPOTHESIS = "HYPOTHESIS"
-    EVIDENCE = "EVIDENCE"
+    EVIDENCE_UNIT = "EVIDENCE_UNIT" # Renamed from EVIDENCE to avoid clash with Evidence model
+    UCM = "UCM" # Unit Conceptual Mínima
+    CLUSTER = "CLUSTER" # Cluster Conceptual
+    PROPOSITION = "PROPOSITION" # Proposición Emergente
 
 
 class Evidence(BaseModel):
@@ -65,6 +68,11 @@ class ScientificConcept(BaseModel):
     type: ConceptType
     properties: Dict[str, Any] = Field(default_factory=dict)
     evidence_sources: List[Evidence] = Field(default_factory=list)
+    # Fields for Eje Y
+    verification_hash: Optional[str] = None
+    member_concept_ids: Optional[List[uuid.UUID]] = None # For CLUSTER type
+    derived_from_cluster_id: Optional[uuid.UUID] = None # For PROPOSITION derived from a cluster
+    derived_from_ucm_ids: Optional[List[uuid.UUID]] = None # For PROPOSITION derived from UCMs
 
     model_config = {"frozen": True} # Domain models should be immutable
 

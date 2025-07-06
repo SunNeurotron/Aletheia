@@ -2,7 +2,7 @@
 Temporary location for Application Port (Interface) definitions
 to make them accessible to tests in this sandboxed environment.
 """
-from typing import Protocol, List, Optional
+from typing import Protocol, List, Optional # Already has Optional and List
 import uuid
 
 # Import domain models from their temporary test location

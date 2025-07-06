@@ -123,6 +123,34 @@ class TestScientificConcept:
                 type="INVALID_TYPE_STRING",
             )
 
+    def test_concept_creation_with_eje_y_fields(self):
+        ucm_id1 = uuid.uuid4()
+        cluster_id1 = uuid.uuid4()
+        concept = ScientificConcept(
+            name="Eje Y Test Concept",
+            description="Testing new Eje Y fields.",
+            type=ConceptType.PROPOSITION, # Type that could use these fields
+            verification_hash="abc123def",
+            member_concept_ids=[ucm_id1],
+            derived_from_cluster_id=cluster_id1,
+            derived_from_ucm_ids=[ucm_id1]
+        )
+        assert concept.verification_hash == "abc123def"
+        assert concept.member_concept_ids == [ucm_id1]
+        assert concept.derived_from_cluster_id == cluster_id1
+        assert concept.derived_from_ucm_ids == [ucm_id1]
+        assert concept.type == ConceptType.PROPOSITION
+
+    def test_concept_type_enum_values_exist(self):
+        # Test that new enum values are accessible
+        assert ConceptType.UCM.value == "UCM"
+        assert ConceptType.CLUSTER.value == "CLUSTER"
+        assert ConceptType.PROPOSITION.value == "PROPOSITION"
+        assert ConceptType.EVIDENCE_UNIT.value == "EVIDENCE_UNIT"
+        # Test one of the old ones to ensure they are still there
+        assert ConceptType.PHENOMENON.value == "PHENOMENON"
+
+
 class TestDirectedRelationship:
     def test_relationship_creation_minimal(self):
         source_id = uuid.uuid4()
