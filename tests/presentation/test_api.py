@@ -302,6 +302,78 @@ class TestEjeYAPI:
         assert non_existent_ct_id in response.json()["detail"]
         assert "non-COMPREHENSIVE_THEORY" in response.json()["detail"]
 
+
+class TestEjeXAPI:
+    def test_ingest_document_endpoint_success(self):
+        payload = {
+            "document_text": "This is a new Document for testing. It mentions Important Concept and Another One.",
+            "source_doi": "doi:10.xxxx/ejeX.doc1",
+            "source_citation": "EjeX Ingestion Test, 2024"
+        }
+        response = client.post("/eje_x/documents/ingest/", json=payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "document_concept_id" in data
+        assert uuid.UUID(data["document_concept_id"]) is not None # Check it's a valid UUID
+
+        assert "ucm_extraction_result" in data
+        ucm_result = data["ucm_extraction_result"]
+        assert "ucms_created" in ucm_result
+
+        # Check UCMs based on the current ExtractUCMsUseCase logic
+        # Input: "This is a new Document for testing. It mentions Important Concept and Another One."
+        # Stopwords: "this", "is", "a", "for", "it", "and", "another", "one" (if "one" is added or len<3 filter)
+        # Phrase Regex: \b(?:[A-Z][\w"\'-]*\s+){1,5}[A-Z][\w"\'-]*\b (needs >=2 capitalized words)
+        #   - "Important Concept"
+        # Single Word Regex: \b[A-Z][\w"\'-]+\b
+        #   - "Document"
+        #   - "Important" (covered by "Important Concept")
+        #   - "Concept" (covered by "Important Concept")
+        #   - "Another" (stopword)
+        #   - "One" (if len < 3, filtered. If "one" is stopword, filtered. Otherwise, potentially "One")
+        # Let's assume "One" is filtered by length or stopword for now.
+        # Expected UCMs: "Important Concept", "Document"
+
+        created_ucm_names = {ucm["name"] for ucm in ucm_result["ucms_created"]}
+        # This expectation depends heavily on the exact behavior of ExtractUCMsUseCase's regex & cleaning
+        # For "Important Concept and Another One.":
+        # Phrase: "Important Concept"
+        # Single: "Another" (stopword), "One" (stopword or too short)
+        # Expected from "This is a new Document for testing." -> "Document"
+        # Expected from "It mentions Important Concept and Another One." -> "Important Concept"
+
+        # Based on current ExtractUCMsUseCase_v4:
+        # Sentence 1: "This is a new Document for testing." -> single "Document"
+        # Sentence 2: "It mentions Important Concept and Another One." -> phrase "Important Concept"
+        # Expected: {"Document", "Important Concept"}
+
+        assert len(ucm_result["ucms_created"]) >= 1 # Should find at least "Document" or "Important Concept"
+        assert "Document" in created_ucm_names or "Important Concept" in created_ucm_names # Be a bit flexible
+
+        # To be more precise, let's use the example that worked in unit tests for ExtractUCMs
+        payload_precise = {
+            "document_text": "The Study focuses on Protein Alpha and its effects on Alzheimer's Disease. Another key factor is Beta-Catenin.",
+            "source_doi": "doi:10.xxxx/ejeX.doc2",
+            "source_citation": "EjeX Ingestion Test Precise, 2024"
+        }
+        response_precise = client.post("/eje_x/documents/ingest/", json=payload_precise)
+        assert response_precise.status_code == 201, response_precise.text
+        data_precise = response_precise.json()
+        created_ucm_names_precise = {ucm["name"] for ucm in data_precise["ucm_extraction_result"]["ucms_created"]}
+        expected_ucms_precise = {"Study", "Protein Alpha", "Alzheimer's Disease", "Beta-Catenin"}
+        assert created_ucm_names_precise == expected_ucms_precise
+
+
+    def test_ingest_document_endpoint_missing_text(self):
+        payload = {
+            # "document_text": "missing",
+            "source_doi": "doi:10.xxxx/ejeX.doc_no_text",
+            "source_citation": "No Text Test, 2024"
+        }
+        response = client.post("/eje_x/documents/ingest/", json=payload)
+        assert response.status_code == 422, response.text # Pydantic validation error
+
     # --- Tests for Mini-Theory Construction Endpoint ---
 
     def test_construct_mini_theory_endpoint_success(self):

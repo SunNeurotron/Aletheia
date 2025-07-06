@@ -28,8 +28,11 @@ from tests.application.use_cases.use_cases_for_test import (
     ConstructComprehensiveTheoryInput,   # Added
     ComprehensiveTheoryResult,           # Added
     ConstructUnifiedModelUseCase,        # Added
-    ConstructUnifiedModelInput,          # Added
-    UnifiedModelResult                   # Added
+    ConstructUnifiedModelInput,
+    UnifiedModelResult,
+    IngestDocumentUseCase, # Added
+    IngestDocumentInput,   # Added
+    IngestDocumentResult   # Added
 )
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol,
@@ -90,6 +93,14 @@ def get_construct_unified_model_use_case(
     concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
 ) -> ConstructUnifiedModelUseCase:
     return ConstructUnifiedModelUseCase(concept_repo=concept_repo)
+
+# get_extract_ucms_use_case is already defined
+
+def get_ingest_document_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo),
+    extract_ucms_uc: ExtractUCMsUseCase = Depends(get_extract_ucms_use_case) # Reuse existing
+) -> IngestDocumentUseCase:
+    return IngestDocumentUseCase(concept_repo=concept_repo, extract_ucms_use_case=extract_ucms_uc)
 
 
 def create_test_app() -> FastAPI:
@@ -186,6 +197,19 @@ def create_test_app() -> FastAPI:
             return use_case.execute(input_data)
         except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    # --- Eje X - Document Ingestion Endpoint ---
+    @app.post("/eje_x/documents/ingest/", response_model=IngestDocumentResult, status_code=status.HTTP_201_CREATED, tags=["Eje X - Ingestion"])
+    def ingest_document_endpoint(
+        input_data: IngestDocumentInput,
+        use_case: IngestDocumentUseCase = Depends(get_ingest_document_use_case),
+    ):
+        """Ingests a document and extracts UCMs."""
+        try:
+            return use_case.execute(input_data)
+        except Exception as e: # Catch generic exceptions for now during early dev
+            # Log the exception e
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"An unexpected error occurred: {str(e)}")
 
     return app
 

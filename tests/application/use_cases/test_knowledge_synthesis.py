@@ -27,10 +27,13 @@ from tests.application.use_cases.use_cases_for_test import (
     ConstructComprehensiveTheoryInput,   # Added
     ComprehensiveTheoryResult,           # Added
     ConstructUnifiedModelUseCase,        # Added
-    ConstructUnifiedModelInput,          # Added
-    UnifiedModelResult                   # Added
+    ConstructUnifiedModelInput,
+    UnifiedModelResult,
+    IngestDocumentUseCase, # Added
+    IngestDocumentInput,   # Added
+    IngestDocumentResult   # Added
 )
-from tests.domain.domain_for_test import TheoryIntegrationMethod, ModelArchitectureType # Added
+from tests.domain.domain_for_test import TheoryIntegrationMethod, ModelArchitectureType
 
 # For ConceptRepository and RelationshipRepository, we rely on mocking.
 # The use_cases_for_test.py file includes minimal forward declarations for these
@@ -762,3 +765,70 @@ class TestEjeYUseCases:
         input_data = ConstructUnifiedModelInput(comprehensive_theory_ids=[mt_id])
         with pytest.raises(ValueError, match=f"Invalid or non-COMPREHENSIVE_THEORY concept ID: {mt_id}"):
             use_case.execute(input_data)
+
+
+class TestEjeXUseCases:
+
+    @pytest.fixture
+    def mock_extract_ucms_use_case(self, mock_concept_repo): # Needs concept_repo for its own init
+        """Fixture for a mocked ExtractUCMsUseCase."""
+        # We need to mock the .execute() method of ExtractUCMsUseCase
+        mock_uc_instance = MagicMock(spec=ExtractUCMsUseCase)
+
+        # Simulate a successful UCM extraction result
+        dummy_ucm = ScientificConcept(name="Dummy UCM", description="...", type=ConceptType.UCM)
+        mock_uc_instance.execute.return_value = UCMExtractionResult(ucms_created=[dummy_ucm])
+        return mock_uc_instance
+
+    def test_ingest_document_success(self, mock_concept_repo, mock_extract_ucms_use_case):
+        ingest_use_case = IngestDocumentUseCase(
+            concept_repo=mock_concept_repo,
+            extract_ucms_use_case=mock_extract_ucms_use_case
+        )
+
+        input_data = IngestDocumentInput(
+            document_text="This is the full text of a fascinating scientific paper.",
+            source_doi="doi:10.5555/paper1",
+            source_citation="Author A, Author B (2024) Paper Title. Journal V1."
+        )
+
+        result = ingest_use_case.execute(input_data)
+
+        # 1. Verify Document Source Concept creation
+        # It's the first call to concept_repo.add
+        assert mock_concept_repo.add.call_count >= 1 # At least one for doc_source, more for UCMs via sub-case
+
+        # Get the object passed to the first call to mock_concept_repo.add
+        # This assumes the doc_source_concept is added before UCMs (which it is in the use case)
+        # If UCMs were added first by the sub-usecase and it used the *same* repo mock, this would be harder.
+        # But ExtractUCMsUseCase gets its own concept_repo instance (or a mock of it).
+        # In our IngestDocumentUseCase, we pass the *same* concept_repo to ExtractUCMsUseCase.
+        # So, the first call to add will be the DOCUMENT_SOURCE concept.
+
+        # Let's find the DOCUMENT_SOURCE concept among all added concepts
+        added_concepts_args = [call_args[0][0] for call_args in mock_concept_repo.add.call_args_list]
+        doc_source_concept_added = None
+        for concept_arg in added_concepts_args:
+            if concept_arg.type == ConceptType.DOCUMENT_SOURCE:
+                doc_source_concept_added = concept_arg
+                break
+
+        assert doc_source_concept_added is not None, "DOCUMENT_SOURCE concept was not added to repository"
+        assert doc_source_concept_added.type == ConceptType.DOCUMENT_SOURCE
+        assert input_data.source_citation[:100] in doc_source_concept_added.name
+        assert doc_source_concept_added.properties["doi"] == input_data.source_doi
+        assert doc_source_concept_added.properties["text_length"] == len(input_data.document_text)
+        assert result.document_concept_id == doc_source_concept_added.id
+
+        # 2. Verify ExtractUCMsUseCase was called correctly
+        mock_extract_ucms_use_case.execute.assert_called_once()
+        call_args = mock_extract_ucms_use_case.execute.call_args[0][0]
+        assert isinstance(call_args, ExtractUCMsInput)
+        assert call_args.document_text == input_data.document_text
+        assert call_args.source_doi == input_data.source_doi
+        assert call_args.source_citation == input_data.source_citation
+
+        # 3. Verify the result DTO
+        assert result.ucm_extraction_result is not None
+        assert len(result.ucm_extraction_result.ucms_created) == 1 # From the mock_extract_ucms_use_case
+        assert result.ucm_extraction_result.ucms_created[0].name == "Dummy UCM"
