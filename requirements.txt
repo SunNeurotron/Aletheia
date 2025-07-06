@@ -1,38 +1,55 @@
-# Core FastAPI and Server
+# ==========================================
+# Core Application & Web Server Dependencies
+# ==========================================
 fastapi==0.103.0
 uvicorn[standard]==0.23.2
 
-# Database
+# ==========================================
+# Database Dependencies
+# ==========================================
 sqlalchemy==2.0.20
-# psycopg2-binary==2.9.6  # Temporarily removed
-# alembic==1.12.0  # Temporarily removed
+# psycopg2-binary==2.9.6  # Temporarily removed - Driver for PostgreSQL
+# alembic==1.12.0  # Temporarily removed - For database migrations
 
-# ML/Stats
-# mlflow==2.7.1 # Temporarily commented out due to pyarrow build issues in sandbox
+# ==========================================
+# Machine Learning / Statistics Dependencies
+# ==========================================
+# mlflow==2.7.1 # Temporarily commented out due to pyarrow build issues in sandbox - For experiment tracking
 scipy==1.13.1
 numpy==1.26.0
 
-# Pydantic (often a direct FastAPI dependency, but good to pin)
-pydantic==2.4.2
+# ==========================================
+# Data Validation & Settings Management
+# ==========================================
+pydantic==2.4.2 # Also a FastAPI core dependency, pinned for clarity
 
-# Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+# ==========================================
+# Security Dependencies
+# ==========================================
+python-jose[cryptography]==3.3.0 # For JWT handling
+passlib[bcrypt]==1.7.4 # For password hashing
 
-# Testing
+# ==========================================
+# Testing Dependencies
+# ==========================================
 pytest==7.4.0
-pytest-cov==4.1.0
-httpx==0.25.0 # For TestClient in FastAPI
-hypothesis==6.82.0
+pytest-cov==4.1.0 # For code coverage reporting
+httpx==0.25.0 # HTTP client for testing FastAPI (TestClient)
+hypothesis==6.82.0 # Property-based testing
 
-# Code Quality & Linting (also in pre-commit)
-black==23.7.0
-isort==5.12.0
-flake8==6.1.0
-mypy==1.5.1
-types-sqlalchemy # For SQLAlchemy stubs with MyPy
-# types-psycopg2 # Temporarily removed
-types-requests # If we use requests directly, or for httpx stubs if not explicit
+# ==========================================
+# Code Quality & Linting Tools
+# (These are also managed by pre-commit)
+# ==========================================
+black==23.7.0 # Code formatter
+isort==5.12.0 # Import sorter
+flake8==6.1.0 # Linter
+mypy==1.5.1 # Static type checker
+types-sqlalchemy # Type stubs for SQLAlchemy (for MyPy)
+# types-psycopg2 # Temporarily removed - Type stubs for psycopg2
+types-requests # Type stubs for requests (if used directly or by httpx)
 
-# Pre-commit (tool itself)
-pre-commit==3.3.3
+# ==========================================
+# Pre-commit Hook Management
+# ==========================================
+pre-commit==3.3.3 # The pre-commit tool itself
