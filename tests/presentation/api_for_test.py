@@ -69,7 +69,7 @@ def _calculate_max_depth(
                 max_depth_to_any_ucm = depth_from_start
             # Continue processing other paths in queue; a UCM is a leaf in downward traversal for depth.
 
-        # Explore children (members or derived UCMs for propositions)
+        # Explore children (members, derived UCMs for propositions, or derived cluster for propositions)
         children_to_visit: List[ScientificConcept] = []
         if current_c.member_concept_ids:
             for member_id in current_c.member_concept_ids:
@@ -77,12 +77,22 @@ def _calculate_max_depth(
                 if member:
                     children_to_visit.append(member)
 
+        # If current_c is a PROPOSITION, also consider its derived_from_cluster_id as a child
+        if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_cluster_id:
+            cluster_child = repo.get_by_id(current_c.derived_from_cluster_id)
+            if cluster_child:
+                # Avoid adding duplicate if already present (e.g. if somehow it was also a direct member)
+                if cluster_child.id not in {c.id for c in children_to_visit}:
+                    children_to_visit.append(cluster_child)
+
+        # If current_c is a PROPOSITION, also consider its derived_from_ucm_ids as children
+        # These are typically UCMs and act as leaf nodes for depth calculation path.
         if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
             for ucm_id in current_c.derived_from_ucm_ids:
                 ucm_child = repo.get_by_id(ucm_id)
-                # We only consider it a child for depth if it's a UCM.
-                if ucm_child and ucm_child.type == ConceptType.UCM:
-                    children_to_visit.append(ucm_child)
+                if ucm_child and ucm_child.type == ConceptType.UCM: # Ensure it's a UCM
+                    if ucm_child.id not in {c.id for c in children_to_visit}:
+                        children_to_visit.append(ucm_child)
 
         for child_c in children_to_visit:
             if child_c.id not in bfs_visited_this_traversal:
@@ -139,6 +149,31 @@ def _trace_to_unified_models(
             found_models.update(
                 _trace_to_unified_models(potential_parent, repo, all_concepts_list, current_path_visited)
             )
+
+    # Also consider relationships where the current 'concept' is a child referenced by a specific field in a PROPOSITION
+    # Case 1: Current concept is a CLUSTER, find PROPOSITIONs derived from it.
+    if concept.type == ConceptType.CLUSTER:
+        for potential_parent_prop in all_concepts_list:
+            if potential_parent_prop.type == ConceptType.PROPOSITION and \
+               potential_parent_prop.derived_from_cluster_id == concept.id:
+                # potential_parent_prop is a proposition derived from this cluster.
+                # Trace upwards from this proposition.
+                found_models.update(
+                    _trace_to_unified_models(potential_parent_prop, repo, all_concepts_list, current_path_visited)
+                )
+
+    # Case 2: Current concept is a UCM, find PROPOSITIONs derived directly from it.
+    if concept.type == ConceptType.UCM:
+        for potential_parent_prop_ucm in all_concepts_list:
+            if potential_parent_prop_ucm.type == ConceptType.PROPOSITION and \
+               potential_parent_prop_ucm.derived_from_ucm_ids and \
+               concept.id in potential_parent_prop_ucm.derived_from_ucm_ids:
+                # potential_parent_prop_ucm is a proposition derived directly from this UCM.
+                # Trace upwards from this proposition.
+                found_models.update(
+                    _trace_to_unified_models(potential_parent_prop_ucm, repo, all_concepts_list, current_path_visited)
+                )
+
     return found_models
 
 
@@ -292,43 +327,73 @@ def create_test_app() -> FastAPI:
                 continue # Don't explore children if max depth reached for this node
 
             # Process members
+            children_to_explore: List[ScientificConcept] = []
+            edge_type_for_children = "contains"
+
             if current_c.member_concept_ids:
                 for member_id in current_c.member_concept_ids:
                     member = concept_repo.get_by_id(member_id)
                     if member:
-                        edges.append({"source": str(current_c.id), "target": str(member_id), "type": "contains"})
-                        if member.id not in globally_added_nodes: # Add to queue only if not globally processed as a node
-                            # It will be added to nodes list when popped from queue if still not globally_added_nodes
-                            # To prevent re-queuing if already processed or in queue, check globally_added_nodes
-                            # but for strict BFS, usually check visited before adding to queue.
-                            # For graph structure, we want to add all reachable nodes up to depth.
-                             queue.append((member, current_d + 1))
-                        elif member.id not in {n['id'] for n in nodes}: # If visited but somehow not in nodes list (should not happen with this logic)
-                            # This case is tricky, means it was visited by another path but not added to nodes.
-                            # The current globally_added_nodes check when popping should handle it.
-                            # The main thing is to add it to queue if its children need to be explored.
-                            # If already added to nodes, we still might need to explore its children if current_d+1 <= max_depth_param
-                            # Re-add to queue if not already processed to its full depth from *this* path.
-                            # This needs a more complex visited structure for BFS like (node_id, depth_visited_at)
-                            # For simplicity, if globally added, assume its subgraph is (or will be) explored.
-                            pass
+                        children_to_explore.append(member)
 
+            # If current_c is a PROPOSITION, also consider its derived_from_cluster_id as a child for graph traversal
+            if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_cluster_id:
+                cluster_child = concept_repo.get_by_id(current_c.derived_from_cluster_id)
+                if cluster_child:
+                    # Avoid adding duplicate if cluster is somehow also in member_concept_ids (should not happen for PROPOSITION)
+                    if cluster_child.id not in {c.id for c in children_to_explore}:
+                        children_to_explore.append(cluster_child)
+                    # We might want a specific edge type here, e.g., "derived_into_proposition" if source=cluster, target=prop
+                    # Or, if source=prop, target=cluster, "derived_from_cluster"
+                    # For now, let's add edge from Prop to Cluster, similar to how Prop -> UCM works.
+                    # The existing "contains" might be confusing. Let's add a specific edge for this.
+                    # This part of the code is adding children to the queue, so edges are from current_c to child.
+                    # The edge creation for this specific link (Prop->Cluster) will be handled below.
 
-            # Process derived UCMs for propositions
-            if current_c.type == ConceptType.PROPOSITION and current_c.derived_from_ucm_ids:
-                if current_d < max_depth_param: # Only add UCMs if proposition itself is not at max_depth
+            for child_c in children_to_explore:
+                # Determine edge type. Default is "contains".
+                # If current_c is PROPOSITION and child_c is its derived_from_cluster_id, type is "derived_from_cluster".
+                # This logic is getting complicated here. Let's simplify edge creation.
+                # Edges for "member_concept_ids" are "contains".
+                # Edge for "derived_from_cluster_id" will be "derived_from_cluster".
+                # Edge for "derived_from_ucm_ids" is "derived_from_ucm".
+
+                # Standard "contains" edge for member_concept_ids
+                if current_c.member_concept_ids and child_c.id in current_c.member_concept_ids:
+                    edges.append({"source": str(current_c.id), "target": str(child_c.id), "type": "contains"})
+
+                if child_c.id not in globally_added_nodes:
+                    queue.append((child_c, current_d + 1))
+
+            # Special handling for PROPOSITION children (Cluster and UCMs)
+            if current_c.type == ConceptType.PROPOSITION:
+                # Link to derived Cluster
+                if current_c.derived_from_cluster_id:
+                    cluster_child = concept_repo.get_by_id(current_c.derived_from_cluster_id)
+                    if cluster_child:
+                        edges.append({"source": str(current_c.id), "target": str(cluster_child.id), "type": "derived_from_cluster"})
+                        if cluster_child.id not in globally_added_nodes:
+                             # It might have been added to queue above if it wasn't in globally_added_nodes.
+                             # Ensure it's in queue if not processed. If already in children_to_explore, it's handled.
+                             # This logic is slightly redundant with the generic children_to_explore loop if we add it there.
+                             # Let's ensure it's added to queue if not already processed.
+                             # The children_to_explore loop already handles adding to queue.
+                             pass # Already handled by children_to_explore logic if correctly added there.
+
+                # Link to derived UCMs
+                if current_c.derived_from_ucm_ids and current_d < max_depth_param:
                     for ucm_id in current_c.derived_from_ucm_ids:
-                        ucm_member = concept_repo.get_by_id(ucm_id)
-                        if ucm_member:
+                        ucm_child = concept_repo.get_by_id(ucm_id)
+                        if ucm_child:
                             edges.append({"source": str(current_c.id), "target": str(ucm_id), "type": "derived_from_ucm"})
-                            if ucm_member.id not in globally_added_nodes:
-                                globally_added_nodes.add(ucm_member.id)
+                            if ucm_child.id not in globally_added_nodes:
+                                globally_added_nodes.add(ucm_child.id) # Add UCM to nodes list directly
                                 nodes.append({
-                                    "id": str(ucm_member.id), "label": ucm_member.name[:50],
-                                    "type": ucm_member.type.value, "level": _get_hierarchy_level(ucm_member.type),
-                                    "properties": {"description_snippet": ucm_member.description[:100],"member_count": 0}
+                                    "id": str(ucm_child.id), "label": ucm_child.name[:50],
+                                    "type": ucm_child.type.value, "level": _get_hierarchy_level(ucm_child.type),
+                                    "properties": {"description_snippet": ucm_child.description[:100],"member_count": 0}
                                 })
-                                # UCMs are leaves, don't add to queue for further member exploration
+                                # UCMs are leaves, don't add to queue from here
 
         actual_max_depth_val = 0
         if nodes and root_concept:
