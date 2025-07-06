@@ -211,3 +211,76 @@ class TestEjeYAPI:
         response = client.post("/eje_y/proposition_derivation/", json=proposition_payload)
         assert response.status_code == 400, response.text
         assert non_existent_cluster_id in response.json()["detail"]
+
+    # --- Tests for Mini-Theory Construction Endpoint ---
+
+    def test_construct_mini_theory_endpoint_success(self):
+        # 1. Create some propositions first
+        prop_payloads = [
+            {"name": "Prop P1 for MT", "description": "Detail P1", "type": "PROPOSITION"},
+            {"name": "Prop P2 for MT", "description": "Detail P2", "type": "PROPOSITION"}
+        ]
+        proposition_ids = []
+        for payload in prop_payloads:
+            resp = client.post("/concepts/", json=payload)
+            assert resp.status_code == 201, resp.text
+            proposition_ids.append(resp.json()["id"])
+
+        assert len(proposition_ids) == 2
+
+        # 2. Construct a mini-theory from these propositions
+        mt_payload = {
+            "proposition_ids": proposition_ids,
+            "mini_theory_name": "API-Created Mini-Theory",
+            "mini_theory_description": "Test MT via API.",
+            "derivation_method_description": "api_test_grouping"
+        }
+        response = client.post("/eje_y/mini_theory_construction/", json=mt_payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "mini_theory_created" in data
+        mt = data["mini_theory_created"]
+        assert mt["name"] == "API-Created Mini-Theory"
+        assert mt["type"] == "MINI_THEORY"
+        assert mt["description"] == "Test MT via API."
+        assert sorted(mt["member_concept_ids"]) == sorted(proposition_ids)
+        assert mt["properties"]["component_proposition_count"] == 2
+        assert mt["properties"]["derivation_method"] == "api_test_grouping"
+
+    def test_construct_mini_theory_endpoint_no_propositions(self):
+        mt_payload = {"proposition_ids": []} # Empty list
+        response = client.post("/eje_y/mini_theory_construction/", json=mt_payload)
+        assert response.status_code == 400, response.text # Expecting ValueError from use case
+        assert "one proposition ID must be provided" in response.json()["detail"]
+
+    def test_construct_mini_theory_endpoint_proposition_not_found(self):
+        prop1_payload = {"name": "Existing Prop for MT", "description": "...", "type": "PROPOSITION"}
+        resp = client.post("/concepts/", json=prop1_payload)
+        assert resp.status_code == 201, resp.text
+        prop1_id = resp.json()["id"]
+
+        non_existent_prop_id = str(uuid.uuid4())
+
+        mt_payload = {
+            "proposition_ids": [prop1_id, non_existent_prop_id],
+            "mini_theory_name": "MT with invalid ID"
+        }
+        response = client.post("/eje_y/mini_theory_construction/", json=mt_payload)
+        assert response.status_code == 400, response.text
+        assert f"Invalid or non-PROPOSITION concept ID provided: {non_existent_prop_id}" in response.json()["detail"]
+
+    def test_construct_mini_theory_endpoint_id_not_a_proposition(self):
+        # Create a UCM (not a proposition)
+        ucm_payload = {"name": "UCM not Prop", "description": "...", "type": "UCM"}
+        resp = client.post("/concepts/", json=ucm_payload)
+        assert resp.status_code == 201, resp.text
+        ucm_id = resp.json()["id"]
+
+        mt_payload = {
+            "proposition_ids": [ucm_id],
+            "mini_theory_name": "MT with non-prop ID"
+        }
+        response = client.post("/eje_y/mini_theory_construction/", json=mt_payload)
+        assert response.status_code == 400, response.text
+        assert f"Invalid or non-PROPOSITION concept ID provided: {ucm_id}" in response.json()["detail"]

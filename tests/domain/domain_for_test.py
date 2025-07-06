@@ -20,6 +20,7 @@ class ConceptType(str, Enum):
     UCM = "UCM" # Unit Conceptual Mínima
     CLUSTER = "CLUSTER" # Cluster Conceptual
     PROPOSITION = "PROPOSITION" # Proposición Emergente
+    MINI_THEORY = "MINI_THEORY" # Mini-Teoría
 
 
 class Evidence(BaseModel):

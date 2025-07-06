@@ -333,3 +333,77 @@ class DerivePropositionsUseCase:
         )
         self.concept_repo.add(proposition)
         return PropositionDerivationResult(proposition_created=proposition)
+
+
+# --- Use Case for Mini-Theory Construction (Eje Y - Level 2) ---
+
+class ConstructMiniTheoryInput(BaseModel):
+    proposition_ids: List[uuid.UUID]
+    mini_theory_name: Optional[str] = None
+    mini_theory_description: Optional[str] = "A synthesized mini-theory based on selected propositions."
+    derivation_method_description: Optional[str] = "heuristic_proposition_grouping"
+
+class MiniTheoryConstructionResult(BaseModel):
+    mini_theory_created: ScientificConcept
+
+class ConstructMiniTheoryUseCase:
+    """
+    Use case for constructing a mini-theory from a list of propositions.
+    """
+    def __init__(self, concept_repo: ConceptRepository):
+        self.concept_repo = concept_repo
+
+    def execute(self, input_data: ConstructMiniTheoryInput) -> MiniTheoryConstructionResult:
+        if not input_data.proposition_ids:
+            raise ValueError("At least one proposition ID must be provided to construct a mini-theory.")
+
+        component_propositions = []
+        for prop_id in input_data.proposition_ids:
+            proposition = self.concept_repo.get_by_id(prop_id)
+            if not proposition or proposition.type != ConceptType.PROPOSITION:
+                raise ValueError(f"Invalid or non-PROPOSITION concept ID provided: {prop_id}")
+            component_propositions.append(proposition)
+
+        # Generate name if not provided
+        name = input_data.mini_theory_name
+        if name is None:
+            if component_propositions:
+                # Simple name generation: Use parts of the first proposition's name
+                first_prop_name_part = component_propositions[0].name.split(':')[0] # Take part before colon if any
+                name = f"Mini-Theory on: {first_prop_name_part[:50]}..."
+            else: # Should not happen due to check above
+                name = "Unnamed Mini-Theory"
+
+        # Use provided description or keep the default from Pydantic model
+        description = input_data.mini_theory_description
+        if description == ConstructMiniTheoryInput.model_fields["mini_theory_description"].default and component_propositions:
+            description = f"A mini-theory synthesizing {len(component_propositions)} proposition(s), including insights like '{component_propositions[0].name[:70]}...'."
+
+        # Ensure description is a string
+        final_description = description if description is not None else "Synthesized mini-theory."
+
+
+        mini_theory = ScientificConcept(
+            name=name,
+            description=final_description,
+            type=ConceptType.MINI_THEORY,
+            member_concept_ids=input_data.proposition_ids, # Store IDs of component propositions
+            properties={
+                "derivation_method": input_data.derivation_method_description or "heuristic_proposition_grouping",
+                "component_proposition_count": len(input_data.proposition_ids)
+            },
+            # Evidence for a mini-theory could be the propositions themselves or a system note
+            evidence_sources=[
+                Evidence(
+                    source_doi="internal_process:mini_theory_construction",
+                    source_citation="Aletheia System",
+                    snippet=f"Mini-theory constructed from {len(input_data.proposition_ids)} propositions.",
+                    confidence=0.8 # Confidence in this construction method
+                )
+            ]
+            # derived_from_cluster_id could be set if all propositions come from one cluster
+            # derived_from_ucm_ids could be a union of those from propositions if relevant
+        )
+
+        self.concept_repo.add(mini_theory)
+        return MiniTheoryConstructionResult(mini_theory_created=mini_theory)

@@ -18,7 +18,10 @@ from tests.application.use_cases.use_cases_for_test import (
     ClusterFormationResult, # Added
     DerivePropositionsUseCase, # Added
     DerivePropositionInput,    # Added
-    PropositionDerivationResult # Added
+    PropositionDerivationResult, # Added
+    ConstructMiniTheoryUseCase, # Added
+    ConstructMiniTheoryInput,   # Added
+    MiniTheoryConstructionResult # Added
 )
 
 # For ConceptRepository and RelationshipRepository, we rely on mocking.
@@ -501,4 +504,84 @@ class TestEjeYUseCases:
         input_data = DerivePropositionInput(cluster_id=not_a_cluster_id)
 
         with pytest.raises(ValueError, match=f"Invalid or non-CLUSTER concept ID provided for proposition derivation: {not_a_cluster_id}"):
+            use_case.execute(input_data)
+
+
+    # --- Tests for ConstructMiniTheoryUseCase ---
+
+    def test_construct_mini_theory_success_explicit_name_desc(self, mock_concept_repo):
+        use_case = ConstructMiniTheoryUseCase(concept_repo=mock_concept_repo)
+        prop1_id = uuid.uuid4()
+        prop2_id = uuid.uuid4()
+
+        prop1 = ScientificConcept(id=prop1_id, name="Proposition Alpha", description="Alpha details", type=ConceptType.PROPOSITION)
+        prop2 = ScientificConcept(id=prop2_id, name="Proposition Beta", description="Beta details", type=ConceptType.PROPOSITION)
+
+        mock_concept_repo.get_by_id.side_effect = lambda id_val: prop1 if id_val == prop1_id else (prop2 if id_val == prop2_id else None)
+
+        input_data = ConstructMiniTheoryInput(
+            proposition_ids=[prop1_id, prop2_id],
+            mini_theory_name="My Custom Mini-Theory",
+            mini_theory_description="This theory explains Alpha and Beta.",
+            derivation_method_description="manual_selection"
+        )
+        result = use_case.execute(input_data)
+        mt = result.mini_theory_created
+
+        assert mt.type == ConceptType.MINI_THEORY
+        assert mt.name == "My Custom Mini-Theory"
+        assert mt.description == "This theory explains Alpha and Beta."
+        assert mt.member_concept_ids == [prop1_id, prop2_id]
+        assert mt.properties["component_proposition_count"] == 2
+        assert mt.properties["derivation_method"] == "manual_selection"
+        assert len(mt.evidence_sources) == 1
+        assert mt.evidence_sources[0].source_doi == "internal_process:mini_theory_construction"
+
+        mock_concept_repo.add.assert_called_once_with(mt)
+
+    def test_construct_mini_theory_success_generated_name_desc(self, mock_concept_repo):
+        use_case = ConstructMiniTheoryUseCase(concept_repo=mock_concept_repo)
+        prop1_id = uuid.uuid4()
+        prop1 = ScientificConcept(id=prop1_id, name="Insights on Topic X", description="...", type=ConceptType.PROPOSITION)
+        mock_concept_repo.get_by_id.return_value = prop1
+
+        input_data = ConstructMiniTheoryInput(proposition_ids=[prop1_id]) # Defaults for name/desc
+
+        result = use_case.execute(input_data)
+        mt = result.mini_theory_created
+
+        assert mt.type == ConceptType.MINI_THEORY
+        assert "Mini-Theory on: Insights on Topic X..." in mt.name
+        assert "A mini-theory synthesizing 1 proposition(s), including insights like 'Insights on Topic X...'." in mt.description
+        assert mt.member_concept_ids == [prop1_id]
+        assert mt.properties["component_proposition_count"] == 1
+        assert mt.properties["derivation_method"] == "heuristic_proposition_grouping" # Default from input DTO
+        mock_concept_repo.add.assert_called_once_with(mt)
+
+    def test_construct_mini_theory_no_proposition_ids(self, mock_concept_repo):
+        use_case = ConstructMiniTheoryUseCase(concept_repo=mock_concept_repo)
+        input_data = ConstructMiniTheoryInput(proposition_ids=[])
+        with pytest.raises(ValueError, match="At least one proposition ID must be provided"):
+            use_case.execute(input_data)
+
+    def test_construct_mini_theory_proposition_not_found(self, mock_concept_repo):
+        use_case = ConstructMiniTheoryUseCase(concept_repo=mock_concept_repo)
+        prop1_id = uuid.uuid4() # Exists
+        prop2_id = uuid.uuid4() # Does not exist
+
+        prop1 = ScientificConcept(id=prop1_id, name="Prop 1", description="...", type=ConceptType.PROPOSITION)
+        mock_concept_repo.get_by_id.side_effect = lambda id_val: prop1 if id_val == prop1_id else None
+
+        input_data = ConstructMiniTheoryInput(proposition_ids=[prop1_id, prop2_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-PROPOSITION concept ID provided: {prop2_id}"):
+            use_case.execute(input_data)
+
+    def test_construct_mini_theory_id_not_a_proposition(self, mock_concept_repo):
+        use_case = ConstructMiniTheoryUseCase(concept_repo=mock_concept_repo)
+        ucm_id = uuid.uuid4()
+        ucm_concept = ScientificConcept(id=ucm_id, name="Not a Prop", description="...", type=ConceptType.UCM)
+        mock_concept_repo.get_by_id.return_value = ucm_concept
+
+        input_data = ConstructMiniTheoryInput(proposition_ids=[ucm_id])
+        with pytest.raises(ValueError, match=f"Invalid or non-PROPOSITION concept ID provided: {ucm_id}"):
             use_case.execute(input_data)

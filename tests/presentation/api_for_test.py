@@ -21,6 +21,9 @@ from tests.application.use_cases.use_cases_for_test import (
     DerivePropositionsUseCase,
     DerivePropositionInput,
     PropositionDerivationResult,
+    ConstructMiniTheoryUseCase, # Added
+    ConstructMiniTheoryInput,   # Added
+    MiniTheoryConstructionResult # Added
 )
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol,
@@ -66,6 +69,11 @@ def get_derive_propositions_use_case(
     relationship_repo: RelationshipRepoProtocol = Depends(get_test_relationship_repo)
 ) -> DerivePropositionsUseCase:
     return DerivePropositionsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
+
+def get_construct_mini_theory_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
+) -> ConstructMiniTheoryUseCase:
+    return ConstructMiniTheoryUseCase(concept_repo=concept_repo)
 
 
 def create_test_app() -> FastAPI:
@@ -128,6 +136,17 @@ def create_test_app() -> FastAPI:
         try:
             return use_case.execute(input_data)
         except ValueError as e: # Catching potential ValueErrors from use case (e.g. Cluster not found)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    @app.post("/eje_y/mini_theory_construction/", response_model=MiniTheoryConstructionResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def construct_mini_theory_endpoint(
+        input_data: ConstructMiniTheoryInput,
+        use_case: ConstructMiniTheoryUseCase = Depends(get_construct_mini_theory_use_case),
+    ):
+        """Constructs a mini-theory from a list of proposition IDs."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e: # Catching potential ValueErrors (e.g. proposition not found / not a proposition)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return app
