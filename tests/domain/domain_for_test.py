@@ -23,6 +23,7 @@ class ConceptType(str, Enum):
     MINI_THEORY = "MINI_THEORY" # Mini-Teoría
     COMPREHENSIVE_THEORY = "COMPREHENSIVE_THEORY"
     UNIFIED_MODEL = "UNIFIED_MODEL"
+    DOCUMENT_SOURCE = "DOCUMENT_SOURCE" # Added for Eje X
 
 
 class TheoryIntegrationMethod(str, Enum):
