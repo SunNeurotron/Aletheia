@@ -212,6 +212,96 @@ class TestEjeYAPI:
         assert response.status_code == 400, response.text
         assert non_existent_cluster_id in response.json()["detail"]
 
+    # --- Tests for Comprehensive Theory Construction Endpoint (added in this step) ---
+    def test_construct_comprehensive_theory_endpoint_success(self):
+        # 1. Create Propositions
+        prop_ids = []
+        for i in range(2):
+            p_resp = client.post("/concepts/", json={"name": f"Prop MT{i+1}", "description": "desc", "type": "PROPOSITION"})
+            assert p_resp.status_code == 201, p_resp.text
+            prop_ids.append(p_resp.json()["id"])
+
+        # 2. Create Mini-Theories from these propositions
+        mt_ids = []
+        for prop_id in prop_ids: # Create a simple MT for each prop for this test
+            mt_resp = client.post("/eje_y/mini_theory_construction/", json={
+                "proposition_ids": [prop_id],
+                "mini_theory_name": f"MT for Prop {prop_id[:4]}"
+            })
+            assert mt_resp.status_code == 201, mt_resp.text
+            mt_ids.append(mt_resp.json()["mini_theory_created"]["id"])
+
+        assert len(mt_ids) == 2
+
+        # 3. Construct a Comprehensive Theory
+        ct_payload = {
+            "mini_theory_ids": mt_ids,
+            "theory_name": "API Comprehensive Theory",
+            "integration_method": "HIERARCHICAL_INTEGRATION"
+        }
+        response = client.post("/eje_y/comprehensive_theories/", json=ct_payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "theory_created" in data
+        ct = data["theory_created"]
+        assert ct["name"] == "API Comprehensive Theory"
+        assert ct["type"] == "COMPREHENSIVE_THEORY"
+        assert sorted(ct["member_concept_ids"]) == sorted(mt_ids)
+        assert ct["properties"]["component_mini_theory_count"] == 2
+        assert ct["properties"]["integration_method"] == "HIERARCHICAL_INTEGRATION"
+        assert data["integration_analysis"] is not None # Since we have 2 MTs
+
+    def test_construct_comprehensive_theory_endpoint_invalid_mt_id(self):
+        non_existent_mt_id = str(uuid.uuid4())
+        ct_payload = {"mini_theory_ids": [non_existent_mt_id]}
+        response = client.post("/eje_y/comprehensive_theories/", json=ct_payload)
+        assert response.status_code == 400, response.text
+        assert non_existent_mt_id in response.json()["detail"]
+        assert "non-MINI_THEORY" in response.json()["detail"]
+
+    # --- Tests for Unified Model Construction Endpoint (added in this step) ---
+    def test_construct_unified_model_endpoint_success(self):
+        # 1. Create Propositions -> Mini-Theories -> Comprehensive Theories
+        # For simplicity, create one CT
+        prop_resp = client.post("/concepts/", json={"name": "Prop UM", "description": "desc", "type": "PROPOSITION"})
+        prop_id = prop_resp.json()["id"]
+        mt_resp = client.post("/eje_y/mini_theory_construction/", json={"proposition_ids": [prop_id], "mini_theory_name": "MT for UM"})
+        mt_id = mt_resp.json()["mini_theory_created"]["id"]
+        ct_resp = client.post("/eje_y/comprehensive_theories/", json={"mini_theory_ids": [mt_id], "theory_name": "CT for UM"})
+        assert ct_resp.status_code == 201, ct_resp.text
+        ct_id = ct_resp.json()["theory_created"]["id"]
+
+        # 2. Construct Unified Model
+        um_payload = {
+            "comprehensive_theory_ids": [ct_id],
+            "model_name": "API Unified Model",
+            "architecture_type": "LAYERED"
+        }
+        response = client.post("/eje_y/unified_models/", json=um_payload)
+        assert response.status_code == 201, response.text
+        data = response.json()
+
+        assert "model_created" in data
+        um = data["model_created"]
+        assert um["name"] == "API Unified Model"
+        assert um["type"] == "UNIFIED_MODEL"
+        assert um["member_concept_ids"] == [ct_id]
+        assert um["properties"]["component_theory_count"] == 1
+        assert um["properties"]["architecture_type"] == "LAYERED"
+        assert "model_metrics" in um["properties"]
+        assert "architecture_details" in um["properties"]
+        assert data["model_metrics"] is not None
+        assert data["architecture_diagram"] is not None
+
+    def test_construct_unified_model_endpoint_invalid_ct_id(self):
+        non_existent_ct_id = str(uuid.uuid4())
+        um_payload = {"comprehensive_theory_ids": [non_existent_ct_id]}
+        response = client.post("/eje_y/unified_models/", json=um_payload)
+        assert response.status_code == 400, response.text
+        assert non_existent_ct_id in response.json()["detail"]
+        assert "non-COMPREHENSIVE_THEORY" in response.json()["detail"]
+
     # --- Tests for Mini-Theory Construction Endpoint ---
 
     def test_construct_mini_theory_endpoint_success(self):

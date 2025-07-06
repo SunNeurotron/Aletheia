@@ -21,9 +21,15 @@ from tests.application.use_cases.use_cases_for_test import (
     DerivePropositionsUseCase,
     DerivePropositionInput,
     PropositionDerivationResult,
-    ConstructMiniTheoryUseCase, # Added
-    ConstructMiniTheoryInput,   # Added
-    MiniTheoryConstructionResult # Added
+    ConstructMiniTheoryUseCase,
+    ConstructMiniTheoryInput,
+    MiniTheoryConstructionResult,
+    ConstructComprehensiveTheoryUseCase, # Added
+    ConstructComprehensiveTheoryInput,   # Added
+    ComprehensiveTheoryResult,           # Added
+    ConstructUnifiedModelUseCase,        # Added
+    ConstructUnifiedModelInput,          # Added
+    UnifiedModelResult                   # Added
 )
 from tests.application.ports.ports_for_test import (
     ConceptRepository as ConceptRepoProtocol,
@@ -74,6 +80,16 @@ def get_construct_mini_theory_use_case(
     concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
 ) -> ConstructMiniTheoryUseCase:
     return ConstructMiniTheoryUseCase(concept_repo=concept_repo)
+
+def get_construct_comprehensive_theory_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
+) -> ConstructComprehensiveTheoryUseCase:
+    return ConstructComprehensiveTheoryUseCase(concept_repo=concept_repo)
+
+def get_construct_unified_model_use_case(
+    concept_repo: ConceptRepoProtocol = Depends(get_test_concept_repo)
+) -> ConstructUnifiedModelUseCase:
+    return ConstructUnifiedModelUseCase(concept_repo=concept_repo)
 
 
 def create_test_app() -> FastAPI:
@@ -147,6 +163,28 @@ def create_test_app() -> FastAPI:
         try:
             return use_case.execute(input_data)
         except ValueError as e: # Catching potential ValueErrors (e.g. proposition not found / not a proposition)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    @app.post("/eje_y/comprehensive_theories/", response_model=ComprehensiveTheoryResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def construct_comprehensive_theory_endpoint(
+        input_data: ConstructComprehensiveTheoryInput,
+        use_case: ConstructComprehensiveTheoryUseCase = Depends(get_construct_comprehensive_theory_use_case),
+    ):
+        """Constructs a Comprehensive Theory from a list of Mini-Theory IDs."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+    @app.post("/eje_y/unified_models/", response_model=UnifiedModelResult, status_code=status.HTTP_201_CREATED, tags=["Eje Y - Construction"])
+    def construct_unified_model_endpoint(
+        input_data: ConstructUnifiedModelInput,
+        use_case: ConstructUnifiedModelUseCase = Depends(get_construct_unified_model_use_case),
+    ):
+        """Constructs a Unified Model from a list of Comprehensive Theory IDs."""
+        try:
+            return use_case.execute(input_data)
+        except ValueError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return app

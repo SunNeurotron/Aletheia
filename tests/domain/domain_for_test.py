@@ -21,6 +21,26 @@ class ConceptType(str, Enum):
     CLUSTER = "CLUSTER" # Cluster Conceptual
     PROPOSITION = "PROPOSITION" # Proposición Emergente
     MINI_THEORY = "MINI_THEORY" # Mini-Teoría
+    COMPREHENSIVE_THEORY = "COMPREHENSIVE_THEORY"
+    UNIFIED_MODEL = "UNIFIED_MODEL"
+
+
+class TheoryIntegrationMethod(str, Enum):
+    """Methods for integrating theories."""
+    COMPLEMENTARY_SYNTHESIS = "COMPLEMENTARY_SYNTHESIS"
+    DIALECTICAL_SYNTHESIS = "DIALECTICAL_SYNTHESIS"
+    SUBSUMPTION = "SUBSUMPTION"
+    PARALLEL_COEXISTENCE = "PARALLEL_COEXISTENCE"
+    HIERARCHICAL_INTEGRATION = "HIERARCHICAL_INTEGRATION"
+
+
+class ModelArchitectureType(str, Enum):
+    """Types of unified model architectures."""
+    MODULAR = "MODULAR"
+    LAYERED = "LAYERED"
+    NETWORKED = "NETWORKED"
+    HIERARCHICAL = "HIERARCHICAL"
+    HYBRID = "HYBRID"
 
 
 class Evidence(BaseModel):
