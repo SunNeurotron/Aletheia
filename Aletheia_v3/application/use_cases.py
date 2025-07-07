@@ -484,6 +484,35 @@ class CubeHoneycombIntegration:
         return {"analysis_id": analysis_id, "strategy_applied": strategy, "segments": segments}
 
     async def execute_distributed_analysis(self, session_data: str, strategy: str = 'adaptive') -> dict:
+        """
+        Ejecuta un análisis distribuido utilizando el sistema de colmena (Honeycomb).
+
+        Este método orquesta un flujo de trabajo complejo que incluye:
+        1. Mapeo del análisis al espacio de la colmena (`_map_analysis_to_space`).
+        2. Distribución de segmentos de datos a celdas óptimas y replicación del análisis
+           inicial en esas celdas (`replication_manager.replicate_analysis`).
+        3. Propagación de los resultados del análisis a través de la colmena en ondas
+           (`WavePropagation.propagate_analysis`).
+        4. Logro de un consenso sobre los resultados propagados (`consensus_engine.achieve_consensus`).
+        5. Análisis de los datos consensuados desde múltiples perspectivas conceptuales del cubo
+           (`_analyze_from_multiple_perspectives`).
+        6. Integración de los resultados de las perspectivas en un modelo final
+           (`_integrate_perspectives`).
+        7. Recopilación de métricas de rendimiento.
+
+        Args:
+            session_data: Los datos de entrada para el análisis (string).
+            strategy: La estrategia a utilizar para el análisis (e.g., 'adaptive').
+
+        Returns:
+            Un diccionario que contiene los resultados del análisis distribuido, incluyendo:
+                - 'analysis_id': ID único del análisis.
+                - 'strategy_used': La estrategia empleada.
+                - 'distributed_cells_initiated_waves': Número de celdas que iniciaron ondas.
+                - 'consensus_confidence': Confianza del consenso logrado (si aplica).
+                - 'final_model': El modelo integrado final.
+                - 'performance_metrics': Métricas de rendimiento de la ejecución.
+        """
         analysis_map = self._map_analysis_to_space(session_data, strategy)
         analysis_id = analysis_map['analysis_id']
 
