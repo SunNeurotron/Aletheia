@@ -291,6 +291,27 @@ class CubicAnalysisPipeline:
         self.repository = repo
 
     async def execute_full_analysis(self, session_data: str, request: AnalisisRequest) -> Dict[str, Any]:
+        """
+        Orquesta un análisis multidimensional completo.
+
+        Este método sigue un proceso de múltiples fases:
+        1. Realiza un análisis inicial utilizando el ApplicationServiceFacade.
+        2. Itera a través de múltiples perspectivas (temporal, causal, etc.),
+           simulando una rotación del "cubo" y un re-análisis para cada una.
+           Estos re-análisis se simulan llamando directamente a los servicios
+           de dominio para generar nuevos modelos y métricas.
+        3. Agrega los resultados del análisis inicial y de todas las perspectivas.
+
+        Args:
+            session_data: Datos de la sesión (actualmente no utilizados directamente aquí,
+                          sino pasados a través de `request` al `app_service`).
+            request: El objeto AnalisisRequest con los parámetros para el análisis.
+
+        Returns:
+            Un diccionario que contiene los resultados del análisis inicial y de
+            cada perspectiva. Cada entrada de perspectiva incluye 'model' y 'metrics'.
+            Ejemplo: {'initial': {...}, 'temporal': {...}, ...}
+        """
         analysis_id = request.sesion_id
         self.state_tracker.update_analysis_state(analysis_id, {"status": "pipeline_started", "data_snippet": session_data[:50]})
 
@@ -312,31 +333,74 @@ class CubicAnalysisPipeline:
         return final_results
 
     async def _rotate_and_analyze(self, initial_app_output: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Simula el análisis desde múltiples perspectivas rotando el "cubo".
+
+        Toma el resultado del análisis inicial y luego, para cada perspectiva definida
+        (temporal, causal, etc.):
+        1. Llama conceptualmente a `self.cube.rotate_to_perspective()`.
+        2. Simula un re-análisis llamando a `self.app_service.domain_service.synthesize_model([])`
+           para obtener un nuevo modelo para la perspectiva.
+        3. Calcula las métricas para este nuevo modelo.
+        4. Agrega el modelo y las métricas de la perspectiva a los resultados.
+
+        Args:
+            initial_app_output: El resultado del `ApplicationServiceFacade.handle_analysis_request`,
+                                que incluye 'model' y 'metrics' del análisis inicial.
+
+        Returns:
+            Un diccionario donde cada clave es un nombre de perspectiva (incluyendo 'initial')
+            y su valor es otro diccionario con 'model' y 'metrics' para esa perspectiva.
+        """
         perspectives = ['temporal', 'causal', 'emergent', 'hierarchical']
-        multi_results: Dict[str, Any] = {'initial': initial_app_output.get('model', initial_app_output)}
-        if 'metrics' not in multi_results['initial']: # Ensure metrics for the test
-            multi_results['initial']['metrics'] = initial_app_output.get('metrics', {})
+
+        # initial_app_output is the result from self.app_service.handle_analysis_request
+        # It contains 'model' and 'metrics' at its top level.
+        initial_model_data = initial_app_output.get('model', {})
+        initial_metrics_data = initial_app_output.get('metrics', {})
+
+        multi_results: Dict[str, Any] = {
+            'initial': {
+                "model": initial_model_data,
+                "metrics": initial_metrics_data
+            }
+        }
 
         for perspective in perspectives:
-            self.cube.rotate_to_perspective(perspective)
-            # Simulate re-analysis using the domain service part of app_service
-            # This is highly conceptual; a real re-analysis would be more involved.
-            if hasattr(self.app_service, 'domain_service'):
-                 # Pass empty list of theories to get a default/empty synthesized model for this perspective
-                perspective_model_obj = await self.app_service.domain_service.synthesize_model([])
-                perspective_metrics = self.app_service.domain_service.calculate_metrics(perspective_model_obj)
-                multi_results[perspective] = {
-                    "model": perspective_model_obj.to_dict() if hasattr(perspective_model_obj, 'to_dict') else {},
-                    "metrics": perspective_metrics if perspective_metrics else {}
-                }
-            else: # Fallback if domain_service is not directly on app_service as expected
-                 multi_results[perspective] = {"model": {"error":"domain_service_unavailable"}, "metrics": {}}
+            self.cube.rotate_to_perspective(perspective) # Conceptual call
+
+            # Simulate re-analysis for the current perspective by calling domain_service directly.
+            # Assumes app_service has domain_service properly injected.
+            # Passing an empty list to synthesize_model to get a simulated/generic model for the perspective.
+            perspective_model_obj = await self.app_service.domain_service.synthesize_model([])
+            perspective_metrics = self.app_service.domain_service.calculate_metrics(perspective_model_obj)
+
+            multi_results[perspective] = {
+                "model": perspective_model_obj.to_dict() if hasattr(perspective_model_obj, 'to_dict') else {},
+                "metrics": perspective_metrics if perspective_metrics else {}
+            }
 
         return multi_results
 
     async def _synthesize_results(self, multidim_results: Dict[str, Any]) -> Dict[str, Any]:
-        # print("CubicAnalysisPipeline: Synthesizing final results from multidimensional analysis.")
-        return multidim_results # Test expects this structure
+        """
+        Sintetiza los resultados de los análisis de múltiples perspectivas.
+
+        Actualmente, esta función es un passthrough simple y devuelve los resultados
+        multidimensionales tal como se reciben. En futuras implementaciones, podría
+        realizar una lógica de agregación o síntesis más compleja sobre los modelos
+        y métricas de las diferentes perspectivas.
+
+        Args:
+            multidim_results: Un diccionario que contiene los resultados del análisis
+                              inicial y de cada perspectiva analizada.
+
+        Returns:
+            El mismo diccionario `multidim_results` (por ahora).
+        """
+        # El comentario original de print ya ha sido eliminado o comentado.
+        # La lógica actual es devolver directamente, como se especifica.
+        return multidim_results
 
 class AdaptiveAnalysisEngine:
     """Motor que adapta el análisis según feedback (Conceptual)."""
