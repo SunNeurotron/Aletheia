@@ -628,3 +628,162 @@ class CubeHoneycombIntegration:
             "app_num_waves_propagated": num_waves,
             "app_consensus_history_len": len(self.consensus_engine.voting_history)
         }
+
+# --- Casos de Uso del Eje X (Ingesta y Vinculación) ---
+import uuid
+from datetime import datetime, timezone
+
+from .ports import IConceptRepository # Asegurar que IConceptRepository esté en ports.py
+from ..core.domain_models import ScientificConcept, ConceptType
+from .dtos import (
+    IngestDocumentInput, IngestDocumentResult,
+    UCMExtractionInput, UCMExtractionResult,
+    # ExtractedUCMDTO, ExtractedRelationshipDTO # Estos son parte de UCMExtractionResult
+)
+
+# Placeholder para ExtractUCMsUseCase si no está definido en otra parte.
+# En una implementación real, esto se importaría de su módulo correspondiente.
+# Si ya existe en este archivo (lo cual es poco probable para un caso de uso diferente),
+# esta definición no sería necesaria.
+# class ExtractUCMsUseCase: # Comentado para evitar redefinición si ya existe.
+#     async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResult:
+#         print(f"Placeholder ExtractUCMsUseCase: Processing text for {input_data.source_document_id}")
+#         return UCMExtractionResult(
+#             source_document_id=input_data.source_document_id,
+#             extracted_concepts=[],
+#             extracted_relationships=[],
+#             processing_log=["Placeholder UCM extraction complete."]
+#         )
+
+# Para que el código sea ejecutable, necesito una definición de ExtractUCMsUseCase.
+# Si no se proporciona una real, usaré un Protocolo o una clase base simple.
+from typing import Protocol # Usar Protocol para definir la interfaz esperada
+
+class ExtractUCMsUseCase(Protocol): # Definición de interfaz esperada
+    async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResult:
+        ...
+
+class IngestDocumentUseCase:
+    """
+    Caso de uso para la ingesta de un nuevo documento en el sistema.
+    Crea un concepto fuente para el documento y luego extrae UCMs de su contenido.
+    """
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 extract_ucms_use_case: ExtractUCMsUseCase):
+        self.concept_repo = concept_repo
+        self.extract_ucms_use_case = extract_ucms_use_case
+
+    async def execute(self, input_data: IngestDocumentInput) -> IngestDocumentResult:
+        """
+        Ejecuta el proceso de ingesta de documentos.
+
+        1. Crea un ScientificConcept de tipo DOCUMENT_SOURCE.
+        2. Guarda este concepto en el repositorio de conceptos.
+        3. Invoca a ExtractUCMsUseCase para procesar el texto del documento.
+        4. Devuelve el ID del concepto fuente y el resultado de la extracción de UCMs.
+        """
+        doc_source_id = f"docsrc_{uuid.uuid4().hex}"
+
+        doc_name = input_data.source_doi if input_data.source_doi else \
+                   (input_data.source_citation[:70] + "..." if input_data.source_citation and len(input_data.source_citation) > 70 else input_data.source_citation) \
+                   or f"Document Source {doc_source_id}"
+
+        document_source_concept = ScientificConcept(
+            id=doc_source_id,
+            name=doc_name,
+            description=f"Document source: {input_data.source_citation or input_data.source_doi or 'N/A'}",
+            concept_type=ConceptType.DOCUMENT_SOURCE,
+            properties={
+                "doi": input_data.source_doi,
+                "citation": input_data.source_citation,
+                # Expandir metadatos directamente en properties para que sean buscables/visibles
+                **(input_data.source_metadata or {})
+            },
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+            # embeddings se omite, no es relevante para un DOCUMENT_SOURCE por defecto
+        )
+
+        await self.concept_repo.add(document_source_concept)
+
+        ucm_extraction_input = UCMExtractionInput(
+            text_content=input_data.document_text,
+            source_document_id=doc_source_id,
+            source_metadata=input_data.source_metadata
+        )
+
+        extraction_result = await self.extract_ucms_use_case.execute(ucm_extraction_input)
+
+        return IngestDocumentResult(
+            document_source_id=doc_source_id,
+            ucm_extraction_result=extraction_result
+        )
+
+from .ports import IRelationshipRepository # IConceptRepository ya debería estar importado
+from ..core.domain_models import DirectedRelationship # ScientificConcept ya debería estar importado
+from .dtos import LinkConceptsInput, LinkConceptsResult, RelationshipDTO
+
+class LinkConceptsUseCase:
+    """
+    Caso de uso para crear una relación dirigida entre dos conceptos existentes.
+    """
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 relationship_repo: IRelationshipRepository):
+        self.concept_repo = concept_repo
+        self.relationship_repo = relationship_repo
+
+    async def execute(self, input_data: LinkConceptsInput) -> LinkConceptsResult:
+        """
+        Ejecuta el proceso de vinculación de conceptos.
+
+        1. Obtiene los conceptos de origen y destino del repositorio.
+        2. Valida que ambos conceptos existan.
+        3. Genera una descripción para la relación si no se proporciona.
+        4. Crea una nueva entidad DirectedRelationship.
+        5. Guarda la relación en el repositorio de relaciones.
+        6. Devuelve la relación creada (como DTO).
+        """
+        source_concept = await self.concept_repo.get_by_id(input_data.source_concept_id)
+        if not source_concept:
+            raise ValueError(f"Source concept with ID '{input_data.source_concept_id}' not found.")
+
+        target_concept = await self.concept_repo.get_by_id(input_data.target_concept_id)
+        if not target_concept:
+            raise ValueError(f"Target concept with ID '{input_data.target_concept_id}' not found.")
+
+        description = input_data.description
+        if not description:
+            # Asumimos que ScientificConcept tiene un atributo 'name'
+            source_name = getattr(source_concept, 'name', input_data.source_concept_id)
+            target_name = getattr(target_concept, 'name', input_data.target_concept_id)
+            description = f"{source_name} {input_data.relationship_type} {target_name}."
+
+        relationship_id = f"rel_{uuid.uuid4().hex}" # uuid ya importado globalmente
+        now_utc = datetime.now(timezone.utc) # datetime, timezone ya importados globalmente
+
+        new_relationship = DirectedRelationship(
+            id=relationship_id,
+            source_concept_id=input_data.source_concept_id,
+            target_concept_id=input_data.target_concept_id,
+            type=input_data.relationship_type,
+            description=description,
+            properties=input_data.properties or {},
+            created_at=now_utc,
+            updated_at=now_utc
+        )
+
+        await self.relationship_repo.add(new_relationship)
+
+        relationship_dto = RelationshipDTO(
+            id=new_relationship.id,
+            source_concept_id=new_relationship.source_concept_id,
+            target_concept_id=new_relationship.target_concept_id,
+            type=new_relationship.type,
+            description=new_relationship.description,
+            properties=new_relationship.properties,
+            created_at=new_relationship.created_at
+        )
+
+        return LinkConceptsResult(created_relationship=relationship_dto)
