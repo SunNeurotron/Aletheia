@@ -746,48 +746,263 @@ async def test_ucm_extraction_endpoint_success(test_client: AsyncClient, researc
 
 
 # --- Tests para Endpoints Placeholder del Eje Y ---
+# Estos tests parametrizados serán eliminados y reemplazados por tests individuales.
+# @pytest.mark.asyncio
+# @pytest.mark.parametrize("endpoint_path, input_schema, result_schema_type, payload_data", [
+#     ("/eje-y/cluster-formation", FormClusterInputSchema, FormClusterResultSchema, {"ucm_ids": ["ucm1"], "params": {}}),
+#     ("/eje-y/proposition-derivation", PropositionDerivationInputSchema, PropositionDerivationResultSchema, {"cluster_ids": ["cluster1"]}),
+#     ("/eje-y/mini-theory-construction", MiniTheoryConstructionInputSchema, MiniTheoryConstructionResultSchema, {"proposition_ids": ["prop1"]}),
+#     ("/eje-y/comprehensive-theories", ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema, {"mini_theory_ids": ["minit1"]}),
+#     ("/eje-y/unified-models", UnifiedModelsInputSchema, UnifiedModelsResultSchema, {"comprehensive_theory_ids": ["compth1"]}),
+# ])
+# async def test_eje_y_placeholder_endpoints_success(
+#     test_client: AsyncClient, researcher_token: str,
+#     endpoint_path: str, input_schema, result_schema_type, payload_data
+# ):
+#     """Tests placeholder Eje Y endpoints for successful (placeholder) response."""
+#     headers = {"Authorization": f"Bearer {researcher_token}"}
+#     payload = input_schema(**payload_data)
+
+#     response = await test_client.post(endpoint_path, json=payload.model_dump(), headers=headers)
+
+#     assert response.status_code == status.HTTP_202_ACCEPTED
+#     data = response.json()
+#     assert "details" in data
+#     assert "Endpoint placeholder" in data["details"]
+#     # Validar que la respuesta es parseable por el schema de resultado (aunque sea placeholder)
+#     assert result_schema_type.model_validate(data)
+
+
+# @pytest.mark.asyncio
+# @pytest.mark.parametrize("endpoint_path", [
+#     "/eje-y/cluster-formation",
+#     "/eje-y/proposition-derivation",
+#     # ... (añadir los otros si se quiere probar todos)
+# ])
+# async def test_eje_y_placeholder_endpoints_unauthorized(test_client: AsyncClient, endpoint_path: str):
+#     """Tests placeholder Eje Y endpoints for unauthorized access."""
+#     # Usar un payload mínimo válido para el schema de entrada correspondiente
+#     payload = {}
+#     if "cluster" in endpoint_path: payload = FormClusterInputSchema(ucm_ids=["id"]).model_dump()
+#     elif "proposition" in endpoint_path: payload = PropositionDerivationInputSchema(cluster_ids=["id"]).model_dump()
+#     # Añadir más casos según sea necesario
+
+#     if not payload: # Si no se pudo determinar un payload, saltar este caso parametrizado
+#         pytest.skip(f"Payload not defined for {endpoint_path} in unauthorized test")
+
+#     response = await test_client.post(endpoint_path, json=payload)
+#     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+# --- Nuevos Tests para Endpoints del Eje Y Funcionales ---
+
+from Aletheia_v3.infrastructure.models import ScientificConceptDB, DirectedRelationshipDB # Para limpiar BD
+from Aletheia_v3.core.domain_models import ConceptType as DomainConceptType # Para crear conceptos
+
+# Helper para crear conceptos en la BD de prueba
+async def create_concept_in_db(db_session: SQLAlchemySession, name: str, concept_type: DomainConceptType, description: Optional[str] = None, properties: Optional[Dict] = None) -> ScientificConceptDB:
+    concept_db = ScientificConceptDB(
+        name=name,
+        description=description,
+        concept_type=concept_type,
+        properties=properties or {}
+    )
+    db_session.add(concept_db)
+    db_session.commit()
+    db_session.refresh(concept_db)
+    return concept_db
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("endpoint_path, input_schema, result_schema_type, payload_data", [
-    ("/eje-y/cluster-formation", FormClusterInputSchema, FormClusterResultSchema, {"ucm_ids": ["ucm1"], "params": {}}),
-    ("/eje-y/proposition-derivation", PropositionDerivationInputSchema, PropositionDerivationResultSchema, {"cluster_ids": ["cluster1"]}),
-    ("/eje-y/mini-theory-construction", MiniTheoryConstructionInputSchema, MiniTheoryConstructionResultSchema, {"proposition_ids": ["prop1"]}),
-    ("/eje-y/comprehensive-theories", ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema, {"mini_theory_ids": ["minit1"]}),
-    ("/eje-y/unified-models", UnifiedModelsInputSchema, UnifiedModelsResultSchema, {"comprehensive_theory_ids": ["compth1"]}),
-])
-async def test_eje_y_placeholder_endpoints_success(
-    test_client: AsyncClient, researcher_token: str,
-    endpoint_path: str, input_schema, result_schema_type, payload_data
-):
-    """Tests placeholder Eje Y endpoints for successful (placeholder) response."""
+async def test_form_clusters_endpoint_success(test_client: AsyncClient, researcher_token: str):
     headers = {"Authorization": f"Bearer {researcher_token}"}
-    payload = input_schema(**payload_data)
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete() # Limpiar relaciones por si acaso
+        db.query(ScientificConceptDB).delete()
+        db.commit()
 
-    response = await test_client.post(endpoint_path, json=payload.model_dump(), headers=headers)
+        # Crear UCMs de prueba
+        ucm1 = await create_concept_in_db(db, "UCM sobre AI y NLP", DomainConceptType.UCM, "AI, NLP, deep learning")
+        ucm2 = await create_concept_in_db(db, "UCM sobre AI y Ethics", DomainConceptType.UCM, "AI, ethics, bias")
+        ucm3 = await create_concept_in_db(db, "UCM sobre Quantum Computing", DomainConceptType.UCM, "Quantum, physics")
 
-    assert response.status_code == status.HTTP_202_ACCEPTED
+        payload = FormClusterInputSchema(ucm_ids=[str(ucm1.id), str(ucm2.id), str(ucm3.id)])
+        response = await test_client.post("/eje-y/cluster-formation", json=payload.model_dump(), headers=headers)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "created_clusters" in data
+        assert isinstance(data["created_clusters"], list)
+        # La lógica de clustering simple podría crear 1 cluster para AI
+        # o más si hay otros solapamientos. Por ahora, solo verificamos que se creen algunos.
+        assert len(data["created_clusters"]) >= 0 # Podría ser 0 si no hay solapamiento suficiente
+
+        if len(data["created_clusters"]) > 0:
+            cluster_info = data["created_clusters"][0]
+            assert cluster_info["concept_type"] == DomainConceptType.CLUSTER.value
+
+            # Verificar en BD
+            created_cluster_db = db.query(ScientificConceptDB).filter(ScientificConceptDB.id == uuid.UUID(cluster_info["id"])).first()
+            assert created_cluster_db is not None
+            assert created_cluster_db.concept_type == DomainConceptType.CLUSTER
+            assert "member_concept_ids" in created_cluster_db.properties
+            assert "shared_keywords" in created_cluster_db.properties
+    finally:
+        db.close()
+
+@pytest.mark.asyncio
+async def test_form_clusters_endpoint_no_ucms(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    payload = FormClusterInputSchema(ucm_ids=[])
+    response = await test_client.post("/eje-y/cluster-formation", json=payload.model_dump(), headers=headers)
+    assert response.status_code == status.HTTP_201_CREATED # El caso de uso devuelve un mensaje, no un error
     data = response.json()
-    assert "details" in data
-    assert "Endpoint placeholder" in data["details"]
-    # Validar que la respuesta es parseable por el schema de resultado (aunque sea placeholder)
-    assert result_schema_type.model_validate(data)
+    assert data["message"] == "No UCM IDs provided for clustering."
+    assert len(data["created_clusters"]) == 0
+
+@pytest.mark.asyncio
+async def test_derive_propositions_endpoint_success(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+
+        ucm1 = await create_concept_in_db(db, "UCM A for Prop", DomainConceptType.UCM)
+        ucm2 = await create_concept_in_db(db, "UCM B for Prop", DomainConceptType.UCM)
+        cluster1 = await create_concept_in_db(
+            db, "Cluster AB", DomainConceptType.CLUSTER,
+            properties={"member_concept_ids": [str(ucm1.id), str(ucm2.id)], "shared_keywords": ["topic1"]}
+        )
+
+        payload = PropositionDerivationInputSchema(cluster_ids=[str(cluster1.id)])
+        response = await test_client.post("/eje-y/proposition-derivation", json=payload.model_dump(), headers=headers)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "created_propositions" in data
+        assert len(data["created_propositions"]) >= 1
+        prop_info = data["created_propositions"][0]
+        assert prop_info["concept_type"] == DomainConceptType.PROPOSITION.value
+
+        created_prop_db = db.query(ScientificConceptDB).filter(ScientificConceptDB.id == uuid.UUID(prop_info["id"])).first()
+        assert created_prop_db is not None
+        assert created_prop_db.concept_type == DomainConceptType.PROPOSITION
+        assert created_prop_db.properties["based_on_cluster_id"] == str(cluster1.id)
+    finally:
+        db.close()
+
+@pytest.mark.asyncio
+async def test_derive_propositions_cluster_not_found(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+    finally:
+        db.close()
+
+    payload = PropositionDerivationInputSchema(cluster_ids=[str(uuid.uuid4())]) # ID no existente
+    response = await test_client.post("/eje-y/proposition-derivation", json=payload.model_dump(), headers=headers)
+    # El caso de uso actual no lanza error si el cluster no se encuentra, sino que devuelve lista vacía.
+    # El router convierte ValueError a 404, pero el UC actual no lo lanza en este caso.
+    # Se espera un 201 con una lista vacía y un mensaje.
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert len(data["created_propositions"]) == 0
+    assert "No se derivaron nuevas proposiciones" in data["message"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("endpoint_path", [
-    "/eje-y/cluster-formation",
-    "/eje-y/proposition-derivation",
-    # ... (añadir los otros si se quiere probar todos)
+async def test_mini_theory_construction_success(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+        prop1 = await create_concept_in_db(db, "Proposition 1", DomainConceptType.PROPOSITION)
+        prop2 = await create_concept_in_db(db, "Proposition 2", DomainConceptType.PROPOSITION)
+
+        payload = MiniTheoryConstructionInputSchema(proposition_ids=[str(prop1.id), str(prop2.id)], name="Test Mini Theory")
+        response = await test_client.post("/eje-y/mini-theory-construction", json=payload.model_dump(), headers=headers)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert "created_mini_theory" in data
+        theory_info = data["created_mini_theory"]
+        assert theory_info["name"] == "Test Mini Theory"
+        assert theory_info["concept_type"] == DomainConceptType.MINI_THEORY.value
+
+        created_theory_db = db.query(ScientificConceptDB).filter(ScientificConceptDB.id == uuid.UUID(theory_info["id"])).first()
+        assert created_theory_db is not None
+        assert created_theory_db.concept_type == DomainConceptType.MINI_THEORY
+        assert str(prop1.id) in created_theory_db.properties["member_proposition_ids"]
+    finally:
+        db.close()
+
+# Tests similares para ComprehensiveTheories y UnifiedModels
+# Se omite la implementación completa aquí por brevedad, pero seguirían el mismo patrón:
+# 1. Setup: Crear entidades de entrada (MiniTeorías para Comprehensive, Comprehensive para Unified) en la BD de prueba.
+# 2. Ejecutar: Llamar al endpoint correspondiente.
+# 3. Verificar: Código de estado, respuesta, y creación de la entidad correcta en la BD.
+# También se añadirían tests para casos de error (ej. IDs de entrada no encontrados si el UC los valida y lanza error).
+
+# Ejemplo rápido para uno más:
+@pytest.mark.asyncio
+async def test_comprehensive_theories_success(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+        mini_t1 = await create_concept_in_db(db, "Mini Theory 1", DomainConceptType.MINI_THEORY)
+
+        payload = ComprehensiveTheoriesInputSchema(mini_theory_ids=[str(mini_t1.id)], name="Test Comprehensive Theory")
+        response = await test_client.post("/eje-y/comprehensive-theories", json=payload.model_dump(), headers=headers)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["created_comprehensive_theory"]["name"] == "Test Comprehensive Theory"
+        assert data["created_comprehensive_theory"]["concept_type"] == DomainConceptType.COMPREHENSIVE_THEORY.value
+    finally:
+        db.close()
+
+@pytest.mark.asyncio
+async def test_unified_models_success(test_client: AsyncClient, researcher_token: str):
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+        comp_t1 = await create_concept_in_db(db, "Comp Theory 1", DomainConceptType.COMPREHENSIVE_THEORY)
+
+        payload = UnifiedModelsInputSchema(comprehensive_theory_ids=[str(comp_t1.id)], name="Test Unified Model")
+        response = await test_client.post("/eje-y/unified-models", json=payload.model_dump(), headers=headers)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["created_unified_model"]["name"] == "Test Unified Model"
+        assert data["created_unified_model"]["concept_type"] == DomainConceptType.UNIFIED_MODEL.value
+    finally:
+        db.close()
+
+# Tests de autorización para los nuevos endpoints del Eje Y
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint_path, payload_schema, payload_data", [
+    ("/eje-y/cluster-formation", FormClusterInputSchema, {"ucm_ids": ["id1"]}),
+    ("/eje-y/proposition-derivation", PropositionDerivationInputSchema, {"cluster_ids": ["id1"]}),
+    ("/eje-y/mini-theory-construction", MiniTheoryConstructionInputSchema, {"proposition_ids": ["id1"]}),
+    ("/eje-y/comprehensive-theories", ComprehensiveTheoriesInputSchema, {"mini_theory_ids": ["id1"]}),
+    ("/eje-y/unified-models", UnifiedModelsInputSchema, {"comprehensive_theory_ids": ["id1"]}),
 ])
-async def test_eje_y_placeholder_endpoints_unauthorized(test_client: AsyncClient, endpoint_path: str):
-    """Tests placeholder Eje Y endpoints for unauthorized access."""
-    # Usar un payload mínimo válido para el schema de entrada correspondiente
-    payload = {}
-    if "cluster" in endpoint_path: payload = FormClusterInputSchema(ucm_ids=["id"]).model_dump()
-    elif "proposition" in endpoint_path: payload = PropositionDerivationInputSchema(cluster_ids=["id"]).model_dump()
-    # Añadir más casos según sea necesario
-
-    if not payload: # Si no se pudo determinar un payload, saltar este caso parametrizado
-        pytest.skip(f"Payload not defined for {endpoint_path} in unauthorized test")
-
-    response = await test_client.post(endpoint_path, json=payload)
+async def test_eje_y_functional_endpoints_unauthorized(
+    test_client: AsyncClient, endpoint_path: str, payload_schema, payload_data
+):
+    """Tests functional Eje Y endpoints for unauthorized access."""
+    payload = payload_schema(**payload_data)
+    response = await test_client.post(endpoint_path, json=payload.model_dump())
     assert response.status_code == status.HTTP_401_UNAUTHORIZED

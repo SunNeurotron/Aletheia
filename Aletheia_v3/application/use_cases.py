@@ -680,31 +680,454 @@ from ..api.schemas import ( # Suponiendo que los schemas placeholder están en a
     ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema,
     UnifiedModelsInputSchema, UnifiedModelsResultSchema
 )
+import re # Para tokenización simple
+from collections import Counter, defaultdict # Para clustering por palabras clave
+# Nota: uuid, datetime, timezone, IConceptRepository, ScientificConcept, ConceptType
+# ya están importados en el contexto del archivo use_cases.py.
 
-class FormClustersUseCase(Protocol):
-    """Interfaz para el caso de uso de formación de clústeres."""
-    async def execute(self, input_data: FormClusterInputSchema) -> FormClusterResultSchema:
-        ...
+# Stopwords muy básicas, se podrían expandir
+STOP_WORDS = set([
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "should", "can",
+    "could", "may", "might", "must", "and", "but", "or", "nor", "for", "so", "yet",
+    "in", "on", "at", "by", "from", "to", "with", "about", "above", "below",
+    "of", "s", "t"
+])
 
-class PropositionDerivationUseCase(Protocol):
-    """Interfaz para el caso de uso de derivación de proposiciones."""
+MIN_COMMON_KEYWORDS_FOR_CLUSTER = 2
+
+
+class FormClustersUseCase: # Reemplaza el Protocol
+    """
+    Caso de uso para formar clústeres de conceptos (UCMs) basados en palabras clave compartidas.
+    """
+    def __init__(self, concept_repo: IConceptRepository):
+        self.concept_repo = concept_repo
+
+    def _extract_keywords(self, text: Optional[str]) -> Set[str]:
+        if not text:
+            return set()
+        # Tokenización simple y eliminación de stopwords
+        words = re.findall(r'\b\w+\b', text.lower())
+        return {word for word in words if word not in STOP_WORDS and len(word) > 2}
+
+    async def execute(self, input_data: FormClusterInputSchema) -> FormClusterResponseSchema:
+        """
+        Ejecuta la formación de clústeres.
+
+        1. Obtiene los ScientificConcepts (UCMs) de entrada.
+        2. Extrae palabras clave de sus nombres y descripciones.
+        3. Agrupa UCMs que compartan un número mínimo de palabras clave.
+        4. Crea y persiste un nuevo ScientificConcept de tipo CLUSTER para cada grupo.
+        5. Devuelve información sobre los clústeres creados.
+        """
+        if not input_data.ucm_ids:
+            return FormClusterResponseSchema(created_clusters=[], message="No UCM IDs provided for clustering.")
+
+        ucm_concepts: List[ScientificConcept] = []
+        for ucm_id in input_data.ucm_ids:
+            concept = await self.concept_repo.get_by_id(ucm_id)
+            if concept and concept.concept_type == ConceptType.UCM:
+                ucm_concepts.append(concept)
+            # else: # Opcional: registrar advertencia si un ID no es UCM o no se encuentra
+
+        if not ucm_concepts:
+            return FormClusterResponseSchema(created_clusters=[], message="No valid UCMs found for clustering.")
+
+        ucm_keywords: Dict[str, Set[str]] = {}
+        for ucm in ucm_concepts:
+            keywords = self._extract_keywords(ucm.name)
+            if ucm.description:
+                keywords.update(self._extract_keywords(ucm.description))
+            if keywords:
+                 ucm_keywords[ucm.id] = keywords
+
+        potential_clusters_data: List[Dict[str, Any]] = []
+
+        ucm_ids_with_keywords = list(ucm_keywords.keys())
+
+        # Agrupación simple: encontrar conjuntos de UCMs que comparten al menos N keywords
+        # Esta es una heurística y puede ser mejorada.
+        # Aquí, cualquier par que comparta suficientes keywords inicia un potencial clúster,
+        # luego se intenta una fusión muy simple.
+
+        # Paso 1: Identificar todos los pares que comparten suficientes keywords
+        candidate_links: Dict[str, Set[str]] = defaultdict(set)
+        for i in range(len(ucm_ids_with_keywords)):
+            for j in range(i + 1, len(ucm_ids_with_keywords)):
+                ucm1_id = ucm_ids_with_keywords[i]
+                ucm2_id = ucm_ids_with_keywords[j]
+
+                common_kws = ucm_keywords[ucm1_id].intersection(ucm_keywords[ucm2_id])
+                if len(common_kws) >= MIN_COMMON_KEYWORDS_FOR_CLUSTER:
+                    candidate_links[ucm1_id].add(ucm2_id)
+                    candidate_links[ucm2_id].add(ucm1_id)
+
+        # Paso 2: Encontrar componentes conectados en el grafo de UCMs vinculados
+        # Cada componente conectado formará un clúster.
+        if not candidate_links:
+             return FormClusterResponseSchema(created_clusters=[], message="No UCMs found sharing enough common keywords to form clusters.")
+
+        visited_ucms = set()
+        for ucm_id_start_node in ucm_ids_with_keywords:
+            if ucm_id_start_node not in candidate_links or ucm_id_start_node in visited_ucms:
+                continue
+
+            current_cluster_members = set()
+            queue = [ucm_id_start_node]
+            visited_ucms.add(ucm_id_start_node)
+
+            head = 0
+            while head < len(queue):
+                current_ucm = queue[head]
+                head += 1
+                current_cluster_members.add(current_ucm)
+                for neighbor in candidate_links.get(current_ucm, set()):
+                    if neighbor not in visited_ucms:
+                        visited_ucms.add(neighbor)
+                        queue.append(neighbor)
+
+            if len(current_cluster_members) >= 2: # Solo formar clúster si hay al menos 2 miembros
+                # Calcular las keywords compartidas por este clúster
+                cluster_shared_keywords = set()
+                if current_cluster_members:
+                    # Intersección de todas las keywords de los miembros
+                    # O unión y luego filtrar las que aparecen en muchos
+                    # Por simplicidad, tomemos la intersección de todas las keywords de los miembros.
+                    # Esto podría resultar en un conjunto vacío si no todas comparten las mismas.
+                    # Una mejor aproximación sería tomar las keywords más frecuentes entre los miembros.
+
+                    # Estrategia alternativa para shared_keywords:
+                    # Tomar todas las keywords de los miembros y contar frecuencias.
+                    # Las keywords que aparecen en > X% de los miembros son las "shared_keywords".
+                    # O, las keywords que llevaron a la formación del clúster (más complejo de rastrear con CC).
+                    # Por ahora, tomaremos la intersección de las keywords del primer par que inició el componente.
+                    # Esto es una simplificación.
+
+                    # Lógica mejorada para shared_keywords: unión de todas las keywords de los miembros del clúster
+                    all_kws_in_cluster = set()
+                    for member_id in current_cluster_members:
+                        all_kws_in_cluster.update(ucm_keywords.get(member_id, set()))
+
+                    # Y luego, filtrar las que son comunes a al menos MIN_COMMON_KEYWORDS_FOR_CLUSTER UCMs *dentro* del clúster
+                    # O, más simple, las keywords que aparecen en más de N miembros del clúster.
+                    # Por ahora, usar una intersección de un par representativo o las más comunes.
+                    # Para este ejemplo, vamos a usar las keywords que son comunes a *todos* los miembros del clúster
+                    # si tal conjunto no es vacío y cumple el mínimo.
+                    if current_cluster_members:
+                        sets_of_keywords = [ucm_keywords.get(m_id, set()) for m_id in current_cluster_members]
+                        if sets_of_keywords:
+                            intersected_kws = sets_of_keywords[0].intersection(*sets_of_keywords[1:])
+                            if len(intersected_kws) >= MIN_COMMON_KEYWORDS_FOR_CLUSTER: # O un umbral diferente
+                                cluster_shared_keywords = intersected_kws
+                            else: # Fallback: unión de todas las keywords
+                                cluster_shared_keywords = all_kws_in_cluster if len(all_kws_in_cluster) < 15 else set(list(all_k_ws_in_cluster)[:15])
+
+
+                if cluster_shared_keywords: # Solo si encontramos keywords representativas
+                    potential_clusters_data.append({
+                        "members": list(current_cluster_members),
+                        "shared_kws": sorted(list(cluster_shared_keywords))
+                    })
+
+        created_cluster_infos: List[ConceptInfoSchema] = []
+
+        for p_cluster_data in potential_clusters_data:
+            member_ids = p_cluster_data["members"]
+            shared_kws_list = p_cluster_data["shared_kws"]
+
+            if not member_ids or not shared_kws_list: continue # Evitar clústeres vacíos o sin keywords
+
+            cluster_name_kws = shared_kws_list[:3] # Usar hasta 3 keywords para el nombre
+            cluster_name = f"Cluster: {', '.join(cluster_name_kws)}"
+            if len(shared_kws_list) > 3:
+                cluster_name += "..."
+            cluster_name += f" ({len(member_ids)} UCMs)"
+
+            # Generar ID para el nuevo concepto de clúster
+            cluster_id = f"cluster_{uuid.uuid4().hex}"
+
+            cluster_concept = ScientificConcept(
+                id=cluster_id,
+                name=cluster_name,
+                description=f"Clúster de {len(member_ids)} UCMs compartiendo palabras clave comunes: {', '.join(shared_kws_list)}.",
+                concept_type=ConceptType.CLUSTER,
+                properties={
+                    "member_concept_ids": member_ids,
+                    "shared_keywords": shared_kws_list,
+                    "cluster_algorithm": f"connected_components_keyword_overlap_min{MIN_COMMON_KEYWORDS_FOR_CLUSTER}"
+                },
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            await self.concept_repo.add(cluster_concept)
+            created_cluster_infos.append(ConceptInfoSchema(
+                id=cluster_concept.id,
+                name=cluster_concept.name,
+                concept_type=cluster_concept.concept_type.value
+            ))
+
+        message = f"Procesados {len(ucm_concepts)} UCMs. Formados {len(created_cluster_infos)} clústeres."
+        if not created_cluster_infos and ucm_concepts:
+            message = "No se formaron clústeres con los criterios actuales."
+
+        return FormClusterResponseSchema(created_clusters=created_cluster_infos, message=message)
+
+
+class DerivePropositionsUseCase: # Nombre actualizado y reemplaza Protocol
+    """
+    Caso de uso para derivar proposiciones a partir de clústeres de conceptos.
+    """
+    def __init__(self, concept_repo: IConceptRepository):
+        self.concept_repo = concept_repo
+
     async def execute(self, input_data: PropositionDerivationInputSchema) -> PropositionDerivationResultSchema:
-        ...
+        """
+        Ejecuta la derivación de proposiciones.
 
-class MiniTheoryConstructionUseCase(Protocol):
-    """Interfaz para el caso de uso de construcción de mini-teorías."""
+        1. Para cada ID de clúster proporcionado, obtiene el clúster.
+        2. Extrae los UCMs miembros del clúster.
+        3. Genera una o más proposiciones (conceptos de tipo PROPOSITION) basadas
+           en los UCMs del clúster y las palabras clave compartidas del clúster.
+        4. Persiste las nuevas proposiciones.
+        5. Devuelve información sobre las proposiciones creadas.
+        """
+        if not input_data.cluster_ids:
+            return PropositionDerivationResponseSchema(created_propositions=[], message="No cluster IDs provided for proposition derivation.")
+
+        created_proposition_infos: List[ConceptInfoSchema] = []
+        processed_clusters = 0
+
+        for cluster_id in input_data.cluster_ids:
+            cluster_concept = await self.concept_repo.get_by_id(cluster_id)
+
+            if not cluster_concept or cluster_concept.concept_type != ConceptType.CLUSTER:
+                # Opcional: Registrar advertencia si un ID no es un clúster válido o no encontrado
+                continue
+
+            processed_clusters += 1
+            member_ucm_ids = cluster_concept.properties.get("member_concept_ids", [])
+            shared_keywords = cluster_concept.properties.get("shared_keywords", [])
+
+            if not member_ucm_ids or len(member_ucm_ids) < 1:
+                continue
+
+            member_ucms: List[ScientificConcept] = []
+            for ucm_id in member_ucm_ids:
+                ucm = await self.concept_repo.get_by_id(ucm_id)
+                if ucm:
+                    member_ucms.append(ucm)
+
+            if not member_ucms:
+                continue
+
+            prop_name: str
+            prop_description: str
+
+            if len(member_ucms) == 1:
+                ucm1_name = member_ucms[0].name
+                prop_name = f"Proposición sobre: '{ucm1_name}'"
+                prop_description = f"El concepto '{ucm1_name}' (del clúster '{cluster_concept.name}') sugiere una proposición basada en los temas: {', '.join(shared_keywords)}."
+            else:
+                ucm1_name = member_ucms[0].name
+                ucm2_name = member_ucms[1].name
+                additional_members_count = len(member_ucms) - 2
+
+                name_suffix = f" y '{ucm2_name}'"
+                if additional_members_count > 0:
+                    name_suffix += f" (y otros {additional_members_count})"
+
+                prop_name = f"Proposición conectando '{ucm1_name}'{name_suffix}"
+                prop_description = (
+                    f"Se propone una conexión temática entre los conceptos '{ucm1_name}'"
+                    f"{name_suffix} dentro del clúster '{cluster_concept.name}'. "
+                    f"Esta conexión se basa en los temas compartidos: {', '.join(shared_keywords)}."
+                )
+
+            proposition_id = f"prop_{uuid.uuid4().hex}"
+            proposition_concept = ScientificConcept(
+                id=proposition_id,
+                name=prop_name,
+                description=prop_description,
+                concept_type=ConceptType.PROPOSITION,
+                properties={
+                    "based_on_cluster_id": cluster_id,
+                    "involved_ucm_ids": member_ucm_ids,
+                    "shared_keywords_from_cluster": shared_keywords,
+                    "derivation_method": "heuristic_cluster_aggregation_v1"
+                },
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            await self.concept_repo.add(proposition_concept)
+            created_proposition_infos.append(ConceptInfoSchema(
+                id=proposition_concept.id,
+                name=proposition_concept.name,
+                concept_type=proposition_concept.concept_type.value
+            ))
+
+        message = f"Procesados {processed_clusters} clústeres. Derivadas {len(created_proposition_infos)} proposiciones."
+        if not created_proposition_infos and processed_clusters > 0:
+            message = "No se derivaron nuevas proposiciones de los clústeres proporcionados con los criterios actuales."
+
+        return PropositionDerivationResponseSchema(created_propositions=created_proposition_infos, message=message)
+
+
+class MiniTheoryConstructionUseCase: # Reemplaza Protocol
+    """
+    Caso de uso para construir una mini-teoría a partir de un conjunto de proposiciones.
+    """
+    def __init__(self, concept_repo: IConceptRepository):
+        self.concept_repo = concept_repo
+
     async def execute(self, input_data: MiniTheoryConstructionInputSchema) -> MiniTheoryConstructionResultSchema:
-        ...
+        """
+        Ejecuta la construcción de una mini-teoría.
 
-class ComprehensiveTheoriesUseCase(Protocol):
-    """Interfaz para el caso de uso de construcción de teorías comprehensivas."""
-    async def execute(self, input_data: ComprehensiveTheoriesInputSchema) -> ComprehensiveTheoriesResultSchema:
-        ...
+        1. Valida que se proporcionen IDs de proposiciones.
+        2. (Opcional) Valida que las proposiciones de entrada existan y sean de tipo PROPOSITION.
+        3. Crea un nuevo ScientificConcept de tipo MINI_THEORY.
+        4. Almacena los IDs de las proposiciones miembro en las propiedades del concepto.
+        5. Persiste la nueva mini-teoría.
+        6. Devuelve información sobre la mini-teoría creada.
+        """
+        if not input_data.proposition_ids:
+            return MiniTheoryConstructionResponseSchema(created_mini_theory=None, message="No proposition IDs provided.")
 
-class UnifiedModelsUseCase(Protocol):
-    """Interfaz para el caso de uso de síntesis de modelos unificados."""
-    async def execute(self, input_data: UnifiedModelsInputSchema) -> UnifiedModelsResultSchema:
-        ...
+        # Opcional: Validación de existencia y tipo de las proposiciones de entrada
+        # valid_propositions = []
+        # for prop_id in input_data.proposition_ids:
+        #     prop = await self.concept_repo.get_by_id(prop_id)
+        #     if prop and prop.concept_type == ConceptType.PROPOSITION:
+        #         valid_propositions.append(prop)
+        # if not valid_propositions:
+        #     return MiniTheoryConstructionResponseSchema(created_mini_theory=None, message="No valid propositions found for the given IDs.")
+        # proposition_ids_to_link = [p.id for p in valid_propositions]
+
+        # Por ahora, asumimos que los IDs son válidos y procedemos directamente
+        proposition_ids_to_link = input_data.proposition_ids
+
+        mini_theory_id = f"minit_{uuid.uuid4().hex}"
+        mini_theory_name = input_data.name or f"Mini-Teoría basada en {len(proposition_ids_to_link)} proposiciones"
+
+        mini_theory_concept = ScientificConcept(
+            id=mini_theory_id,
+            name=mini_theory_name,
+            description=f"Mini-teoría agregando las siguientes proposiciones: {', '.join(proposition_ids_to_link)}.",
+            concept_type=ConceptType.MINI_THEORY, # Necesita estar en el Enum ConceptType
+            properties={
+                "member_proposition_ids": proposition_ids_to_link,
+                "construction_method": "aggregation_v1"
+            },
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        await self.concept_repo.add(mini_theory_concept)
+
+        created_info = ConceptInfoSchema(
+            id=mini_theory_concept.id,
+            name=mini_theory_concept.name,
+            concept_type=mini_theory_concept.concept_type.value
+        )
+        return MiniTheoryConstructionResponseSchema(created_mini_theory=created_info, message=f"Mini-teoría '{mini_theory_name}' creada con éxito.")
+
+
+class ComprehensiveTheoriesUseCase: # Reemplaza Protocol
+    """
+    Caso de uso para construir una teoría comprehensiva a partir de un conjunto de mini-teorías.
+    """
+    def __init__(self, concept_repo: IConceptRepository):
+        self.concept_repo = concept_repo
+
+    async def execute(self, input_data: ComprehensiveTheoriesInputSchema) -> ComprehensiveTheoriesResponseSchema:
+        """
+        Ejecuta la construcción de una teoría comprehensiva.
+
+        1. Valida que se proporcionen IDs de mini-teorías.
+        2. (Opcional) Valida que las entradas existan y sean de tipo MINI_THEORY.
+        3. Crea un nuevo ScientificConcept de tipo COMPREHENSIVE_THEORY.
+        4. Almacena los IDs de las mini-teorías miembro en las propiedades.
+        5. Persiste la nueva teoría comprehensiva.
+        6. Devuelve información sobre la teoría creada.
+        """
+        if not input_data.mini_theory_ids:
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="No mini-theory IDs provided.")
+
+        # Asumimos que los IDs son válidos por ahora
+        mini_theory_ids_to_link = input_data.mini_theory_ids
+
+        comp_theory_id = f"compth_{uuid.uuid4().hex}"
+        comp_theory_name = input_data.name or f"Teoría Comprehensiva basada en {len(mini_theory_ids_to_link)} mini-teorías"
+
+        comp_theory_concept = ScientificConcept(
+            id=comp_theory_id,
+            name=comp_theory_name,
+            description=f"Teoría comprehensiva agregando: {', '.join(mini_theory_ids_to_link)}.",
+            concept_type=ConceptType.COMPREHENSIVE_THEORY, # Necesita estar en Enum ConceptType
+            properties={
+                "member_mini_theory_ids": mini_theory_ids_to_link,
+                "construction_method": "aggregation_v1"
+            },
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        await self.concept_repo.add(comp_theory_concept)
+
+        created_info = ConceptInfoSchema(
+            id=comp_theory_concept.id,
+            name=comp_theory_concept.name,
+            concept_type=comp_theory_concept.concept_type.value
+        )
+        return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=created_info, message=f"Teoría comprehensiva '{comp_theory_name}' creada.")
+
+
+class UnifiedModelsUseCase: # Reemplaza Protocol
+    """
+    Caso de uso para sintetizar un modelo unificado a partir de teorías comprehensivas.
+    """
+    def __init__(self, concept_repo: IConceptRepository):
+        self.concept_repo = concept_repo
+
+    async def execute(self, input_data: UnifiedModelsInputSchema) -> UnifiedModelsResponseSchema:
+        """
+        Ejecuta la síntesis de un modelo unificado.
+
+        1. Valida que se proporcionen IDs de teorías comprehensivas.
+        2. (Opcional) Valida que las entradas existan y sean de tipo COMPREHENSIVE_THEORY.
+        3. Crea un nuevo ScientificConcept de tipo UNIFIED_MODEL.
+        4. Almacena los IDs de las teorías miembro en las propiedades.
+        5. Persiste el nuevo modelo unificado.
+        6. Devuelve información sobre el modelo creado.
+        """
+        if not input_data.comprehensive_theory_ids:
+            return UnifiedModelsResponseSchema(created_unified_model=None, message="No comprehensive theory IDs provided.")
+
+        # Asumimos que los IDs son válidos por ahora
+        comp_theory_ids_to_link = input_data.comprehensive_theory_ids
+
+        unified_model_id = f"unifiedm_{uuid.uuid4().hex}"
+        unified_model_name = input_data.name or f"Modelo Unificado basado en {len(comp_theory_ids_to_link)} teorías"
+
+        unified_model_concept = ScientificConcept(
+            id=unified_model_id,
+            name=unified_model_name,
+            description=f"Modelo unificado agregando: {', '.join(comp_theory_ids_to_link)}.",
+            concept_type=ConceptType.UNIFIED_MODEL, # Necesita estar en Enum ConceptType
+            properties={
+                "member_comprehensive_theory_ids": comp_theory_ids_to_link,
+                "synthesis_method": "aggregation_v1"
+            },
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        await self.concept_repo.add(unified_model_concept)
+
+        created_info = ConceptInfoSchema(
+            id=unified_model_concept.id,
+            name=unified_model_concept.name,
+            concept_type=unified_model_concept.concept_type.value
+        )
+        return UnifiedModelsResponseSchema(created_unified_model=created_info, message=f"Modelo unificado '{unified_model_name}' creado.")
 
 class IngestDocumentUseCase:
     """

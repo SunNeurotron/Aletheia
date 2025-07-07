@@ -27,7 +27,7 @@ from ..application.use_cases import (
     LinkConceptsUseCase,
     ExtractUCMsUseCase,
     FormClustersUseCase,
-    PropositionDerivationUseCase,
+    DerivePropositionsUseCase, # Nombre actualizado
     MiniTheoryConstructionUseCase,
     ComprehensiveTheoriesUseCase,
     UnifiedModelsUseCase,
@@ -134,36 +134,32 @@ def get_link_concepts_use_case(
 ) -> LinkConceptsUseCase:
     return LinkConceptsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
 
-# Eje Y (Placeholders)
-def get_form_clusters_use_case() -> FormClustersUseCase:
-    class PlaceholderFormClustersUseCase(FormClustersUseCase):
-        async def execute(self, input_data: FormClusterInputSchema) -> FormClusterResultSchema:
-            return FormClusterResultSchema(clusters_formed_count=len(input_data.ucm_ids) // 2 if input_data.ucm_ids else 0, cluster_ids=[f"cluster_placeholder_{i}" for i in range(len(input_data.ucm_ids) // 2 if input_data.ucm_ids else 0)], details="Placeholder.")
-    return PlaceholderFormClustersUseCase()
+# Eje Y (Actualizado para usar implementaciones reales)
 
-def get_proposition_derivation_use_case() -> PropositionDerivationUseCase:
-    class PlaceholderPropositionDerivationUseCase(PropositionDerivationUseCase):
-        async def execute(self, input_data: PropositionDerivationInputSchema) -> PropositionDerivationResultSchema:
-            return PropositionDerivationResultSchema(propositions_derived_count=len(input_data.cluster_ids), proposition_ids=[f"prop_placeholder_{i}" for i in range(len(input_data.cluster_ids))], details="Placeholder.")
-    return PlaceholderPropositionDerivationUseCase()
+def get_form_clusters_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
+) -> FormClustersUseCase:
+    return FormClustersUseCase(concept_repo=concept_repo)
 
-def get_mini_theory_construction_use_case() -> MiniTheoryConstructionUseCase:
-    class PlaceholderMiniTheoryConstructionUseCase(MiniTheoryConstructionUseCase):
-        async def execute(self, input_data: MiniTheoryConstructionInputSchema) -> MiniTheoryConstructionResultSchema:
-            return MiniTheoryConstructionResultSchema(mini_theories_constructed_count=len(input_data.proposition_ids), mini_theory_ids=[f"minit_placeholder_{i}" for i in range(len(input_data.proposition_ids))], details="Placeholder.")
-    return PlaceholderMiniTheoryConstructionUseCase()
+def get_derive_propositions_use_case( # Nombre de función actualizado
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
+) -> DerivePropositionsUseCase: # Tipo de retorno actualizado
+    return DerivePropositionsUseCase(concept_repo=concept_repo) # Clase actualizada
 
-def get_comprehensive_theories_use_case() -> ComprehensiveTheoriesUseCase:
-    class PlaceholderComprehensiveTheoriesUseCase(ComprehensiveTheoriesUseCase):
-        async def execute(self, input_data: ComprehensiveTheoriesInputSchema) -> ComprehensiveTheoriesResultSchema:
-            return ComprehensiveTheoriesResultSchema(comprehensive_theories_built_count=len(input_data.mini_theory_ids), comprehensive_theory_ids=[f"compt_placeholder_{i}" for i in range(len(input_data.mini_theory_ids))], details="Placeholder.")
-    return PlaceholderComprehensiveTheoriesUseCase()
+def get_mini_theory_construction_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
+) -> MiniTheoryConstructionUseCase:
+    return MiniTheoryConstructionUseCase(concept_repo=concept_repo)
 
-def get_unified_models_use_case() -> UnifiedModelsUseCase:
-    class PlaceholderUnifiedModelsUseCase(UnifiedModelsUseCase):
-        async def execute(self, input_data: UnifiedModelsInputSchema) -> UnifiedModelsResultSchema:
-            return UnifiedModelsResultSchema(unified_models_synthesized_count=len(input_data.comprehensive_theory_ids), unified_model_ids=[f"unifiedm_placeholder_{i}" for i in range(len(input_data.comprehensive_theory_ids))], details="Placeholder.")
-    return PlaceholderUnifiedModelsUseCase()
+def get_comprehensive_theories_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
+) -> ComprehensiveTheoriesUseCase:
+    return ComprehensiveTheoriesUseCase(concept_repo=concept_repo)
+
+def get_unified_models_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
+) -> UnifiedModelsUseCase:
+    return UnifiedModelsUseCase(concept_repo=concept_repo)
 
 # ApplicationServiceFacade (para los endpoints de MDU existentes)
 @lru_cache(None)

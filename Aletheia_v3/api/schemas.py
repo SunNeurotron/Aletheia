@@ -391,54 +391,59 @@ class LinkConceptsResponse(BaseModel):
     created_relationship: RelationshipSchema = Field(..., description="La relación que fue creada y guardada.")
 
 
-# --- Schemas Placeholder para otros Casos de Uso del Eje Y ---
+# --- Schemas Placeholder para otros Casos de Uso del Eje Y (Refinados) ---
+
+class ConceptInfoSchema(BaseModel):
+    """Schema base para información resumida de un concepto científico."""
+    id: str = Field(..., description="ID único del concepto.")
+    name: str = Field(..., description="Nombre o etiqueta del concepto.")
+    concept_type: str = Field(..., description="Tipo de concepto (valor del Enum ConceptType).")
+    # Podríamos añadir 'description' si fuera breve y útil aquí.
 
 class FormClusterInputSchema(BaseModel):
     """Schema de entrada para la formación de clústeres."""
-    ucm_ids: List[str] = Field(..., description="Lista de IDs de UCMs para formar clústeres.")
-    params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales para el clustering.")
-class FormClusterResultSchema(BaseModel):
+    ucm_ids: List[str] = Field(..., description="Lista de IDs de UCMs (conceptos) para formar clústeres.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales para el algoritmo de clustering.")
+class FormClusterResponseSchema(BaseModel): # Renombrado de Result a Response
     """Schema de respuesta para la formación de clústeres."""
-    clusters_formed_count: int = Field(default=0, description="Número de clústeres formados.")
-    cluster_ids: List[str] = Field(default_factory=list, description="IDs de los clústeres creados.")
-    details: Optional[Any] = Field(None, description="Detalles adicionales del proceso.") # Placeholder
+    created_clusters: List[ConceptInfoSchema] = Field(default_factory=list, description="Lista de información de los clústeres creados.")
+    message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
 
 class PropositionDerivationInputSchema(BaseModel):
     """Schema de entrada para la derivación de proposiciones."""
-    cluster_ids: List[str] = Field(..., description="Lista de IDs de clústeres para derivar proposiciones.")
+    cluster_ids: List[str] = Field(..., description="Lista de IDs de clústeres a partir de los cuales derivar proposiciones.")
     params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales para la derivación.")
-class PropositionDerivationResultSchema(BaseModel):
+class PropositionDerivationResponseSchema(BaseModel): # Renombrado
     """Schema de respuesta para la derivación de proposiciones."""
-    propositions_derived_count: int = Field(default=0, description="Número de proposiciones derivadas.")
-    proposition_ids: List[str] = Field(default_factory=list, description="IDs de las proposiciones creadas.")
-    details: Optional[Any] = Field(None, description="Detalles adicionales del proceso.")
+    created_propositions: List[ConceptInfoSchema] = Field(default_factory=list, description="Lista de información de las proposiciones creadas.")
+    message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
 
 class MiniTheoryConstructionInputSchema(BaseModel):
     """Schema de entrada para la construcción de mini-teorías."""
-    proposition_ids: List[str] = Field(..., description="Lista de IDs de proposiciones para construir mini-teorías.")
+    proposition_ids: List[str] = Field(..., description="Lista de IDs de proposiciones para construir una mini-teoría.")
+    name: Optional[str] = Field(None, description="Nombre opcional para la mini-teoría a crear.")
     params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales.")
-class MiniTheoryConstructionResultSchema(BaseModel):
+class MiniTheoryConstructionResponseSchema(BaseModel): # Renombrado
     """Schema de respuesta para la construcción de mini-teorías."""
-    mini_theories_constructed_count: int = Field(default=0, description="Número de mini-teorías construidas.")
-    mini_theory_ids: List[str] = Field(default_factory=list, description="IDs de las mini-teorías creadas.")
-    details: Optional[Any] = Field(None, description="Detalles adicionales.")
+    created_mini_theory: Optional[ConceptInfoSchema] = Field(None, description="Información de la mini-teoría creada.")
+    message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
 
 class ComprehensiveTheoriesInputSchema(BaseModel):
     """Schema de entrada para la construcción de teorías comprehensivas."""
-    mini_theory_ids: List[str] = Field(..., description="Lista de IDs de mini-teorías.")
+    mini_theory_ids: List[str] = Field(..., description="Lista de IDs de mini-teorías a agregar.")
+    name: Optional[str] = Field(None, description="Nombre opcional para la teoría comprehensiva.")
     params: Optional[Dict[str, Any]] = Field(default_factory=dict)
-class ComprehensiveTheoriesResultSchema(BaseModel):
+class ComprehensiveTheoriesResponseSchema(BaseModel): # Renombrado
     """Schema de respuesta para la construcción de teorías comprehensivas."""
-    comprehensive_theories_built_count: int = Field(default=0)
-    comprehensive_theory_ids: List[str] = Field(default_factory=list)
-    details: Optional[Any] = Field(None)
+    created_comprehensive_theory: Optional[ConceptInfoSchema] = Field(None, description="Información de la teoría comprehensiva creada.")
+    message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
 
 class UnifiedModelsInputSchema(BaseModel):
     """Schema de entrada para la síntesis de modelos unificados."""
-    comprehensive_theory_ids: List[str] = Field(..., description="Lista de IDs de teorías comprehensivas.")
+    comprehensive_theory_ids: List[str] = Field(..., description="Lista de IDs de teorías comprehensivas a unificar.")
+    name: Optional[str] = Field(None, description="Nombre opcional para el modelo unificado.")
     params: Optional[Dict[str, Any]] = Field(default_factory=dict)
-class UnifiedModelsResultSchema(BaseModel):
+class UnifiedModelsResponseSchema(BaseModel): # Renombrado
     """Schema de respuesta para la síntesis de modelos unificados."""
-    unified_models_synthesized_count: int = Field(default=0)
-    unified_model_ids: List[str] = Field(default_factory=list)
-    details: Optional[Any] = Field(None)
+    created_unified_model: Optional[ConceptInfoSchema] = Field(None, description="Información del modelo unificado creado.")
+    message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
