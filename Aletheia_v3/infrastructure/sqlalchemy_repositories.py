@@ -117,6 +117,11 @@ class SQLAlchemyConceptRepository(IConceptRepository):
 
         self.db.commit()
 
+    async def list_all(self) -> List[ScientificConcept]:
+        """Lista todos los ScientificConcepts."""
+        db_concepts = self.db.query(ScientificConceptDB).all()
+        return [_map_concept_db_to_domain(c) for c in db_concepts if c]
+
 class SQLAlchemyRelationshipRepository(IRelationshipRepository):
     """
     Implementación de IRelationshipRepository utilizando SQLAlchemy para la persistencia
@@ -205,6 +210,11 @@ class SQLAlchemyRelationshipRepository(IRelationshipRepository):
         except ValueError:
             return []
         db_relationships = self.db.query(DirectedRelationshipDB).filter(DirectedRelationshipDB.target_concept_id == target_uuid).all()
+        return [_map_relationship_db_to_domain(r) for r in db_relationships if r]
+
+    async def list_all(self) -> List[DirectedRelationship]:
+        """Lista todas las DirectedRelationships."""
+        db_relationships = self.db.query(DirectedRelationshipDB).all()
         return [_map_relationship_db_to_domain(r) for r in db_relationships if r]
 
 ```

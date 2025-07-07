@@ -1006,3 +1006,61 @@ async def test_eje_y_functional_endpoints_unauthorized(
     payload = payload_schema(**payload_data)
     response = await test_client.post(endpoint_path, json=payload.model_dump())
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+# --- Tests para Endpoints de Visualización del Eje Y ---
+
+@pytest.mark.asyncio
+async def test_get_hierarchy_graph_success(test_client: AsyncClient, researcher_token: str):
+    """Prueba el endpoint del grafo de jerarquía con un ID simulado."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    # Usar un ID que el endpoint simulado espera
+    concept_id_simulado = "unifiedm_placeholder_0"
+    response = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{concept_id_simulado}", headers=headers)
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "nodes" in data
+    assert "edges" in data
+    assert isinstance(data["nodes"], list)
+    assert isinstance(data["edges"], list)
+    if data["nodes"]:
+        assert "id" in data["nodes"][0]
+        assert "label" in data["nodes"][0]
+        assert "type" in data["nodes"][0]
+
+@pytest.mark.asyncio
+async def test_get_hierarchy_graph_not_found(test_client: AsyncClient, researcher_token: str):
+    """Prueba el endpoint del grafo de jerarquía con un ID no simulado."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    concept_id_no_simulado = "unknown_concept_id"
+    response = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{concept_id_no_simulado}", headers=headers)
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+@pytest.mark.asyncio
+async def test_get_synthesis_statistics_success(test_client: AsyncClient, researcher_token: str):
+    """Prueba el endpoint de estadísticas de síntesis."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    response = await test_client.get("/eje-y/visualization/synthesis_statistics", headers=headers)
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "overall_stats" in data
+    assert "type_distribution" in data
+    assert isinstance(data["overall_stats"], list)
+    assert isinstance(data["type_distribution"], dict)
+    if data["overall_stats"]:
+        assert "name" in data["overall_stats"][0]
+        assert "value" in data["overall_stats"][0]
+    if data["type_distribution"]:
+        # Verificar que alguna clave esperada exista, ej. "UCM"
+        assert "UCM" in data["type_distribution"] or not data["type_distribution"] # Puede ser vacío si no hay datos
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", [
+    "/eje-y/visualization/hierarchy_graph/some_id",
+    "/eje-y/visualization/synthesis_statistics"
+])
+async def test_visualization_endpoints_unauthorized(test_client: AsyncClient, path: str):
+    """Prueba los endpoints de visualización sin autorización."""
+    response = await test_client.get(path)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

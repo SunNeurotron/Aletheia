@@ -139,6 +139,25 @@ services:
         condition: service_started # Or service_healthy if API has a healthcheck
     restart: unless-stopped
 
+  mdu_dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aletheia_mdu_dashboard
+    command: streamlit run Aletheia_v3/dashboard/mdu_dashboard.py --server.port 8501 --server.address 0.0.0.0 --server.enableCORS=false --server.enableXsrfProtection=false
+    volumes:
+      - .:/opt/aletheia # Mapea el código fuente para desarrollo
+    ports:
+      - "8502:8501" # Puerto diferente en el host (8502) para el nuevo dashboard
+    environment:
+      <<: *common-env # Hereda variables comunes
+      API_BASE_URL: http://api:8000/api/v1 # URL para que el dashboard llame al servicio API
+      # PYTHONPATH: /opt/aletheia
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+
   # MLflow Tracking Server Service
   mlflow:
     # Using a standard python image to run mlflow server, could also build a custom one.

@@ -49,6 +49,9 @@ class InMemoryConceptRepository(IConceptRepository):
     def clear(self): # Método de ayuda para tests
         self._concepts = {}
 
+    async def list_all(self) -> List[ScientificConcept]:
+        return [copy.deepcopy(c) for c in self._concepts.values()]
+
 
 class InMemoryRelationshipRepository(IRelationshipRepository):
     """
@@ -99,6 +102,9 @@ class InMemoryRelationshipRepository(IRelationshipRepository):
         self._relationships = {}
         self._by_source = defaultdict(list)
         self._by_target = defaultdict(list)
+
+    async def list_all(self) -> List[DirectedRelationship]:
+        return [copy.deepcopy(r) for r in self._relationships.values()]
 
 class InMemoryAnalysisRepository(IAnalysisRepository):
     """

@@ -1,236 +1,329 @@
 import streamlit as st
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import pandas as pd # For chart data conversion if needed
-import numpy as np # For dummy data generation
-import random # For dummy data generation
+import requests
+import os # Añadido import os
 from typing import List, Dict, Any, Optional
 
-# Assuming CubeHoneycombIntegration and CeldaCubo are accessible for type hints
-# These would need to be imported from their new locations in core modules.
-# For now, using forward references or Any if direct import is complex during refactor.
-# from ..core.cube_models import CuboMDU, CeldaCubo # Example
-# from ..core.honeycomb_models import HexagonalCell, CellState # Example
-# from ..application.use_cases import CubeHoneycombIntegration # Example
+# Para visualización de grafos
+try:
+    from st_agraph import agraph, Node, Edge, Config
+    AGRAPH_AVAILABLE = True
+except ImportError:
+    AGRAPH_AVAILABLE = False
+    # Se mostrará advertencia en la app si no está disponible
 
-# Placeholder for the main system integration class if needed for live data
-# class CubeHoneycombIntegration: # Dummy placeholder
-#     def __init__(self):
-#         from ..core.cube_models import CuboMDU # Delayed import
-#         self.cube = CuboMDU() # Dummy cube
-#         # ... other initializations ...
+# Configuración básica de la página
+st.set_page_config(layout="wide", page_title="Aletheia Knowledge Dashboard")
 
+# URL base de la API (debería ser configurable)
+API_BASE_URL = os.getenv("ALETHEIA_API_URL", "http://localhost:8000/api/v1")
 
-class MetricsCollector: # Placeholder as in mdu_cube_system.py
-    """Clase conceptual para recolectar métricas para el dashboard."""
-    def __init__(self, system_ref: Optional[Any] = None): # system_ref could be CubeHoneycombIntegration
-        self.system = system_ref
+# --- Funciones de Helper para llamar a la API ---
+def get_api_data(endpoint: str, params: Optional[Dict] = None) -> Optional[Any]:
+    """Obtiene datos de un endpoint de la API."""
+    try:
+        full_url = f"{API_BASE_URL}{endpoint}"
+        response = requests.get(full_url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error al conectar con la API en {full_url}: {e}")
+        return None
+    except ValueError as e:
+        st.error(f"Error al parsear JSON de {full_url}: {e}")
+        return None
 
-    def get_cube_visualization_data(self) -> List[Dict[str, Any]]:
-        """Prepara datos para la visualización 3D del CuboMDU."""
-        if self.system and hasattr(self.system, 'cube') and hasattr(self.system.cube, 'matriz'):
-            # This would iterate through self.system.cube.matriz
-            # and extract { 'coordenadas': (x,y,z), 'layer': 'Presentation', 'estado': {'status': 'idle'} }
-            # For now, returning dummy data similar to original placeholder.
-            data = []
-            for i in range(4): # Assuming 4x4x4 cube
-                for j in range(4):
-                    for k in range(4):
-                        layer_name = ""
-                        if k == 0: layer_name = "Presentation"
-                        elif k == 1: layer_name = "Application"
-                        elif k == 2: layer_name = "Domain"
-                        elif k == 3: layer_name = "Infrastructure"
-                        data.append({
-                            'coordenadas': (i,j,k),
-                            'layer': layer_name,
-                            'status': random.choice(['idle', 'processing', 'complete', 'error'])
-                        })
-            return data
-        # Fallback dummy data
-        return [{'coordenadas': (i,j,k), 'layer': random.choice(['P','A','D','I']), 'status':random.choice(['idle','proc'])}
-                for i in range(4) for j in range(4) for k in range(4)]
+# --- Mapeo de Tipos de Concepto a Colores ---
+CONCEPT_TYPE_COLORS = {
+    "DOCUMENT_SOURCE": "#FFD700", # Gold
+    "UCM": "#ADD8E6", # LightBlue
+    "CLUSTER": "#90EE90", # LightGreen
+    "PROPOSITION": "#FFA07A", # LightSalmon
+    "MINI_THEORY": "#DA70D6", # Orchid
+    "COMPREHENSIVE_THEORY": "#87CEFA", # LightSkyBlue
+    "UNIFIED_MODEL": "#6A5ACD", # SlateBlue
+    "GENERIC_CONCEPT": "#E0E0E0", # LightGray
+    "DEFAULT": "#FFFFFF" # Blanco para tipos no mapeados
+}
 
+# --- Sección 1: Visualización del Grafo Completo (Implementación) ---
+def display_full_knowledge_graph():
+    st.subheader("Explorador del Grafo de Conocimiento Completo")
 
-    def get_honeycomb_status_data(self) -> Dict[str, Any]:
-        """Prepara datos para los gráficos de estado de la Colmena."""
-        # Dummy data structure based on original dashboard's expectations
-        num_q = 5; num_r = 5 # Example dimensions for heatmap
-        return {
-            'active_matrix': np.random.rand(num_q, num_r).tolist(),
-            'layers': ['Presentation', 'Application', 'Domain', 'Infrastructure'],
-            'load_per_layer': np.random.rand(4).tolist(),
-            'time_points': list(range(10)),
-            'consensus_confidence': np.random.rand(10).tolist(),
-            'replication_labels': ["Root", "ReplicaSet1", "ReplicaSet2", "Cell_A1", "Cell_A2", "Cell_B1"],
-            'replication_parents': ["", "Root", "Root", "ReplicaSet1", "ReplicaSet1", "ReplicaSet2"],
-            'replication_values': [0, 0, 0, 1, 1, 1] # Values for leaves; parents often sum these or are 0
-        }
+    if not AGRAPH_AVAILABLE:
+        st.warning("streamlit-agraph no está instalado. La visualización de grafos no está disponible. Por favor, instálala: pip install streamlit-agraph")
+        return
 
-    def get_overall_metrics_summary(self) -> Dict[str, Any]:
-        """Devuelve un resumen de métricas clave del sistema."""
-        return {
-            "Total Analyses Run": random.randint(100,1000),
-            "Active Analyses": random.randint(0,10),
-            "Average Cell Load (%)": round(random.uniform(20.0, 70.0), 2),
-            "System Error Rate (%)": round(random.uniform(0.1, 2.5), 2),
-            "Last Checkpoint": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
+    # Carga de datos
+    concepts_data = get_api_data("/eje-x/concepts/")
+    relationships_data = get_api_data("/eje-x/relationships/")
 
-    def get_analysis_timeline_data(self, num_entries: int = 20) -> pd.DataFrame:
-        """Genera datos de ejemplo para la línea de tiempo de análisis."""
-        data = []
-        current_time = datetime.now()
-        for i in range(num_entries):
-            start_time = current_time - timedelta(minutes=random.randint(5, 120)*(i+1))
-            duration = timedelta(minutes=random.randint(1, 30))
-            end_time = start_time + duration
-            data.append(dict(
-                Task=f"Analysis-{random.randint(1000,2000)}",
-                Start=start_time,
-                Finish=end_time,
-                Resource=random.choice(["StrategyA", "StrategyB", "Adaptive"])
-            ))
-        return pd.DataFrame(data)
+    if concepts_data is None or relationships_data is None:
+        # El error ya se muestra en get_api_data
+        return
 
+    if not concepts_data:
+        st.info("No hay conceptos en la base de datos para mostrar.")
+        return
 
-class CubeDashboard:
-    """Dashboard interactivo para monitoreo del Cubo MDU y la Colmena."""
+    # --- Sidebar para filtros y detalles ---
+    st.sidebar.title("Opciones del Grafo")
 
-    def __init__(self, system_ref: Optional[Any] = None): # system_ref can be CubeHoneycombIntegration
-        self.system = system_ref # Store the main system object if passed
-        self.metrics_collector = MetricsCollector(system_ref=self.system) # Pass system_ref
+    unique_concept_types = sorted(list(set(c['concept_type'] for c in concepts_data if 'concept_type' in c)))
+    if not unique_concept_types:
+        unique_concept_types = ["N/A"]
 
-    def _get_cell_color_from_data(self, cell_render_data: Dict[str, Any]) -> str:
-        """Determina el color de una celda basado en sus datos (layer, status)."""
-        layer = cell_render_data.get('layer')
-        status = cell_render_data.get('status')
+    selected_types = st.sidebar.multiselect(
+        "Filtrar por Tipo de Concepto:",
+        options=unique_concept_types,
+        default=unique_concept_types
+    )
 
-        if layer == "Presentation": return "blue"
-        if layer == "Application": return "green"
-        if layer == "Domain": return "red"
-        if layer == "Infrastructure": return "purple"
-        if status == "processing": return "yellow"
-        if status == "error": return "black"
-        if status == "complete": return "lightgreen"
-        return "grey" # Default for idle or unknown
+    # Preparar nodos y mapeo para detalles
+    nodes = []
+    node_ids_in_graph = set()
+    concept_map = {c['id']: c for c in concepts_data}
 
-    def render(self):
-        """Renderiza el dashboard completo usando Streamlit."""
-        st.set_page_config(
-            page_title="MDU Cube & Honeycomb Monitor",
-            layout="wide",
-            initial_sidebar_state="expanded"
-        )
+    for concept in concepts_data:
+        if concept['concept_type'] in selected_types:
+            node_color = CONCEPT_TYPE_COLORS.get(concept['concept_type'], CONCEPT_TYPE_COLORS["DEFAULT"])
+            node_label = concept['name'][:30] + "..." if len(concept['name']) > 30 else concept['name']
 
-        st.title("🎲 MDU Cube & Honeycomb Analysis System Monitor")
+            nodes.append(Node(id=concept['id'],
+                              label=node_label,
+                              title=f"Nombre: {concept['name']}\nTipo: {concept['concept_type']}\nID: {concept['id']}",
+                              shape="ellipse",
+                              color=node_color,
+                              font={"size": 12} # Tamaño de fuente reducido para mejor visualización
+                              ))
+            node_ids_in_graph.add(concept['id'])
 
-        with st.sidebar:
-            st.header("Controls & Filters")
-            auto_refresh = st.checkbox("Auto-refresh every 10s", value=False)
-            if auto_refresh:
-                # Streamlit doesn't have a built-in timer that reruns part of the script.
-                # st.experimental_rerun() would rerun the whole script.
-                # For auto-refresh, a common pattern is to use time.sleep and st.experimental_rerun,
-                # but this blocks. A frontend-based timer triggering a backend update is more complex.
-                # For now, this checkbox is conceptual for auto-refresh.
-                st.write("(Auto-refresh simulation - click 'Rerun' for manual update)")
+    edges = []
+    if relationships_data:
+        for rel in relationships_data:
+            if rel['source_concept_id'] in node_ids_in_graph and rel['target_concept_id'] in node_ids_in_graph:
+                edge_label = rel['type'][:20] if rel.get('type') else "" # Asegurar que 'type' exista
 
-            st.selectbox("Select Perspective", ["Overview", "Cube Detail", "Honeycomb Detail", "Performance"])
-            # Add more filters as needed
+                source_name = concept_map.get(rel['source_concept_id'],{}).get('name','ID: '+rel['source_concept_id'])
+                target_name = concept_map.get(rel['target_concept_id'],{}).get('name','ID: '+rel['target_concept_id'])
+                edge_title = f"De: {source_name}\nPara: {target_name}\nTipo: {rel.get('type', 'N/A')}"
+                if rel.get('description'):
+                    edge_title += f"\nDesc: {rel['description'][:50]}"
+                    if len(rel['description']) > 50: edge_title += "..."
 
-        # Layout principal
-        col1, col2 = st.columns(2)
+                edges.append(Edge(source=rel['source_concept_id'],
+                                  target=rel['target_concept_id'],
+                                  label=edge_label,
+                                  title=edge_title,
+                                  arrows="to" # Asegurar que las flechas se muestren
+                                  ))
 
-        with col1:
-            self._render_cube_visualization()
-            self._render_metrics_summary()
+    agraph_height = 800 # Variable para la altura del grafo
+    agraph_config = Config(
+        width="100%",
+        height=agraph_height,
+        directed=True,
+        physics={"enabled": True,
+                   "barnesHut": {"gravitationalConstant": -15000, "centralGravity": 0.1, "springLength": 120, "springConstant": 0.05, "damping": 0.09},
+                   "minVelocity": 0.75, # Detener la simulación cuando se estabilice
+                   "solver": "barnesHut"},
+        hierarchical=False,
+        interaction={"navigationButtons": True, "tooltipDelay": 150, "hover": True, "zoomView": True, "dragNodes": True},
+        nodes={"font": {"size": 10}}, # Tamaño de fuente para etiquetas de nodo
+        edges={"font": {"size": 8, "align": "middle"}, "smooth": {"type": "cubicBezier", "roundness": 0.7}, "arrows": "to"}
+    )
 
-        with col2:
-            self._render_honeycomb_status_charts() # Renamed for clarity
+    if not nodes:
+        st.info("No hay conceptos para mostrar con los filtros seleccionados.")
+    else:
+        num_nodes_display = len(nodes)
+        num_edges_display = len(edges)
+        st.info(f"Mostrando {num_nodes_display} conceptos y {num_edges_display} relaciones. Haz clic en un nodo para ver detalles en la barra lateral.")
 
-        st.header("Analysis Timeline")
-        self._render_analysis_timeline_chart() # Renamed
+        # Solo renderizar el grafo si hay nodos, para evitar errores con agraph
+        if num_nodes_display > 0:
+            selected_node_id = agraph(nodes=nodes, edges=edges, config=agraph_config)
 
-    def _render_metrics_summary(self):
-        st.subheader("System Metrics Summary")
-        summary_data = self.metrics_collector.get_overall_metrics_summary()
-        cols = st.columns(len(summary_data))
-        for i, (metric_name, metric_value) in enumerate(summary_data.items()):
-            cols[i].metric(metric_name, metric_value)
-
-    def _render_cube_visualization(self):
-        st.subheader("MDU Cube State (Conceptual 3D)")
-        cube_cells = self.metrics_collector.get_cube_visualization_data()
-
-        if not cube_cells:
-            st.write("No cube data available for visualization.")
-            return
-
-        fig = go.Figure()
-        for cell_data in cube_cells:
-            coords = cell_data.get('coordenadas', (0,0,0))
-            color = self._get_cell_color_from_data(cell_data)
-            layer_name = cell_data.get('layer', 'Unknown')
-            status = cell_data.get('status', 'N/A')
-
-            fig.add_trace(go.Scatter3d(
-                x=[coords[0]], y=[coords[1]], z=[coords[2]],
-                mode='markers',
-                marker=dict(size=18, color=color, opacity=0.7, line=dict(width=1, color='DarkSlateGrey')),
-                text=f"Cell {coords}<br>Layer: {layer_name}<br>Status: {status}",
-                hoverinfo='text',
-                showlegend=False
-            ))
-
-        fig.update_layout(
-            scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z (Layer)',
-                       camera=dict(eye=dict(x=1.8, y=1.8, z=1.8))), # Adjusted camera
-            height=500, margin=dict(l=0, r=0, b=0, t=40)
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    def _render_honeycomb_status_charts(self):
-        st.subheader("Honeycomb Grid Status")
-        honeycomb_data = self.metrics_collector.get_honeycomb_status_data()
-
-        fig = make_subplots(
-            rows=2, cols=2,
-            specs=[[{}, {}], [{'type':'domain'}, {'type':'domain'}]], # For sunburst/treemap
-            subplot_titles=('Active Cells (Conceptual Heatmap)', 'Processing Load by Layer',
-                          'Consensus Confidence Over Time', 'Replication Distribution (Conceptual)')
-        )
-
-        fig.add_trace(go.Heatmap(z=honeycomb_data['active_matrix'], colorscale='Viridis'), row=1, col=1)
-        fig.add_trace(go.Bar(x=honeycomb_data['layers'], y=honeycomb_data['load_per_layer']), row=1, col=2)
-        fig.add_trace(go.Scatter(x=honeycomb_data['time_points'], y=honeycomb_data['consensus_confidence'], mode='lines+markers'), row=2, col=1)
-        fig.add_trace(go.Sunburst(
-            labels=honeycomb_data['replication_labels'],
-            parents=honeycomb_data['replication_parents'],
-            values=honeycomb_data['replication_values']
-        ), row=2, col=2)
-
-        fig.update_layout(height=600, showlegend=False, margin=dict(l=10, r=10, b=10, t=50))
-        st.plotly_chart(fig, use_container_width=True)
-
-    def _render_analysis_timeline_chart(self):
-        # st.subheader("Recent Analysis Timeline") # Already a header for the section
-        timeline_df = self.metrics_collector.get_analysis_timeline_data()
-        if not timeline_df.empty:
-            import plotly.express as px # Import here as it's specific to this chart
-            fig = px.timeline(timeline_df, x_start="Start", x_end="Finish", y="Task", color="Resource",
-                              title="Analysis Tasks Over Time (Conceptual)")
-            fig.update_yaxes(autorange="reversed") # Otherwise tasks are listed from bottom up
-            st.plotly_chart(fig, use_container_width=True)
+            if selected_node_id and selected_node_id in concept_map:
+                selected_concept_details = concept_map[selected_node_id]
+                st.sidebar.subheader(f"Detalles del Concepto:")
+                st.sidebar.markdown(f"**Nombre:** {selected_concept_details['name']}")
+                st.sidebar.markdown(f"**ID:** `{selected_concept_details['id']}`")
+                st.sidebar.markdown(f"**Tipo:** {selected_concept_details['concept_type']}")
+                st.sidebar.markdown(f"**Descripción:** {selected_concept_details.get('description', 'N/A')}")
+                st.sidebar.markdown("**Propiedades:**")
+                st.sidebar.json(selected_concept_details.get('properties', {}), expanded=False)
+                st.sidebar.markdown(f"**Creado:** {selected_concept_details.get('created_at', 'N/A')}")
+                st.sidebar.markdown(f"**Actualizado:** {selected_concept_details.get('updated_at', 'N/A')}")
+            elif selected_node_id:
+                st.sidebar.warning(f"No se encontraron detalles completos para el nodo: {selected_node_id}")
         else:
-            st.write("No analysis timeline data available.")
+            st.info("No hay nodos para mostrar después de aplicar los filtros.")
 
-# To run this dashboard (example):
-# Ensure you have a way to instantiate CubeHoneycombIntegration or pass None.
-# if __name__ == "__main__":
-#     # from mdu_project_root.application.use_cases import CubeHoneycombIntegration # Adjust import
-#     # system = CubeHoneycombIntegration() # Or None for dummy data
-#     dashboard = CubeDashboard(system_ref=None)
-#     dashboard.render()
-# Then run: streamlit run Aletheia_v3/dashboard/mdu_dashboard.py
-from datetime import timedelta # Already imported, but for clarity if this snippet is isolated.
+# --- Sección 2: Visualización de Jerarquía de Síntesis ---
+def display_synthesis_hierarchy(all_concepts: Optional[List[Dict[str, Any]]]):
+    st.markdown("Selecciona un concepto de alto nivel (Modelo Unificado, Teoría Comprehensiva, Mini-Teoría) para ver su jerarquía de componentes.")
+
+    if not AGRAPH_AVAILABLE:
+        st.warning("streamlit-agraph no está instalado. La visualización de grafos jerárquicos no está disponible.")
+        return
+
+    if not all_concepts:
+        st.warning("No hay conceptos cargados para seleccionar.")
+        return
+
+    hierarchical_concept_types = [
+        "UNIFIED_MODEL",
+        "COMPREHENSIVE_THEORY",
+        "MINI_THEORY",
+        "PROPOSITION", # También podría ser interesante ver de qué clúster viene una proposición
+        "CLUSTER"      # O qué UCMs componen un clúster
+    ]
+
+    selectable_concepts = [c for c in all_concepts if c.get('concept_type') in hierarchical_concept_types]
+
+    if not selectable_concepts:
+        st.info("No hay conceptos de tipo Modelo, Teoría, Proposición o Clúster para mostrar su jerarquía.")
+        return
+
+    concept_options = {f"{c['name']} ({c['concept_type']}, ID: ...{c['id'][-6:]})": c['id'] for c in selectable_concepts}
+
+    selected_option = st.selectbox(
+        "Selecciona un Concepto para ver su Jerarquía:",
+        options=[""] + list(concept_options.keys()), # Añadir opción vacía para no seleccionar nada
+        key="hierarchy_concept_select"
+    )
+
+    if selected_option and concept_options[selected_option]:
+        selected_concept_id = concept_options[selected_option]
+        st.write(f"Cargando jerarquía para el concepto ID: `{selected_concept_id}`")
+
+        hierarchy_data = get_api_data(f"/eje-y/visualization/hierarchy_graph/{selected_concept_id}")
+
+        if hierarchy_data and hierarchy_data.get('nodes'):
+            nodes = [
+                Node(
+                    id=n['id'],
+                    label=n['label'][:30] + "..." if len(n['label']) > 30 else n['label'],
+                    title=f"Nombre: {n['label']}\nTipo: {n['type']}\nID: {n['id']}",
+                    color=CONCEPT_TYPE_COLORS.get(n['type'], CONCEPT_TYPE_COLORS["DEFAULT"]),
+                    shape="box", # Usar 'box' o 'database' para jerarquía
+                    level=n.get('level') # Usar el nivel si la API lo proporciona
+                ) for n in hierarchy_data['nodes']
+            ]
+            edges = [
+                Edge(
+                    source=e['from'], # El schema usa 'from' como alias de from_node
+                    target=e['to'],  # El schema usa 'to' como alias de to_node
+                    label=e.get('label', ''),
+                    arrows="to"
+                ) for e in hierarchy_data['edges']
+            ]
+
+            # Configuración para layout jerárquico
+            hierarchical_config = Config(
+                width="100%",
+                height=600,
+                directed=True,
+                physics=False, # A menudo se desactiva para layouts jerárquicos puros
+                hierarchical={
+                    "enabled": True,
+                    "direction": "DU",  # De abajo hacia arriba (UCMs en la base)
+                    "sortMethod": "directed", # Trata de minimizar cruces de aristas
+                    "levelSeparation": 150,
+                    "nodeSpacing": 100,
+                    "treeSpacing": 200
+                },
+                interaction={"navigationButtons": True, "tooltipDelay": 150, "hover": True, "zoomView": True},
+                nodes={"font": {"size": 10}},
+                edges={"font": {"size": 8}, "smooth": False} # Aristas rectas para jerarquía
+            )
+
+            agraph(nodes=nodes, edges=edges, config=hierarchical_config)
+        elif hierarchy_data: # Nodos vacíos pero respuesta OK
+            st.info(f"No se encontró una jerarquía o componentes para el concepto seleccionado (ID: {selected_concept_id}).")
+        else:
+            # get_api_data ya muestra un error si la llamada falla.
+            st.warning(f"No se pudieron obtener datos de jerarquía para el concepto ID: {selected_concept_id}.")
+    else:
+        st.info("Selecciona un concepto de la lista para visualizar su jerarquía.")
+
+
+# --- Main App ---
+def main():
+    st.title("🔬 Aletheia - Dashboard del Grafo de Conocimiento")
+    st.markdown("Explora los conceptos y relaciones generados y sintetizados por el sistema Aletheia.")
+
+    tab_titles = [
+        "Explorador del Grafo Completo",
+        "Jerarquía de Síntesis",
+        "Estadísticas del Grafo"
+    ]
+    tab1, tab2, tab3 = st.tabs(tab_titles)
+
+    with tab1:
+        display_full_knowledge_graph()
+
+    with tab2:
+        st.header(tab_titles[1])
+        display_synthesis_hierarchy(concepts_data) # Pasar todos los conceptos para el selector
+
+    with tab3:
+        st.header(tab_titles[2])
+        display_synthesis_statistics()
+
+# --- Sección 3: Estadísticas de Síntesis ---
+def display_synthesis_statistics():
+    st.markdown("Métricas clave y distribución de tipos de conceptos en el grafo de conocimiento.")
+
+    stats_data = get_api_data("/eje-y/visualization/synthesis_statistics")
+
+    if stats_data:
+        # Mostrar Overall Stats
+        st.subheader("Estadísticas Generales")
+        overall_stats = stats_data.get("overall_stats", [])
+        if overall_stats:
+            # Dividir en columnas para mejor presentación de st.metric
+            # Determinar el número de columnas basado en la cantidad de métricas, ej. 3 por fila
+            num_metrics = len(overall_stats)
+            cols_per_row = 3
+
+            for i in range(0, num_metrics, cols_per_row):
+                cols = st.columns(cols_per_row)
+                for j in range(cols_per_row):
+                    if i + j < num_metrics:
+                        stat_item = overall_stats[i+j]
+                        cols[j].metric(label=stat_item["name"], value=stat_item["value"], delta=stat_item.get("unit")) # Usar unit como delta es un hack, mejor solo mostrarlo
+
+            # Alternativa más simple: tabla para overall_stats
+            # st.table(pd.DataFrame(overall_stats)) # Requeriría import pandas as pd
+
+        else:
+            st.info("No hay estadísticas generales disponibles.")
+
+        st.markdown("---")
+
+        # Mostrar Type Distribution
+        st.subheader("Distribución de Conceptos por Tipo")
+        type_distribution = stats_data.get("type_distribution", {})
+        if type_distribution:
+            # Convertir a DataFrame para st.bar_chart o st.table
+            # import pandas as pd # Necesitaría importarlo al inicio del archivo
+            try:
+                import pandas as pd
+                df_type_dist = pd.DataFrame(list(type_distribution.items()), columns=['Tipo de Concepto', 'Cantidad'])
+                st.bar_chart(df_type_dist.set_index('Tipo de Concepto'))
+
+                with st.expander("Ver datos de distribución en tabla"):
+                    st.table(df_type_dist)
+            except ImportError:
+                st.warning("Pandas no está instalado. Mostrando datos de distribución como JSON. `pip install pandas` para gráficos.")
+                st.json(type_distribution)
+        else:
+            st.info("No hay datos de distribución de tipos disponibles.")
+    else:
+        st.warning("No se pudieron cargar las estadísticas de síntesis desde la API.")
+
+
+if __name__ == "__main__":
+    main()
+```

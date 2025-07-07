@@ -390,6 +390,22 @@ class LinkConceptsResponse(BaseModel):
     """Schema de respuesta para la vinculación de conceptos."""
     created_relationship: RelationshipSchema = Field(..., description="La relación que fue creada y guardada.")
 
+# --- Schema para ScientificConcept (usado en listados, etc.) ---
+# from ..core.domain_models import ConceptType # Importar si se quiere usar el Enum directamente
+
+class ScientificConceptSchema(BaseModel):
+    """Schema para representar un concepto científico en respuestas de API."""
+    id: str = Field(..., description="ID único del concepto.")
+    name: str = Field(..., description="Nombre o etiqueta del concepto.")
+    description: Optional[str] = Field(None, description="Descripción detallada del concepto.")
+    concept_type: str = Field(..., description="Tipo de concepto (valor del Enum ConceptType).")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Metadatos y propiedades adicionales.")
+    created_at: datetime = Field(..., description="Fecha y hora de creación.")
+    updated_at: datetime = Field(..., description="Fecha y hora de última actualización.")
+
+    class Config:
+        orm_mode = True # Para permitir la creación desde modelos ORM si es necesario en el futuro
+
 
 # --- Schemas Placeholder para otros Casos de Uso del Eje Y (Refinados) ---
 
@@ -447,3 +463,37 @@ class UnifiedModelsResponseSchema(BaseModel): # Renombrado
     """Schema de respuesta para la síntesis de modelos unificados."""
     created_unified_model: Optional[ConceptInfoSchema] = Field(None, description="Información del modelo unificado creado.")
     message: Optional[str] = Field(None, description="Mensaje sobre el resultado del proceso.")
+
+
+# --- Schemas para Endpoints de Visualización del Eje Y ---
+
+class HierarchyGraphNodeSchema(BaseModel):
+    """Schema para un nodo en un grafo de jerarquía."""
+    id: str = Field(..., description="ID del concepto/nodo.")
+    label: str = Field(..., description="Etiqueta visible del nodo.")
+    title: Optional[str] = Field(None, description="Tooltip o información adicional al pasar el mouse.")
+    type: str = Field(..., description="Tipo de concepto (ej. UNIFIED_MODEL, CLUSTER).")
+    level: Optional[int] = Field(None, description="Nivel en la jerarquía para el layout.")
+
+class HierarchyGraphEdgeSchema(BaseModel):
+    """Schema para una arista en un grafo de jerarquía."""
+    from_node: str = Field(..., alias="from", description="ID del nodo origen.")
+    to_node: str = Field(..., alias="to", description="ID del nodo destino.")
+    label: Optional[str] = Field(None, description="Etiqueta opcional para la arista.")
+
+class HierarchyGraphResponseSchema(BaseModel):
+    """Schema de respuesta para el grafo de jerarquía de un concepto."""
+    nodes: List[HierarchyGraphNodeSchema] = Field(default_factory=list)
+    edges: List[HierarchyGraphEdgeSchema] = Field(default_factory=list)
+
+class SynthesisStatisticItemSchema(BaseModel):
+    """Schema para un item individual de estadística."""
+    name: str = Field(..., description="Nombre de la métrica o estadística.")
+    value: Any = Field(..., description="Valor de la métrica.")
+    unit: Optional[str] = Field(None, description="Unidad de la métrica, si aplica.")
+
+class SynthesisStatisticsResponseSchema(BaseModel):
+    """Schema de respuesta para las estadísticas de síntesis del grafo de conocimiento."""
+    overall_stats: List[SynthesisStatisticItemSchema] = Field(default_factory=list, description="Estadísticas generales.")
+    type_distribution: Dict[str, int] = Field(default_factory=dict, description="Distribución de conceptos por tipo.")
+    # Se podrían añadir más campos estructurados para otras estadísticas.
