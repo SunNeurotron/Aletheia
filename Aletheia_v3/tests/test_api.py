@@ -1011,22 +1011,97 @@ async def test_eje_y_functional_endpoints_unauthorized(
 
 @pytest.mark.asyncio
 async def test_get_hierarchy_graph_success(test_client: AsyncClient, researcher_token: str):
-    """Prueba el endpoint del grafo de jerarquía con un ID simulado."""
+    """Prueba el endpoint del grafo de jerarquía con datos reales y diferentes profundidades."""
     headers = {"Authorization": f"Bearer {researcher_token}"}
-    # Usar un ID que el endpoint simulado espera
-    concept_id_simulado = "unifiedm_placeholder_0"
-    response = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{concept_id_simulado}", headers=headers)
+    db = next(override_get_db_session())
+    try:
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
 
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert "nodes" in data
-    assert "edges" in data
-    assert isinstance(data["nodes"], list)
-    assert isinstance(data["edges"], list)
-    if data["nodes"]:
-        assert "id" in data["nodes"][0]
-        assert "label" in data["nodes"][0]
-        assert "type" in data["nodes"][0]
+        # Crear jerarquía: UM1 -> CT1 -> MT1 -> P1 -> CL1 -> (UCM1, UCM2)
+        ucm1 = await create_concept_in_db(db, "UCM1", DomainConceptType.UCM, "Data point A")
+        ucm2 = await create_concept_in_db(db, "UCM2", DomainConceptType.UCM, "Data point B")
+        cl1 = await create_concept_in_db(db, "Cluster1", DomainConceptType.CLUSTER, properties={"member_concept_ids": [str(ucm1.id), str(ucm2.id)], "shared_keywords": ["test"]})
+        p1 = await create_concept_in_db(db, "Proposition1", DomainConceptType.PROPOSITION, properties={"based_on_cluster_id": str(cl1.id), "involved_ucm_ids": [str(ucm1.id), str(ucm2.id)]})
+        mt1 = await create_concept_in_db(db, "MiniTheory1", DomainConceptType.MINI_THEORY, properties={"member_proposition_ids": [str(p1.id)]})
+        ct1 = await create_concept_in_db(db, "CompTheory1", DomainConceptType.COMPREHENSIVE_THEORY, properties={"member_mini_theory_ids": [str(mt1.id)]})
+        um1 = await create_concept_in_db(db, "UnifiedModel1", DomainConceptType.UNIFIED_MODEL, properties={"member_comprehensive_theory_ids": [str(ct1.id)]})
+
+        # Test con max_depth = 0 (solo el nodo raíz)
+        response_depth0 = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{um1.id}?max_depth=0", headers=headers)
+        assert response_depth0.status_code == status.HTTP_200_OK
+        data0 = response_depth0.json()
+        assert len(data0["nodes"]) == 1
+        assert data0["nodes"][0]["id"] == str(um1.id)
+        assert len(data0["edges"]) == 0
+
+        # Test con max_depth = 1 (raíz y sus hijos directos)
+        response_depth1 = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{um1.id}?max_depth=1", headers=headers)
+        assert response_depth1.status_code == status.HTTP_200_OK
+        data1 = response_depth1.json()
+        # Nodos: UM1, CT1
+        assert len(data1["nodes"]) == 2
+        node_ids1 = {n["id"] for n in data1["nodes"]}
+        assert {str(um1.id), str(ct1.id)} == node_ids1
+        # Aristas: UM1 -> CT1
+        assert len(data1["edges"]) == 1
+        assert data1["edges"][0]["from"] == str(um1.id) and data1["edges"][0]["to"] == str(ct1.id)
+
+        # Test con max_depth = 2 (UM1 -> CT1 -> MT1)
+        response_depth2 = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{um1.id}?max_depth=2", headers=headers)
+        assert response_depth2.status_code == status.HTTP_200_OK
+        data2 = response_depth2.json()
+        # Nodos: UM1, CT1, MT1
+        assert len(data2["nodes"]) == 3
+        node_ids2 = {n["id"] for n in data2["nodes"]}
+        assert {str(um1.id), str(ct1.id), str(mt1.id)} == node_ids2
+        # Aristas: UM1->CT1, CT1->MT1
+        assert len(data2["edges"]) == 2
+        edge_pairs2 = {(e["from"], e["to"]) for e in data2["edges"]}
+        assert {(str(um1.id), str(ct1.id)), (str(ct1.id), str(mt1.id))} == edge_pairs2
+
+        # Test con max_depth = 5 (toda la jerarquía)
+        response_depth5 = await test_client.get(f"/eje-y/visualization/hierarchy_graph/{um1.id}?max_depth=5", headers=headers)
+        assert response_depth5.status_code == status.HTTP_200_OK
+        data5 = response_depth5.json()
+        # Nodos: UM1, CT1, MT1, P1, CL1, UCM1, UCM2 (total 7)
+        # La lógica actual de BFS podría añadir UCM1 y UCM2 dos veces si P1 y CL1 los referencian y ambos están dentro de max_depth.
+        # El uso de `nodes_map` en el endpoint debería manejar la unicidad de nodos.
+        # El `involved_ucm_ids` en la Proposición P1 también crea aristas a UCM1 y UCM2.
+        # El `member_concept_ids` en Cluster CL1 también crea aristas a UCM1 y UCM2.
+        # La clave `ids_in_bfs_queue_or_processed` previene que un mismo nodo se expanda múltiples veces.
+        # Los nodos UCM solo se añaden a la cola una vez.
+
+        # Esperados: UM1, CT1, MT1, P1, CL1, UCM1, UCM2
+        # La propiedad de P1 es "involved_ucm_ids": [ucm1, ucm2]
+        # La propiedad de CL1 es "member_concept_ids": [ucm1, ucm2]
+        # Si P1 es hijo de MT1 (nivel 3), y CL1 es referenciado por P1 (podría ser nivel 4 si se modela así)
+        # y UCMs son hijos de CL1 (nivel 5) y también de P1 (nivel 4).
+        # El BFS actual con `ids_in_bfs_queue_or_processed` asegura que cada nodo se procese una vez.
+        # El `level` en el nodo será el del primer camino encontrado.
+
+        # Nodos esperados: UM1, CT1, MT1, P1.
+        # Si P1.properties["involved_ucm_ids"] se expande: UCM1, UCM2. Total 6 nodos.
+        # Si P1.properties["based_on_cluster_id"] se expande y luego CL1.properties["member_concept_ids"]: CL1, UCM1, UCM2. Total 7 nodos.
+        # La lógica del endpoint actual prioriza `member_ids_property_key` según el tipo.
+        # Para PROPOSITION, es `involved_ucm_ids`.
+        # Nodos: UM1(0), CT1(1), MT1(2), P1(3), UCM1(4), UCM2(4). Total 6.
+        # Aristas: UM1->CT1, CT1->MT1, MT1->P1, P1->UCM1, P1->UCM2. Total 5.
+
+        assert len(data5["nodes"]) == 6
+        node_ids5 = {n["id"] for n in data5["nodes"]}
+        assert {str(um1.id), str(ct1.id), str(mt1.id), str(p1.id), str(ucm1.id), str(ucm2.id)} == node_ids5
+        assert len(data5["edges"]) == 5
+        edge_pairs5 = {(e["from"], e["to"]) for e in data5["edges"]}
+        expected_edges5 = {
+            (str(um1.id), str(ct1.id)), (str(ct1.id), str(mt1.id)), (str(mt1.id), str(p1.id)),
+            (str(p1.id), str(ucm1.id)), (str(p1.id), str(ucm2.id))
+        }
+        assert edge_pairs5 == expected_edges5
+
+    finally:
+        db.close()
 
 @pytest.mark.asyncio
 async def test_get_hierarchy_graph_not_found(test_client: AsyncClient, researcher_token: str):
@@ -1038,22 +1113,51 @@ async def test_get_hierarchy_graph_not_found(test_client: AsyncClient, researche
 
 @pytest.mark.asyncio
 async def test_get_synthesis_statistics_success(test_client: AsyncClient, researcher_token: str):
-    """Prueba el endpoint de estadísticas de síntesis."""
+    """Prueba el endpoint de estadísticas de síntesis con datos reales."""
     headers = {"Authorization": f"Bearer {researcher_token}"}
-    response = await test_client.get("/eje-y/visualization/synthesis_statistics", headers=headers)
+    db = next(override_get_db_session())
+    try:
+        # Limpiar y preparar datos
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
 
-    assert response.status_code == status.HTTP_200_OK
-    data = response.json()
-    assert "overall_stats" in data
-    assert "type_distribution" in data
-    assert isinstance(data["overall_stats"], list)
-    assert isinstance(data["type_distribution"], dict)
-    if data["overall_stats"]:
-        assert "name" in data["overall_stats"][0]
-        assert "value" in data["overall_stats"][0]
-    if data["type_distribution"]:
-        # Verificar que alguna clave esperada exista, ej. "UCM"
-        assert "UCM" in data["type_distribution"] or not data["type_distribution"] # Puede ser vacío si no hay datos
+        # Crear algunos conceptos de diferentes tipos
+        doc1 = await create_concept_in_db(db, "Doc 1", DomainConceptType.DOCUMENT_SOURCE)
+        ucm1 = await create_concept_in_db(db, "UCM 1", DomainConceptType.UCM)
+        ucm2 = await create_concept_in_db(db, "UCM 2", DomainConceptType.UCM)
+        cluster1 = await create_concept_in_db(db, "Cluster 1", DomainConceptType.CLUSTER)
+        # Crear algunas relaciones (necesitaríamos un helper o crearlas manualmente si el endpoint las cuenta)
+        # Por ahora, el endpoint solo cuenta conceptos y documentos fuente.
+        # Si se añade el conteo de relaciones al endpoint, este test necesitaría crear relaciones también.
+        # La implementación actual de get_synthesis_statistics sí cuenta relaciones.
+        from Aletheia_v3.infrastructure.models import DirectedRelationshipDB as RelDBModel
+        rel1 = RelDBModel(source_concept_id=doc1.id, target_concept_id=ucm1.id, type="EXTRACTED_FROM")
+        rel2 = RelDBModel(source_concept_id=ucm1.id, target_concept_id=ucm2.id, type="RELATES_TO")
+        db.add_all([rel1, rel2])
+        db.commit()
+
+        response = await test_client.get("/eje-y/visualization/synthesis_statistics", headers=headers)
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        assert "overall_stats" in data
+        assert "type_distribution" in data
+
+        stats_map = {item["name"]: item["value"] for item in data["overall_stats"]}
+        assert stats_map["Total Conceptos Registrados"] == 4 # doc1, ucm1, ucm2, cluster1
+        assert stats_map["Total Relaciones Registradas"] == 2
+        assert stats_map["Documentos Fuente Procesados"] == 1
+
+        type_dist = data["type_distribution"]
+        assert type_dist[DomainConceptType.DOCUMENT_SOURCE.value] == 1
+        assert type_dist[DomainConceptType.UCM.value] == 2
+        assert type_dist[DomainConceptType.CLUSTER.value] == 1
+        assert DomainConceptType.PROPOSITION.value not in type_dist # No se crearon proposiciones
+
+    finally:
+        db.close()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", [
