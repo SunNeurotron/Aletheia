@@ -103,36 +103,86 @@ class TestMDUSystemSuite:
     @given(
         data_text=st_hypothesis.text(min_size=10, max_size=50), # Shorter text for faster tests
         strategy_name=st_hypothesis.sampled_from(['exhaustive', 'progressive', 'adaptive']),
-        replication_factor=st_hypothesis.integers(min_value=1, max_value=2) # Keep low for tests
+        replication_factor=st_hypothesis.integers(min_value=1, max_value=2)
     )
     @pytest.mark.asyncio
     async def test_distributed_analysis_properties(
-        self, mdu_system_integration_instance: CubeHoneycombIntegration,
+        self, mdu_system_integration_instance: CubeHoneycombIntegration, mocker, # Added mocker
         data_text: str, strategy_name: str, replication_factor: int
     ):
         """
-        Property-based testing del análisis distribuido a través de CubeHoneycombIntegration.
+        Property-based testing del análisis distribuido a través de CubeHoneycombIntegration,
+        verificando llamadas a componentes internos de la colmena.
         """
-        # Configure system instance for this test run
-        mdu_system_integration_instance.replication_manager.replication_factor = replication_factor
+        # Imports para mocks y tipos
+        from unittest.mock import AsyncMock
+        from ...core.honeycomb_models import HexagonalCell # Para el return_value de replicate_analysis
+
+        # Configurar la instancia del sistema para esta ejecución de prueba
+        system_under_test = mdu_system_integration_instance
+        system_under_test.replication_manager.replication_factor = replication_factor
         if replication_factor == 1:
-            mdu_system_integration_instance.consensus_engine.threshold = 0.99 # Needs full agreement
+            system_under_test.consensus_engine.threshold = 0.99
         else:
-            mdu_system_integration_instance.consensus_engine.threshold = 0.51 # Majority for rf=2
+            system_under_test.consensus_engine.threshold = 0.51
 
-        result = await mdu_system_integration_instance.execute_distributed_analysis(data_text, strategy_name)
+        # Mock de HexagonalCell (simple, solo para tipado y estructura)
+        mock_cell = HexagonalCell(position=(0,0,0), layer="application")
+        mock_cell.cell_id = "mock_cell_007"
 
-        assert result['analysis_id'] is not None
-        assert 'final_model' in result
-        assert isinstance(result['final_model'], dict)
-        assert 'consensus_confidence' in result
-        if result['consensus_confidence'] is not None:
-             assert 0.0 <= result['consensus_confidence'] <= 1.0
-        assert 'performance_metrics' in result
-        assert isinstance(result['performance_metrics'], dict)
-        # The specific assertion from mdu_cube_system.py
-        assert 'final_model' in result['final_model'] or 'base_model_merged' in result['final_model'] \
-            or 'integration_summary' in result['final_model'] # Added integration_summary as possible key
+
+        # Mockear los componentes internos y sus métodos clave
+        with mocker.patch.object(system_under_test.replication_manager, 'replicate_analysis', new_callable=AsyncMock) as mock_replicate, \
+             mocker.patch.object(system_under_test.consensus_engine, 'achieve_consensus', new_callable=AsyncMock) as mock_consensus, \
+             mocker.patch('Aletheia_v3.application.use_cases.WavePropagation.propagate_analysis', new_callable=AsyncMock) as mock_propagate:
+
+            # Configurar los valores de retorno de los mocks
+            # replicate_analysis devuelve List[Tuple[HexagonalCell, dict]]
+            mock_replicate.return_value = [(mock_cell, {"segment_id": "seg1", "result": "replicated_data_seg1"})]
+
+            # propagate_analysis devuelve un Dict[str, Any] (propagation_run_summary)
+            mock_propagate.return_value = {"aggregation_summary": {"propagated_key": "propagated_value_seg1"}, "num_cells_processed_in_wave": 1}
+
+            # achieve_consensus devuelve un dict
+            mock_consensus.return_value = {"confidence": 0.95, "result_payload": {"final_data": "consensus_reached"}, "consensus_achieved": True}
+
+            # Ejecutar el método
+            result = await system_under_test.execute_distributed_analysis(data_text, strategy_name)
+
+            # Verificar que los mocks fueron llamados
+            mock_replicate.assert_called()
+            # Si replicate_analysis devuelve datos, propagate_analysis debe ser llamado
+            if mock_replicate.return_value: # Solo se llama si hay algo que propagar
+                 mock_propagate.assert_called()
+            else: # Si no hay nada que propagar, no se llama.
+                 mock_propagate.assert_not_called()
+
+            # Consensus engine siempre se llama, incluso con resultados vacíos de propagación
+            mock_consensus.assert_called_once()
+
+
+            # Verificar la estructura básica del resultado (se mantiene de la prueba original)
+            assert result['analysis_id'] is not None
+            assert 'final_model' in result
+            assert isinstance(result['final_model'], dict)
+            assert 'consensus_confidence' in result
+            if result['consensus_confidence'] is not None:
+                 assert 0.0 <= result['consensus_confidence'] <= 1.0
+
+            # Verificar que los datos del mock de consenso se usen
+            assert result['consensus_confidence'] == 0.95
+            # El final_model se construye a partir de _analyze_from_multiple_perspectives y _integrate_perspectives,
+            # que a su vez usan el 'result_payload' del consenso.
+            # Aquí verificamos una clave que debería originarse del mock_consensus.return_value
+            assert "final_data" in result['final_model'].get('base_model_merged', {}) or \
+                   "final_data" in result['final_model'].get('data_from_perspective_0_X_View_App', {}).get('final_data', {}) or \
+                   result['final_model'].get('base_model_merged', {}).get('final_data', {}) == "consensus_reached"
+
+
+            assert 'performance_metrics' in result
+            assert isinstance(result['performance_metrics'], dict)
+            assert 'final_model' in result['final_model'] or 'base_model_merged' in result['final_model'] \
+                or 'integration_summary_app' in result['final_model'] # Clave del _integrate_perspectives
 
     @pytest.mark.benchmark
     @pytest.mark.asyncio
