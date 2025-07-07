@@ -221,7 +221,12 @@ async def unified_models_endpoint(
 # --- Endpoints de Visualización del Eje Y ---
 from ..schemas import HierarchyGraphResponseSchema, SynthesisStatisticsResponseSchema # Nuevos Schemas
 # (IConceptRepository y dependencias ya importados)
-# from ...core.domain_models import ConceptType # Para generar datos de ejemplo
+from ...application.ports import IConceptRepository # Asegurar que esté importado
+from ...core.domain_models import ConceptType # Para lógica interna
+from ..dependencies import get_concept_repository # Para la dependencia
+from fastapi import Query # Nueva importación
+from collections import deque # Para BFS
+from typing import List, Dict, Optional, Any # Para tipos internos
 
 @router.get(
     "/visualization/hierarchy_graph/{concept_id}",
@@ -231,31 +236,106 @@ from ..schemas import HierarchyGraphResponseSchema, SynthesisStatisticsResponseS
 )
 async def get_hierarchy_graph(
     concept_id: str,
-    # concept_repo: IConceptRepository = Depends(get_concept_repository) # Para implementación real
+    max_depth: Optional[int] = Query(3, ge=1, le=5, description="Profundidad máxima de la jerarquía a explorar."),
+    concept_repo: IConceptRepository = Depends(get_concept_repository)
 ):
     """
     Devuelve los nodos y aristas para construir un grafo de jerarquía
     para un concepto de alto nivel (ej. Modelo Unificado, Teoría Comprehensiva).
-    Por ahora, devuelve datos simulados.
+    Explora los conceptos miembro recursivamente hasta la profundidad especificada.
     """
-    # TODO: Implementar lógica real para construir el grafo de jerarquía
-    #       consultando el concept_repo y relationship_repo.
-    #       Se necesitaría recorrer las propiedades "member_..." recursivamente.
-    if concept_id == "unifiedm_placeholder_0" or concept_id.startswith("unifiedm_"): # Simular para un ID conocido
-        nodes = [
-            HierarchyGraphNodeSchema(id=concept_id, label=f"Modelo Unificado ({concept_id[:6]})", type="UNIFIED_MODEL", level=0),
-            HierarchyGraphNodeSchema(id="compth_1", label="Teoría Comp. 1", type="COMPREHENSIVE_THEORY", level=1),
-            HierarchyGraphNodeSchema(id="minit_a", label="Mini-Teoría A", type="MINI_THEORY", level=2),
-            HierarchyGraphNodeSchema(id="prop_x", label="Proposición X", type="PROPOSITION", level=3),
-        ]
-        edges = [
-            HierarchyGraphEdgeSchema(from_node=concept_id, to_node="compth_1", label="compuesto_de"),
-            HierarchyGraphEdgeSchema(from_node="compth_1", to_node="minit_a", label="compuesto_de"),
-            HierarchyGraphEdgeSchema(from_node="minit_a", to_node="prop_x", label="basado_en"),
-        ]
-        return HierarchyGraphResponseSchema(nodes=nodes, edges=edges)
+    root_concept = await concept_repo.get_by_id(concept_id)
+    if not root_concept:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Concepto raíz con ID '{concept_id}' no encontrado.")
 
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Concepto con ID '{concept_id}' no encontrado o no es un modelo/teoría visualizable en jerarquía (simulado).")
+    nodes_map: Dict[str, HierarchyGraphNodeSchema] = {}
+    edges: List[HierarchyGraphEdgeSchema] = []
+
+    queue = deque([(root_concept, 0)]) # (concepto_dominio, nivel_actual)
+    # visited_ids se usa para controlar los nodos que se añaden a la cola del BFS,
+    # no necesariamente los que ya están en nodes_map, ya que un nodo puede ser
+    # añadido a nodes_map como target de una arista antes de ser procesado él mismo.
+    ids_in_bfs_queue_or_processed = {root_concept.id}
+
+
+    while queue:
+        current_concept_domain, level = queue.popleft()
+
+        if current_concept_domain.id not in nodes_map:
+            nodes_map[current_concept_domain.id] = HierarchyGraphNodeSchema(
+                id=current_concept_domain.id,
+                label=current_concept_domain.name,
+                title=f"Nombre: {current_concept_domain.name}\nTipo: {current_concept_domain.concept_type.value}\nID: {current_concept_domain.id}",
+                type=current_concept_domain.concept_type.value,
+                level=level
+            )
+        else:
+            # Si el nodo ya existe (añadido como target de una arista), actualizar su nivel si este es menor
+            if nodes_map[current_concept_domain.id].level is None or level < nodes_map[current_concept_domain.id].level:
+                nodes_map[current_concept_domain.id].level = level
+
+
+        if level >= max_depth:
+            continue
+
+        member_ids_property_key: Optional[str] = None
+        edge_label = "contiene"
+
+        # Mapeo de tipos de concepto a la clave de propiedad que contiene sus miembros
+        type_to_member_key_map = {
+            ConceptType.CLUSTER: "member_concept_ids",
+            ConceptType.PROPOSITION: "involved_ucm_ids", # O podría ser based_on_cluster_id si es singular
+            ConceptType.MINI_THEORY: "member_proposition_ids",
+            ConceptType.COMPREHENSIVE_THEORY: "member_mini_theory_ids",
+            ConceptType.UNIFIED_MODEL: "member_comprehensive_theory_ids",
+        }
+        # Mapeo de etiquetas de aristas (opcional, para mayor claridad)
+        edge_labels_map = {
+            ConceptType.CLUSTER: "agrupa_ucm",
+            ConceptType.PROPOSITION: "involucra_ucm",
+            ConceptType.MINI_THEORY: "compuesto_de_prop",
+            ConceptType.COMPREHENSIVE_THEORY: "compuesto_de_minit",
+            ConceptType.UNIFIED_MODEL: "compuesto_de_compth",
+        }
+
+        member_ids_property_key = type_to_member_key_map.get(current_concept_domain.concept_type)
+        edge_label = edge_labels_map.get(current_concept_domain.concept_type, "relacionado_con")
+
+        if member_ids_property_key and member_ids_property_key in current_concept_domain.properties:
+            member_ids = current_concept_domain.properties[member_ids_property_key]
+
+            if isinstance(member_ids, list): # Asegurarse de que es una lista de IDs
+                for member_id in member_ids:
+                    # Añadir arista primero
+                    edges.append(HierarchyGraphEdgeSchema(
+                        from_node=current_concept_domain.id,
+                        to_node=member_id,
+                        label=edge_label
+                    ))
+
+                    # Añadir nodo miembro a la cola si no ha sido procesado/encolado y obtenerlo
+                    if member_id not in ids_in_bfs_queue_or_processed:
+                        member_concept_domain = await concept_repo.get_by_id(member_id)
+                        if member_concept_domain:
+                            ids_in_bfs_queue_or_processed.add(member_id)
+                            queue.append((member_concept_domain, level + 1))
+                            # Pre-añadir nodo a nodes_map para asegurar que exista para futuras aristas
+                            if member_id not in nodes_map:
+                                nodes_map[member_id] = HierarchyGraphNodeSchema(
+                                    id=member_concept_domain.id,
+                                    label=member_concept_domain.name,
+                                    title=f"Nombre: {member_concept_domain.name}\nTipo: {member_concept_domain.concept_type.value}\nID: {member_concept_domain.id}",
+                                    type=member_concept_domain.concept_type.value,
+                                    level=level + 1 # Nivel tentativo, podría actualizarse si se alcanza por un camino más corto
+                                )
+            # Manejar caso especial como 'based_on_cluster_id' que podría ser un solo ID
+            elif isinstance(member_ids, str) and member_ids_property_key == "involved_ucm_ids": # Ejemplo si fuera un solo id
+                 # Esta parte es un ejemplo, la propiedad involved_ucm_ids ya es una lista
+                 pass
+
+
+    return HierarchyGraphResponseSchema(nodes=list(nodes_map.values()), edges=edges)
+
 
 @router.get(
     "/visualization/synthesis_statistics",
@@ -264,30 +344,41 @@ async def get_hierarchy_graph(
     dependencies=[Depends(require_roles(["researcher", "admin"]))],
 )
 async def get_synthesis_statistics(
-    # concept_repo: IConceptRepository = Depends(get_concept_repository) # Para implementación real
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+    relationship_repo: IRelationshipRepository = Depends(get_relationship_repository)
 ):
     """
-    Devuelve estadísticas agregadas sobre los conceptos y su proceso de síntesis.
-    Por ahora, devuelve datos simulados.
+    Devuelve estadísticas agregadas sobre los conceptos y su proceso de síntesis,
+    calculadas a partir de los datos reales en los repositorios.
     """
-    # TODO: Implementar lógica real para calcular estadísticas desde el concept_repo.
-    overall_stats = [
-        SynthesisStatisticItemSchema(name="Total Conceptos", value=150),
-        SynthesisStatisticItemSchema(name="Total Relaciones", value=300), # Asumir que se obtendría de relationship_repo
-        SynthesisStatisticItemSchema(name="Documentos Procesados", value=10),
-    ]
-    type_distribution = {
-        "DOCUMENT_SOURCE": 10,
-        "UCM": 80,
-        "CLUSTER": 25,
-        "PROPOSITION": 20,
-        "MINI_THEORY": 10,
-        "COMPREHENSIVE_THEORY": 3,
-        "UNIFIED_MODEL": 2,
-    }
-    return SynthesisStatisticsResponseSchema(
-        overall_stats=overall_stats,
-        type_distribution=type_distribution
-    )
+    try:
+        all_concepts = await concept_repo.list_all()
+        all_relationships = await relationship_repo.list_all()
+
+        num_total_concepts = len(all_concepts)
+        num_total_relationships = len(all_relationships)
+
+        num_documents_processed = 0
+        type_distribution: Dict[str, int] = defaultdict(int)
+
+        for concept in all_concepts:
+            concept_type_str = concept.concept_type.value
+            type_distribution[concept_type_str] += 1
+            if concept.concept_type == ConceptType.DOCUMENT_SOURCE:
+                num_documents_processed += 1
+
+        overall_stats = [
+            SynthesisStatisticItemSchema(name="Total Conceptos Registrados", value=num_total_concepts),
+            SynthesisStatisticItemSchema(name="Total Relaciones Registradas", value=num_total_relationships),
+            SynthesisStatisticItemSchema(name="Documentos Fuente Procesados", value=num_documents_processed),
+        ]
+
+        return SynthesisStatisticsResponseSchema(
+            overall_stats=overall_stats,
+            type_distribution=dict(type_distribution)
+        )
+    except Exception as e:
+        # Log e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error interno calculando estadísticas: {str(e)}")
 
 ```
