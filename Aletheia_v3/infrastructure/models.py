@@ -17,26 +17,81 @@ import uuid as uuid_pkg  # To avoid conflict with column name
 from datetime import datetime
 
 import sqlalchemy as sa  # Import for sa.false()
-from sqlalchemy import Boolean, Column, DateTime
+from sqlalchemy import Boolean, Column, DateTime, TypeDecorator
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Float, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import UUID  # For PostgreSQL UUID type
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # For PostgreSQL UUID type
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func  # For server-side default timestamps if preferred
+
+# Custom UUID type for SQLite compatibility
+class UUID(TypeDecorator):
+    """Platform-independent UUID type.
+
+    Uses PostgreSQL's UUID type, otherwise uses
+    CHAR(32), storing as string.
+    """
+    impl = String(32) # Default implementation for non-PG dialects
+    cache_ok = True
+
+    def __init__(self, as_uuid=True, *args, **kwargs):
+        # as_uuid is relevant for PG, and for our Python-side processing
+        self.as_uuid = as_uuid
+        # Pass only relevant args to String, or none if String(32) is fixed.
+        # String type itself doesn't take *args, **kwargs in its __init__ beyond length.
+        # The TypeDecorator's impl is already String(32).
+        super(UUID, self).__init__()
+
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == 'postgresql':
+            return dialect.type_descriptor(PG_UUID(as_uuid=self.as_uuid))
+        else:
+            # For other dialects, we've already set self.impl to String(32)
+            return dialect.type_descriptor(String(32))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        # For PG, PG_UUID handles UUID objects directly if as_uuid=True at type creation.
+        # If we pass a string, it's fine. If we pass UUID, it's fine.
+        if dialect.name != 'postgresql':
+            if isinstance(value, uuid_pkg.UUID):
+                return str(value) # Store as string for non-PG
+        return value # Return UUID object for PG, string for others
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == 'postgresql':
+            # PG_UUID with as_uuid=True should return UUID objects.
+            # If it returns string, convert it (though it should handle it).
+            if self.as_uuid and isinstance(value, str): return uuid_pkg.UUID(value)
+            return value
+        else: # For SQLite (String(32))
+            if self.as_uuid:
+                if isinstance(value, uuid_pkg.UUID): return value
+                try:
+                    return uuid_pkg.UUID(value) # value is a string from DB
+                except (TypeError, ValueError):
+                    return value # Or handle error
+            return value # Return as string if as_uuid is False (though our default is True)
 
 # Import Base from the database module in the same directory
 from .database import Base
 
 
+import enum # Import Python's enum module
+
 # --- Enum Types for choices ---
-class ContributionTypeEnum(SAEnum):  # Using native Python Enum for choices
+class ContributionTypeEnum(enum.Enum): # Inherit from Python's enum.Enum
     DISCOVERED_BY_JOB = "discovered_by_job"
     VERIFIED_BY_USER = "verified_by_user"
     ANALYZED_BY_USER = "analyzed_by_user"
     TAGGED_BY_USER = "tagged_by_user"
 
 
-class ConjectureStatusEnum(SAEnum):
+class ConjectureStatusEnum(enum.Enum): # Inherit from Python's enum.Enum
     PROPOSED = "proposed"
     UNDER_REVIEW = "under_review"
     VALIDATED = "validated"  # Meaning the conjecture statement is well-formed and interesting

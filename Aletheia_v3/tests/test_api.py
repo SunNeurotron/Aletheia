@@ -17,6 +17,7 @@ import uuid  # For researcher IDs
 from typing import Awaitable, Callable, Generator, Optional
 
 import pytest
+import pytest_asyncio # Import for explicit async fixture decoration
 from fastapi import Depends, status  # Added Depends
 from httpx import AsyncClient
 
@@ -115,10 +116,8 @@ app.dependency_overrides[get_user_retriever_dependency_placeholder] = (
 # --- Fixtures ---
 
 
-@pytest.fixture(
-    scope="function"
-)  # Changed to function scope to ensure clean DB for some tests
-async def test_client() -> AsyncClient:
+@pytest_asyncio.fixture(scope="function")
+async def test_client() -> AsyncClient: # Explicitly an asyncio fixture
     """
     Provides an asynchronous test client for making API requests.
     Wraps the FastAPI application.
@@ -176,7 +175,7 @@ def admin_user(test_client: AsyncClient):
         db.close()
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function") # Explicitly an asyncio fixture
 async def researcher_token(
     test_client: AsyncClient, test_researcher_user: ResearcherDB
 ) -> str:
@@ -209,6 +208,7 @@ async def admin_token(
 
 
 # Meta Endpoint Tests
+@pytest.mark.asyncio
 async def test_health_check_endpoint(
     test_client: AsyncClient,
 ):  # No auth needed
@@ -222,6 +222,7 @@ async def test_health_check_endpoint(
 
 
 # Authentication Endpoint Tests
+@pytest.mark.asyncio
 async def test_login_for_access_token_success(
     test_client: AsyncClient, test_researcher_user: ResearcherDB
 ):
@@ -237,6 +238,7 @@ async def test_login_for_access_token_success(
     assert json_response["token_type"] == "bearer"
 
 
+@pytest.mark.asyncio
 async def test_login_for_access_token_failure_wrong_password(
     test_client: AsyncClient, test_researcher_user: ResearcherDB
 ):
@@ -251,6 +253,7 @@ async def test_login_for_access_token_failure_wrong_password(
     assert json_response["detail"] == "Incorrect username or password"
 
 
+@pytest.mark.asyncio
 async def test_login_for_access_token_failure_wrong_username(
     test_client: AsyncClient,
 ):
@@ -262,6 +265,7 @@ async def test_login_for_access_token_failure_wrong_username(
     assert json_response["detail"] == "Incorrect username or password"
 
 
+@pytest.mark.asyncio
 async def test_read_users_me_success(
     test_client: AsyncClient,
     researcher_token: str,
@@ -278,6 +282,7 @@ async def test_read_users_me_success(
     # The get_researcher_for_auth maps is_admin to "admin" role.
 
 
+@pytest.mark.asyncio
 async def test_read_users_me_no_token(test_client: AsyncClient):
     """Tests accessing a protected endpoint without a token."""
     response = await test_client.get("/users/me")
@@ -290,6 +295,7 @@ async def test_read_users_me_no_token(test_client: AsyncClient):
     )  # Or specific FastAPI message
 
 
+@pytest.mark.asyncio
 async def test_read_users_me_invalid_token(test_client: AsyncClient):
     """Tests accessing a protected endpoint with an invalid or expired token."""
     headers = {"Authorization": "Bearer invalidtoken"}
@@ -329,8 +335,13 @@ async def test_create_search_job_success(
     # self.test_job_id = json_response["id"]
 
 
+# test_create_search_job_invalid_n_calls_too_low is already marked with @pytest.mark.asyncio
+# No change needed here based on the previous logic, but ensuring all async tests are marked.
+# It was failing due to client issue, not lack of mark.
+# The issue was that the client fixture itself was not correctly processed.
+
 @pytest.mark.asyncio
-async def test_create_search_job_invalid_n_calls_too_low(
+async def test_create_search_job_invalid_n_calls_too_low( # Already marked
     test_client: AsyncClient,
 ):
     """Tests job creation failure with n_calls below the minimum."""
@@ -342,8 +353,9 @@ async def test_create_search_job_invalid_n_calls_too_low(
     # Further assertions on the error detail can be added if needed.
 
 
+# Similarly, test_create_search_job_invalid_n_calls_too_high is already marked.
 @pytest.mark.asyncio
-async def test_create_search_job_invalid_n_calls_too_high(
+async def test_create_search_job_invalid_n_calls_too_high( # Already marked
     test_client: AsyncClient,
 ):
     """Tests job creation failure with n_calls above the maximum."""
@@ -352,6 +364,7 @@ async def test_create_search_job_invalid_n_calls_too_high(
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+@pytest.mark.asyncio
 async def test_create_search_job_no_auth(test_client: AsyncClient):
     """Tests creating a search job without authentication."""
     search_payload = {"n_calls": 20}
@@ -377,8 +390,9 @@ async def test_get_job_status_not_found(
     assert json_response["detail"] == "Job not found"
 
 
+# test_get_job_status_no_auth is already marked.
 @pytest.mark.asyncio
-async def test_get_job_status_no_auth(test_client: AsyncClient):
+async def test_get_job_status_no_auth(test_client: AsyncClient): # Already marked
     """Tests retrieving job status without authentication."""
     response = await test_client.get("/searches/some-job-id")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -388,11 +402,18 @@ async def test_get_job_status_no_auth(test_client: AsyncClient):
 
 
 # POST /researchers (create researcher) - Requires admin role
+@pytest.mark.asyncio
 async def test_create_researcher_success_by_admin(
-    test_client: AsyncClient, admin_token: str
+    test_client: AsyncClient, admin_user: ResearcherDB # Changed from admin_token to admin_user
 ):
     """Admin successfully creates a new researcher."""
-    headers = {"Authorization": f"Bearer {admin_token}"}
+    # Manually fetch token inside test for diagnostics
+    login_data = {"username": admin_user.username, "password": "adminpass"}
+    token_response = await test_client.post("/token", data=login_data)
+    assert token_response.status_code == status.HTTP_200_OK, f"Failed to get admin token in test: {token_response.text}"
+    actual_admin_token = token_response.json()["access_token"]
+
+    headers = {"Authorization": f"Bearer {actual_admin_token}"}
     new_researcher_data = {
         "username": "newbie",
         "email": "newbie@example.com",
@@ -413,6 +434,7 @@ async def test_create_researcher_success_by_admin(
     db.close()
 
 
+@pytest.mark.asyncio
 async def test_create_researcher_by_researcher_forbidden(
     test_client: AsyncClient, researcher_token: str
 ):
@@ -429,6 +451,7 @@ async def test_create_researcher_by_researcher_forbidden(
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+@pytest.mark.asyncio
 async def test_create_researcher_no_auth(test_client: AsyncClient):
     """Attempt to create researcher without authentication."""
     new_researcher_data = {
@@ -441,6 +464,7 @@ async def test_create_researcher_no_auth(test_client: AsyncClient):
 
 
 # GET /researchers (list researchers) - Requires researcher role
+@pytest.mark.asyncio
 async def test_list_researchers_success(
     test_client: AsyncClient,
     researcher_token: str,
@@ -456,6 +480,7 @@ async def test_list_researchers_success(
     assert any(r["username"] == test_researcher_user.username for r in data)
 
 
+@pytest.mark.asyncio
 async def test_list_researchers_no_auth(test_client: AsyncClient):
     """Attempt to list researchers without authentication."""
     response = await test_client.get("/researchers")
@@ -463,6 +488,7 @@ async def test_list_researchers_no_auth(test_client: AsyncClient):
 
 
 # GET /researchers/{researcher_id} - Requires researcher role
+@pytest.mark.asyncio
 async def test_get_researcher_by_id_success(
     test_client: AsyncClient,
     researcher_token: str,
@@ -479,6 +505,7 @@ async def test_get_researcher_by_id_success(
     assert data["username"] == test_researcher_user.username
 
 
+@pytest.mark.asyncio
 async def test_get_researcher_by_id_no_auth(
     test_client: AsyncClient, test_researcher_user: ResearcherDB
 ):
@@ -489,6 +516,7 @@ async def test_get_researcher_by_id_no_auth(
 
 
 # PUT /researchers/{researcher_id} - Self update OR admin update
+@pytest.mark.asyncio
 async def test_update_researcher_self(
     test_client: AsyncClient,
     researcher_token: str,
@@ -512,6 +540,7 @@ async def test_update_researcher_self(
     )  # Username should not change here
 
 
+@pytest.mark.asyncio
 async def test_update_researcher_by_admin(
     test_client: AsyncClient,
     admin_token: str,
@@ -532,6 +561,7 @@ async def test_update_researcher_by_admin(
     assert data["full_name"] == "Admin Was Here"
 
 
+@pytest.mark.asyncio
 async def test_update_researcher_by_other_researcher_forbidden(
     test_client: AsyncClient,
     researcher_token: str,

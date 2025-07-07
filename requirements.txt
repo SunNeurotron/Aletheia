@@ -4,6 +4,7 @@
 fastapi==0.103.0
 uvicorn[standard]==0.23.2
 aiohttp # For GraphQLAdapter and general async HTTP
+python-multipart # For FastAPI form data (OAuth2PasswordRequestForm)
 
 # ==========================================
 # Data Validation & Settings Management
@@ -15,18 +16,20 @@ pydantic==2.4.2 # Also a FastAPI core dependency, pinned for clarity
 # ==========================================
 sqlalchemy==2.0.20
 asyncpg # For async PostgreSQL operations in mdu_cube_system.py
-# psycopg2-binary==2.9.6  # Temporarily removed - Driver for PostgreSQL, SQLAlchemy might use it for sync
+psycopg2-binary # Driver for PostgreSQL, often used by SQLAlchemy for sync operations
 # alembic==1.12.0  # Temporarily removed - For database migrations
 
 # ==========================================
 # Machine Learning / Statistics / Data
 # ==========================================
-mlflow==2.7.1 # For experiment tracking - Re-enabled
+# mlflow==2.7.1 # For experiment tracking - Re-enabled - Temporarily commented out due to pyarrow build issue
 scipy==1.13.1
 numpy==1.26.0
 scikit-learn # For cosine_similarity, AgglomerativeClustering
+scikit-optimize # For skopt.gp_minimize in Aletheia_v3/core/use_cases.py
 networkx # For ConceptCluster graph operations
 numba # For JITOptimizer
+# cypari2 # For PARI/GP integration in Aletheia_v3/core/domain.py - Temporarily commented out due to build issue (needs PARI/GP C library)
 
 # ==========================================
 # Task Queue & Caching
@@ -59,6 +62,7 @@ pytest==7.4.0
 pytest-asyncio # For async test functions
 pytest-cov==4.1.0 # For code coverage reporting
 pytest-benchmark # For performance benchmark tests
+pytest-mock # For mocker fixture
 httpx==0.25.0 # HTTP client for testing FastAPI (TestClient)
 hypothesis==6.82.0 # Property-based testing
 

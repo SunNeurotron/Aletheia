@@ -24,13 +24,30 @@ discovery of abc-triples (`intelligent_discovery_task`).
 # infrastructure/celery_worker.py
 import os
 import time  # For potential delays or retries
+import logging # For logging import status
+from typing import Any # Added for type hinting db_session_factory
 
-import mlflow  # MLflow for experiment tracking
+# Attempt to import mlflow and set a flag
+try:
+    import mlflow
+    MLFLOW_AVAILABLE_CELERY = True # Use a different name to avoid conflict if this file is imported elsewhere
+except ImportError:
+    mlflow = None # type: ignore
+    MLFLOW_AVAILABLE_CELERY = False
+    logging.getLogger(__name__).warning("mlflow could not be imported for celery_worker. MLflow tracking in tasks will be disabled.")
+
 from celery import Celery
-from core.domain import ABCQuality  # For type hinting if necessary
+# Ensure core.domain and core.use_cases are correctly imported based on Aletheia_v3 structure
+# These should be absolute imports from the Aletheia_v3 package root if worker is run from project root.
+# Or relative if this module is part of a larger structure recognized by Celery.
+# Assuming celery worker is run from a context where Aletheia_v3 is importable:
+from Aletheia_v3.core.domain import ABCQuality
+from Aletheia_v3.core.use_cases import IntelligentSearchUseCase
+# from core.domain import ABCQuality  # For type hinting if necessary # Original
+# from core.use_cases import IntelligentSearchUseCase # Original
 
 # Import the core use case
-from core.use_cases import IntelligentSearchUseCase
+# from core.use_cases import IntelligentSearchUseCase # This line is redundant and incorrect
 from sqlalchemy.orm import Session
 
 # Import database session and models from the local infrastructure package
@@ -60,17 +77,22 @@ Name 'tasks' is conventional for the main application module.
 
 # MLflow Configuration
 MLFLOW_TRACKING_URI: str = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow:5000")
-"""URI for the MLflow tracking server. Loaded from environment variable."""
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+MLFLOW_EXPERIMENT_NAME: str = os.getenv("MLFLOW_EXPERIMENT_NAME", "ABC Conjecture Research")
 
-MLFLOW_EXPERIMENT_NAME: str = os.getenv(
-    "MLFLOW_EXPERIMENT_NAME", "ABC Conjecture Research"
-)
-"""Name of the MLflow experiment to use for logging runs. Loaded from environment variable."""
-experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
-if experiment is None:
-    mlflow.create_experiment(MLFLOW_EXPERIMENT_NAME)
-mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+if MLFLOW_AVAILABLE_CELERY and mlflow is not None:
+    """URI for the MLflow tracking server. Loaded from environment variable."""
+    mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+    """Name of the MLflow experiment to use for logging runs. Loaded from environment variable."""
+    try:
+        experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
+        if experiment is None:
+            mlflow.create_experiment(MLFLOW_EXPERIMENT_NAME)
+        mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Failed to set MLflow experiment: {e}")
+else:
+    logging.getLogger(__name__).warning("MLflow is not available. Skipping MLflow configuration in celery_worker.")
 
 
 from kombu import Exchange, Queue
@@ -142,109 +164,107 @@ def intelligent_discovery_task(job_id: str, n_calls: int):
                        allowing Celery to mark the task as failed.
     """
     print(
-        f"[{job_id}] Task received. n_calls: {n_calls}. Connecting to MLflow: {MLFLOW_TRACKING_URI}"
+        f"[{job_id}] Task received. n_calls: {n_calls}. MLflow available: {MLFLOW_AVAILABLE_CELERY}"
     )
 
-    # Start an MLflow run for this task. All logs and metrics will be under this run.
-    with mlflow.start_run(run_name=f"job_{job_id}") as run:
-        mlflow.log_param("job_id", job_id)
-        mlflow.log_param("n_calls_requested", n_calls)
-        run_id = run.info.run_id
-        mlflow.set_tag(
-            "celery_task_id", intelligent_discovery_task.request.id
-        )  # Log Celery task ID
-        print(f"[{job_id}] MLflow run started: {run_id}")
+    if MLFLOW_AVAILABLE_CELERY and mlflow:
+        with mlflow.start_run(run_name=f"job_{job_id}") as run:
+            mlflow.log_param("job_id", job_id)
+            mlflow.log_param("n_calls_requested", n_calls)
+            run_id_value = run.info.run_id # type: ignore
+            mlflow.set_tag("celery_task_id", intelligent_discovery_task.request.id) # type: ignore
+            print(f"[{job_id}] MLflow run started: {run_id_value}")
 
-        db: Session = SessionLocal()
-        try:
-            job = db.query(JobDB).filter(JobDB.id == job_id).first()
-            if not job:
-                print(f"[{job_id}] Error: Job not found in database.")
-                mlflow.log_metric("task_status", 0)  # 0 for failure
+            return _execute_discovery_logic(job_id, n_calls, SessionLocal, mlflow_is_active=True, current_run_id=run_id_value)
+    else:
+        print(f"[{job_id}] MLflow not available. Running task without MLflow tracking.")
+        run_id_value = f"local_run_{job_id}"
+        return _execute_discovery_logic(job_id, n_calls, SessionLocal, mlflow_is_active=False, current_run_id=run_id_value)
+
+def _execute_discovery_logic(job_id: str, n_calls: int, db_session_factory: Any, mlflow_is_active: bool, current_run_id: str):
+    """Helper function containing the core logic of the discovery task."""
+    # Ensure Session type is available if using it for db type hint
+    # from sqlalchemy.orm import Session # Can be here or at top of file
+    db: Session = db_session_factory()
+    try:
+        job = db.query(JobDB).filter(JobDB.id == job_id).first()
+        if not job:
+            print(f"[{job_id}] Error: Job not found in database.")
+            if mlflow_is_active and mlflow:
+                mlflow.log_metric("task_status", 0)
                 mlflow.set_tag("status", "error_job_not_found")
-                # Optionally raise an error or return a specific status
-                return {"status": "error", "message": "Job not found"}
+            return {"status": "error", "message": "Job not found", "run_id": current_run_id}
 
-            job.status = "processing"
-            db.commit()
-            print(f"[{job_id}] Status updated to 'processing'.")
+        job.status = "processing"
+        db.commit()
+        print(f"[{job_id}] Status updated to 'processing'.")
+        if mlflow_is_active and mlflow:
             mlflow.set_tag("status", "processing")
 
-            # Instantiate the use case from the core layer
-            use_case = IntelligentSearchUseCase()
+        # Instantiate the use case from the core layer
+        use_case = IntelligentSearchUseCase()
 
-            # Execute the search. This is the computationally intensive part.
-            # The search method in use_cases.py handles the Bayesian optimization.
-            print(f"[{job_id}] Starting intelligent search via use case...")
-            hits: list[ABCQuality] = use_case.search(n_calls=n_calls)
-            print(
-                f"[{job_id}] Search completed. Found {len(hits)} potential hits."
-            )
+        # Execute the search. This is the computationally intensive part.
+        print(f"[{job_id}] Starting intelligent search via use case...")
+        hits: list[ABCQuality] = use_case.search(n_calls=n_calls)
+        print(
+            f"[{job_id}] Search completed. Found {len(hits)} potential hits."
+        )
 
-            # Process and save the hits to the database
-            saved_hits_count = 0
-            best_quality_found = 0.0
-            if hits:
-                for hit_quality_obj in hits:
-                    # Create a HitDB record for each found hit
-                    db_hit = HitDB(
-                        job_id=job_id,
-                        a=hit_quality_obj.triple.a,
-                        b=hit_quality_obj.triple.b,
-                        c=hit_quality_obj.triple.c,
-                        quality=hit_quality_obj.quality,
-                    )
-                    db.add(db_hit)
-                    saved_hits_count += 1
-                    if hit_quality_obj.quality > best_quality_found:
-                        best_quality_found = hit_quality_obj.quality
-
-                db.commit()  # Commit all hits for this job
-                print(f"[{job_id}] Saved {saved_hits_count} hits to database.")
-
-            # Update job status to "completed"
-            job.status = "completed"
+        # Process and save the hits to the database
+        saved_hits_count = 0
+        best_quality_found = 0.0
+        if hits:
+            for hit_quality_obj in hits:
+                db_hit = HitDB(
+                    job_id=job_id,
+                    a=hit_quality_obj.triple.a,
+                    b=hit_quality_obj.triple.b,
+                    c=hit_quality_obj.triple.c,
+                    quality=hit_quality_obj.quality,
+                )
+                db.add(db_hit)
+                saved_hits_count += 1
+                if hit_quality_obj.quality > best_quality_found:
+                    best_quality_found = hit_quality_obj.quality
             db.commit()
-            print(f"[{job_id}] Status updated to 'completed'.")
+            print(f"[{job_id}] Saved {saved_hits_count} hits to database.")
 
-            # Log metrics to MLflow
-            mlflow.log_metric(
-                "hits_found_count", len(hits)
-            )  # Number of hits from search
-            mlflow.log_metric(
-                "hits_saved_db_count", saved_hits_count
-            )  # Number actually saved
+        job.status = "completed"
+        db.commit()
+        print(f"[{job_id}] Status updated to 'completed'.")
+
+        if mlflow_is_active and mlflow:
+            mlflow.log_metric("hits_found_count", len(hits))
+            mlflow.log_metric("hits_saved_db_count", saved_hits_count)
             mlflow.log_metric("best_quality_found", best_quality_found)
             mlflow.log_metric("task_status", 1)  # 1 for success
             mlflow.set_tag("status", "completed")
 
-            return {
-                "status": "completed",
-                "job_id": job_id,
-                "hits_found": len(hits),
-                "best_quality": best_quality_found,
-            }
-
-        except Exception as e:
-            print(f"[{job_id}] Error during task execution: {e}")
+        return {
+            "status": "completed",
+            "job_id": job_id,
+            "hits_found": len(hits),
+            "best_quality": best_quality_found,
+            "run_id": current_run_id
+        }
+    except Exception as e:
+        print(f"[{job_id}] Error during task execution: {e}")
+        if mlflow_is_active and mlflow:
             mlflow.log_metric("task_status", 0)  # 0 for failure
             mlflow.set_tag("status", "error_task_exception")
-            mlflow.log_param("error_message", str(e))
-            # Rollback database changes if an error occurs mid-transaction
-            if db.is_active:
-                db.rollback()
-            # Update job status to "failed" if possible
-            job_in_error = db.query(JobDB).filter(JobDB.id == job_id).first()
-            if job_in_error:
-                job_in_error.status = "failed"
-                db.commit()
-            # Re-raise the exception so Celery can mark the task as failed
-            raise
-        finally:
-            # Always close the database session
-            if db:
-                db.close()
-            print(f"[{job_id}] Task finished. MLflow run: {run_id}")
+            mlflow.log_param("error_message", str(e)) # type: ignore
+        if db.is_active:
+            db.rollback()
+        job_in_error = db.query(JobDB).filter(JobDB.id == job_id).first()
+        if job_in_error:
+            job_in_error.status = "failed"
+            db.commit()
+        raise
+    finally:
+        if db:
+            db.close()
+        print(f"[{job_id}] Task finished. MLflow run ID (if used): {current_run_id}")
 
 
 # To run the worker (typically from the project root or where celery_app is discoverable):
