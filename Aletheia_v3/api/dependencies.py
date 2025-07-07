@@ -106,21 +106,12 @@ def get_domain_service(theory_builder: TheoryBuilder = Depends(get_theory_builde
 # --- Funciones de Dependencia para Casos de Uso ---
 
 # Eje X
-def get_extract_ucms_use_case() -> ExtractUCMsUseCase:
-    class PlaceholderExtractUCMsUseCase(ExtractUCMsUseCase):
-        async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResponseSchema:
-            concepts = []
-            if "AI" in input_data.text_content:
-                concepts.append(ExtractedUCMSchema(id="ucm_ai_placeholder", name="Artificial Intelligence (Placeholder)", concept_type="GENERIC_CONCEPT"))
-            if "ethics" in input_data.text_content:
-                concepts.append(ExtractedUCMSchema(id="ucm_ethics_placeholder", name="Ethics (Placeholder)", concept_type="GENERIC_CONCEPT"))
-            return UCMExtractionResponseSchema(
-                source_document_id=input_data.source_document_id,
-                extracted_concepts=concepts,
-                extracted_relationships=[],
-                processing_log=["Placeholder UCM extraction completed."]
-            )
-    return PlaceholderExtractUCMsUseCase()
+def get_extract_ucms_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+    relationship_repo: IRelationshipRepository = Depends(get_relationship_repository)
+) -> ExtractUCMsUseCase:
+    # Ahora devuelve la implementación real de application.use_cases
+    return ExtractUCMsUseCase(concept_repo=concept_repo, relationship_repo=relationship_repo)
 
 def get_ingest_document_use_case(
     concept_repo: IConceptRepository = Depends(get_concept_repository),
