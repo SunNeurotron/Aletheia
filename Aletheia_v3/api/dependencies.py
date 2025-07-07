@@ -2,11 +2,15 @@ from functools import lru_cache
 from typing import Any, Dict # Añadido Dict para PlaceholderTaskQueue
 from fastapi import Depends # Importar Depends aquí
 
-# Repositorios (Implementaciones en Memoria)
+# Repositorios (Implementaciones en Memoria y SQLAlchemy)
 from ..infrastructure.in_memory_repositories import (
-    InMemoryConceptRepository,
-    InMemoryRelationshipRepository,
-    InMemoryAnalysisRepository
+    # InMemoryConceptRepository, # Será reemplazado
+    # InMemoryRelationshipRepository, # Será reemplazado
+    InMemoryAnalysisRepository # Se mantiene por ahora para MDU si no se migra
+)
+from ..infrastructure.sqlalchemy_repositories import (
+    SQLAlchemyConceptRepository,
+    SQLAlchemyRelationshipRepository
 )
 # Puertos de Repositorio (Interfaces)
 from ..application.ports import (
@@ -57,19 +61,27 @@ class PlaceholderTaskQueue(ITaskQueue):
 
 
 # --- Singletons para Repositorios en Memoria ---
-@lru_cache(None)
+# --- Singletons para Repositorios en Memoria (y ahora SQLAlchemy) ---
+
+# Para SQLAlchemyConceptRepository y SQLAlchemyRelationshipRepository,
+# la sesión de BD (db: Session) es inyectada por FastAPI en sus constructores
+# porque sus __init__ están definidos con `db: Session = Depends(get_db_session)`.
+# Por lo tanto, estas funciones 'get' simplemente necesitan instanciar la clase.
+# No se usa @lru_cache aquí porque la instancia del repo depende de la sesión de BD (que es por request).
+
 def get_concept_repository() -> IConceptRepository:
-    # TODO: Reemplazar con implementación persistente (ej. SQLAlchemy) en el futuro.
-    return InMemoryConceptRepository()
+    # SQLAlchemyConceptRepository() será instanciado, y FastAPI inyectará la sesión de BD.
+    return SQLAlchemyConceptRepository()
 
-@lru_cache(None)
 def get_relationship_repository() -> IRelationshipRepository:
-    # TODO: Reemplazar con implementación persistente.
-    return InMemoryRelationshipRepository()
+    # SQLAlchemyRelationshipRepository() será instanciado, y FastAPI inyectará la sesión de BD.
+    return SQLAlchemyRelationshipRepository()
 
+# Mantener InMemoryAnalysisRepository para los endpoints MDU si no se han migrado
+# Este sí puede ser un singleton si no depende de la sesión de BD por request.
 @lru_cache(None)
 def get_analysis_repository() -> IAnalysisRepository:
-    # TODO: Reemplazar con implementación persistente.
+    # TODO: Reemplazar con implementación persistente si los endpoints MDU se migran.
     return InMemoryAnalysisRepository()
 
 @lru_cache(None)

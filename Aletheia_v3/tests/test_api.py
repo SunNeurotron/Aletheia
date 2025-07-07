@@ -656,20 +656,31 @@ async def test_link_concepts_endpoint_success(test_client: AsyncClient, research
     """Tests successful concept linking."""
     headers = {"Authorization": f"Bearer {researcher_token}"}
 
-    # Necesitamos que los conceptos existan. Usaremos el repo en memoria para añadirlos.
-    from Aletheia_v3.api.dependencies import get_concept_repository
-    from Aletheia_v3.core.domain_models import ScientificConcept, ConceptType
-    concept_repo = get_concept_repository()
-    await concept_repo.clear() # Limpiar para el test
+    # Interactuar con la BD de prueba para crear conceptos
+    from Aletheia_v3.infrastructure.models import ScientificConceptDB
+    from Aletheia_v3.core.domain_models import ConceptType # Enum de dominio
 
-    source_concept = ScientificConcept(name="Dark Matter", concept_type=ConceptType.GENERIC_CONCEPT)
-    target_concept = ScientificConcept(name="Galaxy Rotation", concept_type=ConceptType.GENERIC_CONCEPT)
-    await concept_repo.add(source_concept)
-    await concept_repo.add(target_concept)
+    db = next(override_get_db_session()) # Obtener sesión de BD de prueba
+    try:
+        # Limpiar conceptos existentes para aislamiento del test
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+
+        source_concept_db = ScientificConceptDB(name="Dark Matter DB", concept_type=ConceptType.GENERIC_CONCEPT)
+        target_concept_db = ScientificConceptDB(name="Galaxy Rotation DB", concept_type=ConceptType.GENERIC_CONCEPT)
+        db.add_all([source_concept_db, target_concept_db])
+        db.commit()
+        db.refresh(source_concept_db)
+        db.refresh(target_concept_db)
+
+        source_id_str = str(source_concept_db.id)
+        target_id_str = str(target_concept_db.id)
+    finally:
+        db.close()
 
     payload = LinkConceptsRequest(
-        source_concept_id=source_concept.id,
-        target_concept_id=target_concept.id,
+        source_concept_id=source_id_str,
+        target_concept_id=target_id_str,
         relationship_type="EXPLAINS",
         description="Dark matter explains galaxy rotation curves.",
         properties={"strength": 0.9}
@@ -689,18 +700,30 @@ async def test_link_concepts_endpoint_success(test_client: AsyncClient, research
 async def test_link_concepts_endpoint_concept_not_found(test_client: AsyncClient, researcher_token: str):
     """Tests concept linking when a concept is not found."""
     headers = {"Authorization": f"Bearer {researcher_token}"}
-    from Aletheia_v3.api.dependencies import get_concept_repository
-    concept_repo = get_concept_repository()
-    await concept_repo.clear()
+
+    # Asegurar que la BD esté limpia o no contenga los IDs
+    from Aletheia_v3.infrastructure.models import ScientificConceptDB, DirectedRelationshipDB
+    db = next(override_get_db_session())
+    try:
+        # Limpiar tablas relevantes para asegurar que los conceptos no existan
+        db.query(DirectedRelationshipDB).delete()
+        db.query(ScientificConceptDB).delete()
+        db.commit()
+    finally:
+        db.close()
 
     payload = LinkConceptsRequest(
-        source_concept_id="non_existent_id_1",
-        target_concept_id="non_existent_id_2",
+        source_concept_id=str(uuid.uuid4()), # Usar un UUID aleatorio que no existirá
+        target_concept_id=str(uuid.uuid4()), # Usar otro UUID aleatorio
         relationship_type="LINKS_TO"
     )
     response = await test_client.post("/eje-x/link-concepts", json=payload.model_dump(), headers=headers)
-    assert response.status_code == status.HTTP_404_NOT_FOUND # El router convierte ValueError a 404
-    assert "Source concept" in response.json()["detail"] # o Target, dependiendo de cuál falle primero
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    # El mensaje de error puede variar si es el source o el target el que falla primero
+    # Verificar que el detalle contenga "concept with ID" y "not found" es más robusto.
+    detail = response.json()["detail"]
+    assert "concept with ID" in detail and "not found" in detail
+
 
 @pytest.mark.asyncio
 async def test_ucm_extraction_endpoint_success(test_client: AsyncClient, researcher_token: str):
