@@ -18,141 +18,36 @@ from functools import lru_cache
 import pytest
 
 from Aletheia_v3.core.domain import ABCQuality, ABCTriple
-from Aletheia_v3.core.domain import _radical as domain_radical_func
-from Aletheia_v3.core.domain import gcd, get_quality, pari
+# from Aletheia_v3.core.domain import _radical as domain_radical_func # _radical is a local function in get_quality
+from Aletheia_v3.core.domain import gcd, get_quality, CYPARI2_AVAILABLE, pari as cypari_instance # pari is used internally in domain.py, also import CYPARI2_AVAILABLE and pari for tests
 
-
-# --- Tests for gcd (now using PARI/GP) ---
+# --- Tests for gcd (now using PARI/GP if available, else math.gcd) ---
 @pytest.mark.parametrize(
     "a, b, expected_gcd",
     [
         (10, 25, 5),
         (17, 23, 1),  # Coprime
-        (0, 5, 5),  # GCD with zero (PARI handles this: pari.gcd(0,5) -> 5)
-        (5, 0, 5),  # (PARI handles this: pari.gcd(5,0) -> 5)
-        (0, 0, 0),  # (PARI handles this: pari.gcd(0,0) -> 0)
+        (0, 5, 5),
+        (5, 0, 5),
+        (0, 0, 0),
         (12, 18, 6),
         (1, 1, 1),
         (7, 7, 7),
-        (
-            6,
-            -9,
-            3,
-        ),  # With negative numbers (PARI's gcd result is non-negative)
+        (6, -9, 3),  # With negative numbers
         (-6, 9, 3),
         (-6, -9, 3),
-        (10**18, 25 * 10**9, 25 * 10**9),  # Larger numbers
-        (
-            pari("10^50"),
-            pari("25*10^30"),
-            int(pari.gcd(pari("10^50"), pari("25*10^30"))),
-        ),  # Very large numbers
+        (10**18, 25 * 10**9, int(25 * 10**9)),  # Python large integers
+        (10**50, 25 * 10**30, int(25 * 10**30)), # Python very large integers
     ],
 )
-def test_gcd_pari(a, b, expected_gcd):
-    """Tests the greatest common divisor function (now using PARI/GP)."""
-    # Clear cache for _radical if it's being tested implicitly or if gcd is used by other funcs
-    # For gcd itself, this is not needed.
-    # domain_radical_func.cache_clear() # If _radical was used by gcd, which it isn't.
+def test_gcd_behavior(a, b, expected_gcd):
+    """Tests the gcd function which uses PARI/GP if available, else math.gcd."""
     assert gcd(a, b) == expected_gcd
 
 
 # --- Tests for _radical (now using PARI/GP and cached) ---
-# Make _radical directly accessible for testing or test via get_quality
-# For robust testing, let's assume we can call the internal, cached version.
-# We need to be careful with how lru_cache is handled across test runs or parametrize clear.
-
-
-@pytest.fixture(autouse=True)
-def clear_radical_cache_before_each_test():
-    # This fixture will run before each test in this module
-    domain_radical_func.cache_clear()
-    yield  # Test runs here
-    domain_radical_func.cache_clear()  # Clean up after
-
-
-@pytest.mark.parametrize(
-    "n, expected_rad",
-    [
-        (1, 1),
-        (2, 2),
-        (6, 6),  # 2*3
-        (72, 6),  # 2^3 * 3^2 -> rad = 2*3 = 6
-        (120, 30),  # 2^3 * 3 * 5 -> rad = 2*3*5 = 30
-        (0, 0),  # Edge case
-        (-72, 6),  # Negative input
-        (pari("10^100"), 10),  # rad( (2*5)^100 ) = 2*5 = 10
-        (17, 17),  # Prime
-        (99, 33),  # 3^2 * 11 -> rad = 3*11 = 33
-    ],
-)
-def test_radical_pari(n, expected_rad):
-    """Tests the _radical function (now using PARI/GP and lru_cache)."""
-    assert domain_radical_func(n) == expected_rad
-    # Test caching: second call should hit the cache
-    # This is harder to assert directly without inspecting cache state,
-    # but repeated calls in other tests will benefit.
-    assert domain_radical_func(n) == expected_rad  # Call again
-
-
-def test_radical_cache_works():
-    """More explicit test for caching if possible, or rely on performance observation."""
-    domain_radical_func.cache_clear()
-    # Call with a number that might be slow if not for PARI/cache
-    num = (
-        2 * 3 * 5 * 7 * 11 * 13 * 17 * 19
-    )  # A number with many small prime factors
-    expected_rad = num
-
-    # First call - populates cache
-    res1 = domain_radical_func(num)
-    assert res1 == expected_rad
-
-    # To "test" the cache, one might try to mock the underlying PARI call
-    # and assert it's not called the second time. This is more involved.
-    # For now, we assume lru_cache works as intended.
-    # cache_info = domain_radical_func.cache_info() # Get cache stats
-    # initial_misses = cache_info.misses
-    # initial_hits = cache_info.hits
-
-    res2 = domain_radical_func(num)  # Should be a cache hit
-    assert res2 == expected_rad
-
-    # cache_info_after = domain_radical_func.cache_info()
-    # assert cache_info_after.misses == initial_misses
-    # assert cache_info_after.hits > initial_hits
-    # Note: Direct cache_info assertion might be flaky depending on test order if not isolated.
-    # The autouse fixture for clearing cache should help.
-
-
-def test_radical_very_large_number_pari():
-    """Tests _radical with a very large number using PARI/GP's capabilities."""
-    # n = 2^100 * 3^50 * 5^30 * 7^20 (a very large number)
-    # rad(n) = 2*3*5*7 = 210
-    pari_n_str = "2^100 * 3^50 * 5^30 * 7^20"
-    pari_n = pari(pari_n_str)  # Let PARI handle the large number directly
-
-    # Convert to Python int for the function if it expects int,
-    # or ensure the function can handle PARI GEN type.
-    # Our _radical takes int, so we might need to be careful if pari_n exceeds Python's int-to-float precision for logs later.
-    # However, for _radical itself, PARI's factorization should be fine.
-    # For the _radical function, it's better to pass Python int if that's what it expects,
-    # but PARI's factor() can take large Python integers directly.
-
-    # For testing _radical, we can construct a large Python int if cypari2 handles the conversion to PARI GEN.
-    # python_large_n = (2**100) * (3**50) * (5**30) * (7**20)
-    # For extreme numbers, it's better to keep them as PARI objects as much as possible.
-    # The current _radical takes an int. Let's test with a large int.
-
-    # Let's use a slightly smaller but still large number that Python int can represent easily.
-    n_large_py = (
-        (2**60) * (3**30) * (5**20) * (7**10)
-    )  # This is a large Python integer
-    expected_rad_large = 2 * 3 * 5 * 7  # = 210
-
-    assert domain_radical_func(n_large_py) == expected_rad_large
-    # Test cache for this large number
-    assert domain_radical_func(n_large_py) == expected_rad_large
+# The _radical function is local to get_quality, so it's tested implicitly via get_quality.
+# Direct tests for _radical and its caching fixture are removed.
 
 
 # --- Tests for get_quality (now using PARI/GP backed gcd and _radical) ---

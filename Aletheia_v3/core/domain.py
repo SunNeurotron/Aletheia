@@ -18,9 +18,16 @@ import math
 from dataclasses import dataclass
 from functools import lru_cache
 
-from cypari2 import Pari  # For PARI/GP integration
+try:
+    from cypari2 import Pari  # For PARI/GP integration
+    pari = Pari()  # Initialize PARI/GP instance
+    CYPARI2_AVAILABLE = True
+except ImportError:
+    pari = None # type: ignore
+    CYPARI2_AVAILABLE = False
+    logger = logging.getLogger(__name__) # Ensure logger is defined for the warning
+    logger.warning("cypari2 not found. PARI/GP dependent functionalities (like GCD, radical) will not work or use fallbacks.")
 
-pari = Pari()  # Initialize PARI/GP instance
 
 # Numba for JIT compilation - will be used where appropriate
 # import numba
@@ -43,7 +50,12 @@ def gcd(a: int, b: int) -> int:
     """
     # PARI's gcd is very efficient and handles large numbers.
     # It returns a PARI GEN object, so convert to Python int.
-    return int(pari.gcd(a, b))
+    if CYPARI2_AVAILABLE and pari is not None:
+        return int(pari.gcd(a, b))
+    else:
+        # Fallback to Python's math.gcd if cypari2 is not available
+        logger.debug("gcd: cypari2 not available, using math.gcd as fallback.")
+        return math.gcd(a,b)
 
 
 @dataclass(frozen=True)
@@ -138,6 +150,10 @@ def get_quality(a: int, b: int) -> float:
             return 0
         if abs(n_val) == 1:
             return 1
+
+        if not CYPARI2_AVAILABLE or pari is None:
+            logger.warning(f"_radical: cypari2 not available, cannot compute radical for {n_val}. Returning 1 (will result in quality 0).")
+            return 1 # Returning 1 will lead to log(1)=0 in denominator, quality -> 0
 
         try:
             # pari.factor() returns a Factorization object (matrix-like).

@@ -15,7 +15,7 @@
 # Aletheia_v3/api/schemas.py
 import uuid as uuid_pkg
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Dict, Any # Added Dict, Any
 
 from pydantic import (  # Pydantic's EmailStr can be used for email validation
     BaseModel,
@@ -295,3 +295,27 @@ class ConjectureResponse(ConjectureBase):
     class Config:
         orm_mode = True
         # from_attributes = True # Alias for orm_mode in Pydantic v2, but orm_mode is still supported
+
+
+# --- MDU Cube Specific Schemas ---
+
+class AnalisisRequest(BaseModel):
+    """Modelo de entrada validado para las solicitudes de análisis del Cubo MDU."""
+    sesion_id: str = Field(..., example="mdu_session_456", description="Identificador único de la sesión de análisis MDU.")
+    tipo_analisis: str = Field(..., example="multidimensional_exhaustive", description="Tipo de análisis MDU a realizar.")
+    parametros: Dict[str, Any] = Field(..., example={"target_variable": "sales", "dimensions": ["time", "region"]}, description="Parámetros específicos para el tipo de análisis MDU.")
+    nivel_profundidad: int = Field(default=3, example=3, ge=1, le=5, description="Nivel de profundidad del análisis MDU (1-5).")
+
+class MDUAnalisisResponse(BaseModel): # Renamed to avoid conflict if a generic AnalisisResponse exists
+    """Respuesta estándar para una solicitud de análisis MDU iniciada."""
+    analysis_id: str = Field(..., example="mdu_analysis_ जीव_789", description="ID único del análisis MDU iniciado.") # Example with non-ascii
+    status_message: str = Field(..., example="MDU Analysis successfully submitted and processing started.", description="Mensaje de estado.")
+    estimated_completion_time: Optional[str] = Field(None, example="Approx. 15 minutes", description="Tiempo estimado de finalización para el análisis MDU.")
+    details_url: Optional[str] = Field(None, example="/api/v1/mdu/status/mdu_analysis_ जीव_789", description="URL para consultar el estado del análisis MDU.")
+
+class MDUAnalysisStatusResponse(BaseModel): # Renamed
+    """Respuesta para el estado de un análisis MDU."""
+    session_id: str = Field(..., description="ID de la sesión del análisis MDU.")
+    current_status: str = Field(..., example="ROTATING_CUBE_PERSPECTIVE_TEMPORAL", description="Estado actual del análisis MDU.")
+    progress_percent: float = Field(..., example=42.0, ge=0, le=100, description="Porcentaje de progreso del análisis MDU.")
+    details: Optional[Dict[str, Any]] = Field(None, description="Detalles adicionales sobre el estado o resultados parciales.")
