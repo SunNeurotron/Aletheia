@@ -665,12 +665,136 @@ from ..api.schemas import (
 #         )
 
 # Para que el código sea ejecutable, necesito una definición de ExtractUCMsUseCase.
-# Si no se proporciona una real, usaré un Protocolo o una clase base simple.
-from typing import Protocol # Usar Protocol para definir la interfaz esperada
 
-class ExtractUCMsUseCase(Protocol): # Definición de interfaz esperada
-    async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResult:
-        ...
+# --- Implementación Real de ExtractUCMsUseCase ---
+import re
+from collections import Counter
+# uuid, datetime, timezone, IConceptRepository, IRelationshipRepository,
+# ScientificConcept, ConceptType, DirectedRelationship
+# UCMExtractionInput, UCMExtractionResponseSchema, ExtractedUCMSchema, ExtractedRelationshipSchema
+# ya están importados o se importarán con los otros casos de uso del Eje X.
+
+# Definir constantes para la extracción
+STOP_WORDS_UCM = set([
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being", "of", "and", "in", "to", "it", "for",
+    "with", "on", "as", "by", "at", "this", "that", "these", "those", "from", "or", "but", "not", "if",
+    "introduction", "method", "methods", "methodology", "result", "results", "discussion", "conclusion",
+    "abstract", "paper", "study", "research", "figure", "table", "equation", "chapter", "section",
+    "author", "authors", "journal", "university", "conference", "review", "references", "appendix"
+])
+PHRASE_REGEX_UCM = re.compile(r'\b[A-Z][\w\s-]*[a-zA-Z0-9]\b')
+SINGLE_WORD_REGEX_UCM = re.compile(r'\b[a-zA-Z]{3,}\b')
+
+class ExtractUCMsUseCase: # Reemplaza el Protocol
+    """
+    Caso de uso para extraer Unidades Conceptuales Mínimas (UCMs) y sus relaciones
+    a partir del contenido textual de un documento. Persiste los resultados.
+    """
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 relationship_repo: IRelationshipRepository):
+        self.concept_repo = concept_repo
+        self.relationship_repo = relationship_repo
+
+    def _extract_terms_from_text(self, text: str, min_freq: int = 2) -> List[str]:
+        text_lower = text.lower()
+        potential_terms = set()
+
+        for match in PHRASE_REGEX_UCM.finditer(text):
+            phrase = match.group(0).strip()
+            if ' ' in phrase and len(phrase.split()) <= 5:
+                if not all(w.lower() in STOP_WORDS_UCM for w in phrase.split()):
+                    potential_terms.add(phrase)
+
+        if len(potential_terms) < 5:
+            words = SINGLE_WORD_REGEX_UCM.findall(text_lower)
+            word_counts = Counter(w for w in words if w not in STOP_WORDS_UCM and len(w) > 3)
+            for word, count in word_counts.most_common(15):
+                if count >= min_freq:
+                    potential_terms.add(word.capitalize())
+        return sorted(list(potential_terms))
+
+    async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResponseSchema:
+        extracted_term_names = self._extract_terms_from_text(input_data.text_content)
+
+        persisted_concepts_dtos: List[ExtractedUCMSchema] = []
+        persisted_concept_entities: List[ScientificConcept] = []
+        processing_log = [f"Texto procesado de longitud: {len(input_data.text_content)} caracteres."]
+
+        if not extracted_term_names:
+            processing_log.append("No se extrajeron términos/UCMs significativos.")
+            return UCMExtractionResponseSchema(
+                source_document_id=input_data.source_document_id,
+                extracted_concepts=[],
+                extracted_relationships=[],
+                processing_log=processing_log
+            )
+
+        processing_log.append(f"Términos extraídos inicialmente: {len(extracted_term_names)}")
+
+        for term_name in extracted_term_names:
+            ucm_id = f"ucm_{uuid.uuid4().hex}"
+            concept_type_val = ConceptType.UCM
+            if term_name.isupper() and len(term_name) <= 5 and ' ' not in term_name:
+                concept_type_val = ConceptType.GENERIC_CONCEPT
+
+            description_ucm = f"Unidad Conceptual Mínima '{term_name}' extraída del documento {input_data.source_document_id}."
+
+            ucm_entity = ScientificConcept(
+                id=ucm_id, name=term_name, description=description_ucm,
+                concept_type=concept_type_val,
+                properties={
+                    "source_document_id": input_data.source_document_id,
+                    "extraction_method": "regex_keyword_extraction_v1",
+                    **(input_data.source_metadata or {})
+                },
+                created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
+            )
+            await self.concept_repo.add(ucm_entity)
+            persisted_concept_entities.append(ucm_entity)
+
+            persisted_concepts_dtos.append(ExtractedUCMSchema(
+                id=ucm_entity.id, name=ucm_entity.name, description=ucm_entity.description,
+                concept_type=ucm_entity.concept_type.value,
+                metadata=ucm_entity.properties
+            ))
+
+        processing_log.append(f"Persistidos {len(persisted_concepts_dtos)} UCMs.")
+
+        persisted_relationships_dtos: List[ExtractedRelationshipSchema] = []
+        if len(persisted_concept_entities) > 1:
+            for i in range(len(persisted_concept_entities)):
+                for j in range(i + 1, len(persisted_concept_entities)):
+                    source_ucm = persisted_concept_entities[i]
+                    target_ucm = persisted_concept_entities[j]
+
+                    rel_id = f"rel_{uuid.uuid4().hex}"
+                    rel_description = f"Relación temática inferida entre '{source_ucm.name}' y '{target_ucm.name}' del mismo documento."
+
+                    relationship_entity = DirectedRelationship(
+                        id=rel_id, source_concept_id=source_ucm.id, target_concept_id=target_ucm.id,
+                        type="RELATED_TO_DOCUMENT_CONTEXT",
+                        description=rel_description,
+                        properties={
+                            "source_document_id": input_data.source_document_id,
+                            "inference_method": "co-occurrence_in_document"
+                        },
+                        created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
+                    )
+                    await self.relationship_repo.add(relationship_entity)
+                    persisted_relationships_dtos.append(ExtractedRelationshipSchema(
+                        id=relationship_entity.id, source_ucm_id=relationship_entity.source_concept_id,
+                        target_ucm_id=relationship_entity.target_concept_id, type=relationship_entity.type,
+                        description=relationship_entity.description, metadata=relationship_entity.properties
+                    ))
+            processing_log.append(f"Creadas {len(persisted_relationships_dtos)} relaciones entre UCMs.")
+
+        return UCMExtractionResponseSchema(
+            source_document_id=input_data.source_document_id,
+            extracted_concepts=persisted_concepts_dtos,
+            extracted_relationships=persisted_relationships_dtos,
+            processing_log=processing_log
+        )
 
 # --- Interfaces (Protocolos) para otros Casos de Uso del Eje Y ---
 from ..api.schemas import ( # Suponiendo que los schemas placeholder están en api.schemas
