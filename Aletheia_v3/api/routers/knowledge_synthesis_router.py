@@ -218,4 +218,76 @@ async def unified_models_endpoint(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno sintetizando modelo unificado.")
 
+# --- Endpoints de Visualización del Eje Y ---
+from ..schemas import HierarchyGraphResponseSchema, SynthesisStatisticsResponseSchema # Nuevos Schemas
+# (IConceptRepository y dependencias ya importados)
+# from ...core.domain_models import ConceptType # Para generar datos de ejemplo
+
+@router.get(
+    "/visualization/hierarchy_graph/{concept_id}",
+    response_model=HierarchyGraphResponseSchema,
+    summary="Obtiene datos para visualizar la jerarquía de un concepto sintetizado.",
+    dependencies=[Depends(require_roles(["researcher", "admin"]))],
+)
+async def get_hierarchy_graph(
+    concept_id: str,
+    # concept_repo: IConceptRepository = Depends(get_concept_repository) # Para implementación real
+):
+    """
+    Devuelve los nodos y aristas para construir un grafo de jerarquía
+    para un concepto de alto nivel (ej. Modelo Unificado, Teoría Comprehensiva).
+    Por ahora, devuelve datos simulados.
+    """
+    # TODO: Implementar lógica real para construir el grafo de jerarquía
+    #       consultando el concept_repo y relationship_repo.
+    #       Se necesitaría recorrer las propiedades "member_..." recursivamente.
+    if concept_id == "unifiedm_placeholder_0" or concept_id.startswith("unifiedm_"): # Simular para un ID conocido
+        nodes = [
+            HierarchyGraphNodeSchema(id=concept_id, label=f"Modelo Unificado ({concept_id[:6]})", type="UNIFIED_MODEL", level=0),
+            HierarchyGraphNodeSchema(id="compth_1", label="Teoría Comp. 1", type="COMPREHENSIVE_THEORY", level=1),
+            HierarchyGraphNodeSchema(id="minit_a", label="Mini-Teoría A", type="MINI_THEORY", level=2),
+            HierarchyGraphNodeSchema(id="prop_x", label="Proposición X", type="PROPOSITION", level=3),
+        ]
+        edges = [
+            HierarchyGraphEdgeSchema(from_node=concept_id, to_node="compth_1", label="compuesto_de"),
+            HierarchyGraphEdgeSchema(from_node="compth_1", to_node="minit_a", label="compuesto_de"),
+            HierarchyGraphEdgeSchema(from_node="minit_a", to_node="prop_x", label="basado_en"),
+        ]
+        return HierarchyGraphResponseSchema(nodes=nodes, edges=edges)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Concepto con ID '{concept_id}' no encontrado o no es un modelo/teoría visualizable en jerarquía (simulado).")
+
+@router.get(
+    "/visualization/synthesis_statistics",
+    response_model=SynthesisStatisticsResponseSchema,
+    summary="Obtiene estadísticas generales sobre el grafo de conocimiento sintetizado.",
+    dependencies=[Depends(require_roles(["researcher", "admin"]))],
+)
+async def get_synthesis_statistics(
+    # concept_repo: IConceptRepository = Depends(get_concept_repository) # Para implementación real
+):
+    """
+    Devuelve estadísticas agregadas sobre los conceptos y su proceso de síntesis.
+    Por ahora, devuelve datos simulados.
+    """
+    # TODO: Implementar lógica real para calcular estadísticas desde el concept_repo.
+    overall_stats = [
+        SynthesisStatisticItemSchema(name="Total Conceptos", value=150),
+        SynthesisStatisticItemSchema(name="Total Relaciones", value=300), # Asumir que se obtendría de relationship_repo
+        SynthesisStatisticItemSchema(name="Documentos Procesados", value=10),
+    ]
+    type_distribution = {
+        "DOCUMENT_SOURCE": 10,
+        "UCM": 80,
+        "CLUSTER": 25,
+        "PROPOSITION": 20,
+        "MINI_THEORY": 10,
+        "COMPREHENSIVE_THEORY": 3,
+        "UNIFIED_MODEL": 2,
+    }
+    return SynthesisStatisticsResponseSchema(
+        overall_stats=overall_stats,
+        type_distribution=type_distribution
+    )
+
 ```

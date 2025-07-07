@@ -46,6 +46,9 @@ async def ingest_document_endpoint(
         # Por ahora, asumo que la compatibilidad de tipos está manejada.
         result = await ingest_use_case.execute(request_data) # FastAPI maneja la conversión de JSON a Pydantic model
         return result
+    # TODO: Considerar añadir un GET para el ScientificConcept creado (document_source_id)
+    # similar a como se hace en otros routers (ej. /searches/{job_id})
+    # devolviendo el objeto completo o una URL para obtenerlo. Por ahora, el ID se devuelve.
     except ValueError as ve: # Por ejemplo, si ExtractUCMsUseCase lanza un error específico
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(ve))
     except Exception as e: # Captura general para errores inesperados del servidor
@@ -78,5 +81,54 @@ async def link_concepts_endpoint(
     except Exception as e:
         # Loggear el error 'e'
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An internal server error occurred while linking concepts.")
+
+# --- Endpoints para Listar Conceptos y Relaciones ---
+from typing import List # Para el tipo de retorno List[...]
+from ..schemas import ScientificConceptSchema, RelationshipSchema # Schemas para los items de la lista
+from ...application.ports import IConceptRepository, IRelationshipRepository # Puertos para las dependencias
+# get_concept_repository y get_relationship_repository ya están importados de ..dependencies
+
+@router.get(
+    "/concepts",
+    response_model=List[ScientificConceptSchema],
+    summary="Lista todos los conceptos científicos.",
+    dependencies=[Depends(require_roles(["researcher", "admin"]))],
+)
+async def list_all_concepts(
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+):
+    """
+    Endpoint para obtener una lista de todos los conceptos científicos almacenados.
+    """
+    try:
+        concepts_domain = await concept_repo.list_all()
+        # No es necesario mapear aquí si los schemas Pydantic pueden construirse desde los objetos de dominio
+        # (ej. si tienen los mismos nombres de campo o se usa orm_mode/from_attributes).
+        # ScientificConceptSchema tiene Config.orm_mode = True, pero ScientificConcept (dominio) es un dataclass.
+        # Por lo tanto, un mapeo explícito o asegurar compatibilidad es necesario.
+        # Asumiendo que ScientificConceptSchema puede ser creado desde la entidad de dominio:
+        return concepts_domain # FastAPI intentará convertir cada ScientificConcept a ScientificConceptSchema
+    except Exception as e:
+        # Log e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno listando conceptos.")
+
+@router.get(
+    "/relationships",
+    response_model=List[RelationshipSchema],
+    summary="Lista todas las relaciones dirigidas.",
+    dependencies=[Depends(require_roles(["researcher", "admin"]))],
+)
+async def list_all_relationships(
+    relationship_repo: IRelationshipRepository = Depends(get_relationship_repository),
+):
+    """
+    Endpoint para obtener una lista de todas las relaciones dirigidas almacenadas.
+    """
+    try:
+        relationships_domain = await relationship_repo.list_all()
+        return relationships_domain # FastAPI intentará convertir cada DirectedRelationship a RelationshipSchema
+    except Exception as e:
+        # Log e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error interno listando relaciones.")
 
 ```
