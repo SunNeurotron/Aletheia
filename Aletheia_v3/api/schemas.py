@@ -319,3 +319,126 @@ class MDUAnalysisStatusResponse(BaseModel): # Renamed
     current_status: str = Field(..., example="ROTATING_CUBE_PERSPECTIVE_TEMPORAL", description="Estado actual del análisis MDU.")
     progress_percent: float = Field(..., example=42.0, ge=0, le=100, description="Porcentaje de progreso del análisis MDU.")
     details: Optional[Dict[str, Any]] = Field(None, description="Detalles adicionales sobre el estado o resultados parciales.")
+
+
+# --- Schemas para Eje X (Ingesta y Ontología) y Eje Y (Síntesis de Conocimiento) ---
+
+# Schemas para ExtractUCMsUseCase
+class UCMExtractionRequestSchema(BaseModel):
+    """Schema de entrada para la extracción de Unidades Conceptuales Mínimas (UCMs)."""
+    text_content: str = Field(..., description="El contenido textual completo del documento a procesar.")
+    source_document_id: str = Field(..., description="ID del concepto ScientificConcept (DOCUMENT_SOURCE) que representa al documento fuente.")
+    source_metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Metadatos adicionales sobre la fuente o el proceso de extracción.")
+
+class ExtractedUCMSchema(BaseModel):
+    """Schema para una Unidad Conceptual Mínima (UCM) extraída."""
+    id: str = Field(..., description="ID único de la UCM.")
+    name: str = Field(..., description="Nombre o etiqueta principal de la UCM.")
+    description: Optional[str] = Field(None, description="Descripción detallada de la UCM.")
+    concept_type: str = Field(..., description="Tipo de concepto (ej. 'GENERIC_CONCEPT', 'METHODOLOGY').")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadatos asociados a la UCM.")
+
+class ExtractedRelationshipSchema(BaseModel):
+    """Schema para una relación extraída entre UCMs."""
+    id: str = Field(..., description="ID único de la relación.")
+    source_ucm_id: str = Field(..., description="ID de la UCM origen.")
+    target_ucm_id: str = Field(..., description="ID de la UCM destino.")
+    type: str = Field(..., description="Tipo de relación (ej. 'RELATES_TO', 'USES_METHOD').")
+    description: Optional[str] = Field(None, description="Descripción de la relación.")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadatos asociados a la relación.")
+
+class UCMExtractionResponseSchema(BaseModel):
+    """Schema de respuesta para la extracción de UCMs."""
+    source_document_id: str = Field(..., description="ID del documento fuente procesado.")
+    extracted_concepts: List[ExtractedUCMSchema] = Field(default_factory=list, description="Lista de UCMs extraídas.")
+    extracted_relationships: List[ExtractedRelationshipSchema] = Field(default_factory=list, description="Lista de relaciones extraídas entre UCMs.")
+    processing_log: List[str] = Field(default_factory=list, description="Registro del proceso de extracción.")
+
+# Schemas para IngestDocumentUseCase
+class IngestDocumentRequest(BaseModel):
+    """Schema de solicitud para la ingesta de un documento."""
+    document_text: str = Field(..., description="El contenido textual completo del documento.")
+    source_doi: Optional[str] = Field(None, description="DOI del documento fuente.")
+    source_citation: Optional[str] = Field(None, description="Citación bibliográfica del documento fuente.")
+    source_metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadatos adicionales sobre el documento fuente (autor, año, etc.).")
+
+class IngestDocumentResponse(BaseModel):
+    """Schema de respuesta para la ingesta de un documento."""
+    document_source_id: str = Field(..., description="ID del concepto ScientificConcept (DOCUMENT_SOURCE) creado para el documento.")
+    ucm_extraction_result: UCMExtractionResponseSchema = Field(..., description="Resultado de la extracción de UCMs del documento.")
+
+# Schemas para LinkConceptsUseCase
+class LinkConceptsRequest(BaseModel):
+    """Schema de solicitud para vincular dos conceptos."""
+    source_concept_id: str = Field(..., description="ID del concepto de origen.")
+    target_concept_id: str = Field(..., description="ID del concepto de destino.")
+    relationship_type: str = Field(..., description="Tipo de la relación (ej. 'CAUSES', 'REFERENCES', 'USES').")
+    description: Optional[str] = Field(None, description="Descripción opcional de la relación.")
+    properties: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Propiedades adicionales de la relación.")
+
+class RelationshipSchema(BaseModel):
+    """Schema para representar una relación dirigida entre conceptos."""
+    id: str = Field(..., description="ID único de la relación.")
+    source_concept_id: str = Field(..., description="ID del concepto origen.")
+    target_concept_id: str = Field(..., description="ID del concepto destino.")
+    type: str = Field(..., description="Tipo de relación.")
+    description: Optional[str] = Field(None, description="Descripción de la relación.")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Propiedades de la relación.")
+    created_at: datetime = Field(..., description="Fecha y hora de creación de la relación.")
+
+class LinkConceptsResponse(BaseModel):
+    """Schema de respuesta para la vinculación de conceptos."""
+    created_relationship: RelationshipSchema = Field(..., description="La relación que fue creada y guardada.")
+
+
+# --- Schemas Placeholder para otros Casos de Uso del Eje Y ---
+
+class FormClusterInputSchema(BaseModel):
+    """Schema de entrada para la formación de clústeres."""
+    ucm_ids: List[str] = Field(..., description="Lista de IDs de UCMs para formar clústeres.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales para el clustering.")
+class FormClusterResultSchema(BaseModel):
+    """Schema de respuesta para la formación de clústeres."""
+    clusters_formed_count: int = Field(default=0, description="Número de clústeres formados.")
+    cluster_ids: List[str] = Field(default_factory=list, description="IDs de los clústeres creados.")
+    details: Optional[Any] = Field(None, description="Detalles adicionales del proceso.") # Placeholder
+
+class PropositionDerivationInputSchema(BaseModel):
+    """Schema de entrada para la derivación de proposiciones."""
+    cluster_ids: List[str] = Field(..., description="Lista de IDs de clústeres para derivar proposiciones.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales para la derivación.")
+class PropositionDerivationResultSchema(BaseModel):
+    """Schema de respuesta para la derivación de proposiciones."""
+    propositions_derived_count: int = Field(default=0, description="Número de proposiciones derivadas.")
+    proposition_ids: List[str] = Field(default_factory=list, description="IDs de las proposiciones creadas.")
+    details: Optional[Any] = Field(None, description="Detalles adicionales del proceso.")
+
+class MiniTheoryConstructionInputSchema(BaseModel):
+    """Schema de entrada para la construcción de mini-teorías."""
+    proposition_ids: List[str] = Field(..., description="Lista de IDs de proposiciones para construir mini-teorías.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Parámetros adicionales.")
+class MiniTheoryConstructionResultSchema(BaseModel):
+    """Schema de respuesta para la construcción de mini-teorías."""
+    mini_theories_constructed_count: int = Field(default=0, description="Número de mini-teorías construidas.")
+    mini_theory_ids: List[str] = Field(default_factory=list, description="IDs de las mini-teorías creadas.")
+    details: Optional[Any] = Field(None, description="Detalles adicionales.")
+
+class ComprehensiveTheoriesInputSchema(BaseModel):
+    """Schema de entrada para la construcción de teorías comprehensivas."""
+    mini_theory_ids: List[str] = Field(..., description="Lista de IDs de mini-teorías.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict)
+class ComprehensiveTheoriesResultSchema(BaseModel):
+    """Schema de respuesta para la construcción de teorías comprehensivas."""
+    comprehensive_theories_built_count: int = Field(default=0)
+    comprehensive_theory_ids: List[str] = Field(default_factory=list)
+    details: Optional[Any] = Field(None)
+
+class UnifiedModelsInputSchema(BaseModel):
+    """Schema de entrada para la síntesis de modelos unificados."""
+    comprehensive_theory_ids: List[str] = Field(..., description="Lista de IDs de teorías comprehensivas.")
+    params: Optional[Dict[str, Any]] = Field(default_factory=dict)
+class UnifiedModelsResultSchema(BaseModel):
+    """Schema de respuesta para la síntesis de modelos unificados."""
+    unified_models_synthesized_count: int = Field(default=0)
+    unified_model_ids: List[str] = Field(default_factory=list)
+    details: Optional[Any] = Field(None)

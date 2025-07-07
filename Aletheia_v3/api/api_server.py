@@ -78,6 +78,9 @@ from .routers import (
     meta_router,
     researcher_router,
     search_router,
+    # Nuevos routers para Eje X y Eje Y
+    ontology_management_router,
+    knowledge_synthesis_router,
 )
 
 # Get a logger instance for this module
@@ -121,6 +124,11 @@ app.include_router(researcher_router.router)
 app.include_router(conjecture_router.router)
 app.include_router(attribution_router.router)
 app.include_router(meta_router.router)
+
+# Incluir los nuevos routers del Eje X y Eje Y
+app.include_router(ontology_management_router.router)
+app.include_router(knowledge_synthesis_router.router)
+
 logger.info("All API routers have been included.")
 
 

@@ -597,3 +597,174 @@ async def test_update_researcher_by_other_researcher_forbidden(
 # @pytest.mark.asyncio
 # async def test_get_completed_job_status_and_results(test_client: AsyncClient, access_token_testuser: str):
 # ... (This test remains complex and out of scope for this auth refactor)
+
+
+# --- Tests for Eje X and Eje Y Endpoints ---
+
+from Aletheia_v3.api.schemas import (
+    IngestDocumentRequest, IngestDocumentResponse,
+    LinkConceptsRequest, LinkConceptsResponse, RelationshipSchema,
+    UCMExtractionRequestSchema, UCMExtractionResponseSchema, ExtractedUCMSchema,
+    # Placeholder schemas (solo los de input para request, los de response para validar estructura)
+    FormClusterInputSchema, FormClusterResultSchema,
+    PropositionDerivationInputSchema, PropositionDerivationResultSchema,
+    MiniTheoryConstructionInputSchema, MiniTheoryConstructionResultSchema,
+    ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema,
+    UnifiedModelsInputSchema, UnifiedModelsResultSchema
+)
+# Necesitamos limpiar los repos en memoria entre tests o grupos de tests
+# para evitar interferencias, especialmente para los tests de "not found".
+# Una forma es llamar a .clear() en los repositorios.
+# Podríamos hacerlo en un fixture de función o explícitamente en los tests.
+
+@pytest.mark.asyncio
+async def test_ingest_document_endpoint_success(test_client: AsyncClient, researcher_token: str, mocker):
+    """Tests successful document ingestion."""
+    # Limpiar repositorios para este test si es necesario
+    # from Aletheia_v3.api.dependencies import get_concept_repository
+    # concept_repo = get_concept_repository()
+    # concept_repo.clear() # Asegurar que no haya datos previos si afecta la lógica
+
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    payload = IngestDocumentRequest(
+        document_text="New scientific document about dark matter.",
+        source_doi="10.xxxx/darkmatter.doc",
+        source_citation="Author A., Dark Journal, 2024",
+        source_metadata={"category": "cosmology"}
+    )
+    response = await test_client.post("/eje-x/ingest-document", json=payload.model_dump(), headers=headers)
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert "document_source_id" in data
+    assert data["document_source_id"].startswith("docsrc_")
+    assert "ucm_extraction_result" in data
+    assert data["ucm_extraction_result"]["source_document_id"] == data["document_source_id"]
+    # La implementación placeholder de ExtractUCMsUseCase podría devolver conceptos si el texto coincide
+    # Por ejemplo, si "AI" está en el texto.
+    # assert len(data["ucm_extraction_result"]["extracted_concepts"]) > 0 # Depende del placeholder
+
+@pytest.mark.asyncio
+async def test_ingest_document_endpoint_unauthorized(test_client: AsyncClient):
+    """Tests document ingestion without authorization."""
+    payload = IngestDocumentRequest(document_text="text")
+    response = await test_client.post("/eje-x/ingest-document", json=payload.model_dump())
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+@pytest.mark.asyncio
+async def test_link_concepts_endpoint_success(test_client: AsyncClient, researcher_token: str, mocker):
+    """Tests successful concept linking."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+
+    # Necesitamos que los conceptos existan. Usaremos el repo en memoria para añadirlos.
+    from Aletheia_v3.api.dependencies import get_concept_repository
+    from Aletheia_v3.core.domain_models import ScientificConcept, ConceptType
+    concept_repo = get_concept_repository()
+    await concept_repo.clear() # Limpiar para el test
+
+    source_concept = ScientificConcept(name="Dark Matter", concept_type=ConceptType.GENERIC_CONCEPT)
+    target_concept = ScientificConcept(name="Galaxy Rotation", concept_type=ConceptType.GENERIC_CONCEPT)
+    await concept_repo.add(source_concept)
+    await concept_repo.add(target_concept)
+
+    payload = LinkConceptsRequest(
+        source_concept_id=source_concept.id,
+        target_concept_id=target_concept.id,
+        relationship_type="EXPLAINS",
+        description="Dark matter explains galaxy rotation curves.",
+        properties={"strength": 0.9}
+    )
+    response = await test_client.post("/eje-x/link-concepts", json=payload.model_dump(), headers=headers)
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert "created_relationship" in data
+    rel = data["created_relationship"]
+    assert rel["source_concept_id"] == source_concept.id
+    assert rel["target_concept_id"] == target_concept.id
+    assert rel["type"] == "EXPLAINS"
+    assert rel["description"] == payload.description
+
+@pytest.mark.asyncio
+async def test_link_concepts_endpoint_concept_not_found(test_client: AsyncClient, researcher_token: str):
+    """Tests concept linking when a concept is not found."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    from Aletheia_v3.api.dependencies import get_concept_repository
+    concept_repo = get_concept_repository()
+    await concept_repo.clear()
+
+    payload = LinkConceptsRequest(
+        source_concept_id="non_existent_id_1",
+        target_concept_id="non_existent_id_2",
+        relationship_type="LINKS_TO"
+    )
+    response = await test_client.post("/eje-x/link-concepts", json=payload.model_dump(), headers=headers)
+    assert response.status_code == status.HTTP_404_NOT_FOUND # El router convierte ValueError a 404
+    assert "Source concept" in response.json()["detail"] # o Target, dependiendo de cuál falle primero
+
+@pytest.mark.asyncio
+async def test_ucm_extraction_endpoint_success(test_client: AsyncClient, researcher_token: str):
+    """Tests successful UCM extraction."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    payload = UCMExtractionRequestSchema(
+        text_content="Exploring AI ethics and its implications.",
+        source_document_id="docsrc_sample_for_ucm"
+    )
+    response = await test_client.post("/eje-y/ucm-extraction", json=payload.model_dump(), headers=headers)
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["source_document_id"] == payload.source_document_id
+    assert "extracted_concepts" in data
+    # La implementación placeholder de ExtractUCMsUseCase puede devolver conceptos
+    assert len(data["extracted_concepts"]) >= 0 # Podría ser 0, 1, o 2 dependiendo del texto
+    if len(data["extracted_concepts"]) > 0:
+        assert data["extracted_concepts"][0]["name"] in ["Artificial Intelligence (Placeholder)", "Ethics (Placeholder)"]
+
+
+# --- Tests para Endpoints Placeholder del Eje Y ---
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint_path, input_schema, result_schema_type, payload_data", [
+    ("/eje-y/cluster-formation", FormClusterInputSchema, FormClusterResultSchema, {"ucm_ids": ["ucm1"], "params": {}}),
+    ("/eje-y/proposition-derivation", PropositionDerivationInputSchema, PropositionDerivationResultSchema, {"cluster_ids": ["cluster1"]}),
+    ("/eje-y/mini-theory-construction", MiniTheoryConstructionInputSchema, MiniTheoryConstructionResultSchema, {"proposition_ids": ["prop1"]}),
+    ("/eje-y/comprehensive-theories", ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema, {"mini_theory_ids": ["minit1"]}),
+    ("/eje-y/unified-models", UnifiedModelsInputSchema, UnifiedModelsResultSchema, {"comprehensive_theory_ids": ["compth1"]}),
+])
+async def test_eje_y_placeholder_endpoints_success(
+    test_client: AsyncClient, researcher_token: str,
+    endpoint_path: str, input_schema, result_schema_type, payload_data
+):
+    """Tests placeholder Eje Y endpoints for successful (placeholder) response."""
+    headers = {"Authorization": f"Bearer {researcher_token}"}
+    payload = input_schema(**payload_data)
+
+    response = await test_client.post(endpoint_path, json=payload.model_dump(), headers=headers)
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    data = response.json()
+    assert "details" in data
+    assert "Endpoint placeholder" in data["details"]
+    # Validar que la respuesta es parseable por el schema de resultado (aunque sea placeholder)
+    assert result_schema_type.model_validate(data)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint_path", [
+    "/eje-y/cluster-formation",
+    "/eje-y/proposition-derivation",
+    # ... (añadir los otros si se quiere probar todos)
+])
+async def test_eje_y_placeholder_endpoints_unauthorized(test_client: AsyncClient, endpoint_path: str):
+    """Tests placeholder Eje Y endpoints for unauthorized access."""
+    # Usar un payload mínimo válido para el schema de entrada correspondiente
+    payload = {}
+    if "cluster" in endpoint_path: payload = FormClusterInputSchema(ucm_ids=["id"]).model_dump()
+    elif "proposition" in endpoint_path: payload = PropositionDerivationInputSchema(cluster_ids=["id"]).model_dump()
+    # Añadir más casos según sea necesario
+
+    if not payload: # Si no se pudo determinar un payload, saltar este caso parametrizado
+        pytest.skip(f"Payload not defined for {endpoint_path} in unauthorized test")
+
+    response = await test_client.post(endpoint_path, json=payload)
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED

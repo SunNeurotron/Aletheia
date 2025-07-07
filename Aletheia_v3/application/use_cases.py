@@ -635,11 +635,20 @@ from datetime import datetime, timezone
 
 from .ports import IConceptRepository # Asegurar que IConceptRepository esté en ports.py
 from ..core.domain_models import ScientificConcept, ConceptType
-from .dtos import (
-    IngestDocumentInput, IngestDocumentResult,
-    UCMExtractionInput, UCMExtractionResult,
-    # ExtractedUCMDTO, ExtractedRelationshipDTO # Estos son parte de UCMExtractionResult
+# Actualizar la ruta de importación de DTOs para que apunte a api.schemas
+from ..api.schemas import (
+    IngestDocumentRequest as IngestDocumentInput, # Usar alias si los casos de uso esperan nombres específicos
+    IngestDocumentResponse as IngestDocumentResult,
+    UCMExtractionRequestSchema as UCMExtractionInput, # Ajustar según los nombres en schemas.py
+    UCMExtractionResponseSchema as UCMExtractionResult,
+    LinkConceptsRequest as LinkConceptsInput,
+    LinkConceptsResponse as LinkConceptsResult,
+    RelationshipSchema as RelationshipDTO # Si LinkConceptsResult usa RelationshipDTO con ese nombre
 )
+# Nota: Los nombres exactos de los DTOs/Schemas importados deben coincidir con los definidos en api.schemas.py
+# Si se usaron nombres como IngestDocumentInput en schemas.py, no se necesita alias.
+# Revisando schemas.py, los nombres son IngestDocumentRequest, UCMExtractionRequestSchema, etc.
+# Los alias son una buena forma de mantener la lógica del caso de uso sin cambios si los nombres de DTO internos eran diferentes.
 
 # Placeholder para ExtractUCMsUseCase si no está definido en otra parte.
 # En una implementación real, esto se importaría de su módulo correspondiente.
@@ -661,6 +670,40 @@ from typing import Protocol # Usar Protocol para definir la interfaz esperada
 
 class ExtractUCMsUseCase(Protocol): # Definición de interfaz esperada
     async def execute(self, input_data: UCMExtractionInput) -> UCMExtractionResult:
+        ...
+
+# --- Interfaces (Protocolos) para otros Casos de Uso del Eje Y ---
+from ..api.schemas import ( # Suponiendo que los schemas placeholder están en api.schemas
+    FormClusterInputSchema, FormClusterResultSchema,
+    PropositionDerivationInputSchema, PropositionDerivationResultSchema,
+    MiniTheoryConstructionInputSchema, MiniTheoryConstructionResultSchema,
+    ComprehensiveTheoriesInputSchema, ComprehensiveTheoriesResultSchema,
+    UnifiedModelsInputSchema, UnifiedModelsResultSchema
+)
+
+class FormClustersUseCase(Protocol):
+    """Interfaz para el caso de uso de formación de clústeres."""
+    async def execute(self, input_data: FormClusterInputSchema) -> FormClusterResultSchema:
+        ...
+
+class PropositionDerivationUseCase(Protocol):
+    """Interfaz para el caso de uso de derivación de proposiciones."""
+    async def execute(self, input_data: PropositionDerivationInputSchema) -> PropositionDerivationResultSchema:
+        ...
+
+class MiniTheoryConstructionUseCase(Protocol):
+    """Interfaz para el caso de uso de construcción de mini-teorías."""
+    async def execute(self, input_data: MiniTheoryConstructionInputSchema) -> MiniTheoryConstructionResultSchema:
+        ...
+
+class ComprehensiveTheoriesUseCase(Protocol):
+    """Interfaz para el caso de uso de construcción de teorías comprehensivas."""
+    async def execute(self, input_data: ComprehensiveTheoriesInputSchema) -> ComprehensiveTheoriesResultSchema:
+        ...
+
+class UnifiedModelsUseCase(Protocol):
+    """Interfaz para el caso de uso de síntesis de modelos unificados."""
+    async def execute(self, input_data: UnifiedModelsInputSchema) -> UnifiedModelsResultSchema:
         ...
 
 class IngestDocumentUseCase:
