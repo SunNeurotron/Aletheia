@@ -77,10 +77,19 @@ class UnifiedTheory:
     model_data: Optional[Dict] = field(default_factory=dict)
     metrics: Optional[Dict] = field(default_factory=dict)
 
-    def to_dict(self): # For repository
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializa la instancia de UnifiedTheory a un diccionario.
+
+        Este diccionario está formateado para ser compatible con la capa de persistencia,
+        específicamente para la creación o actualización de un objeto AnalysisData.
+
+        Returns:
+            Dict[str, Any]: Representación en diccionario de la teoría unificada.
+        """
         return {
-            "id": self.id,
-            "session_id": self.session_id,
+            "id": self.id, # ID de la teoría, no necesariamente el ID del análisis.
+            "session_id": self.session_id, # session_id asociado si existe.
             "model_data": {
                 "patterns": [p.__dict__ for p in self.patterns],
                 "principles": self.principles,

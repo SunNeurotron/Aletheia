@@ -159,8 +159,15 @@ class TestIntegrationMDUApi: # Renamed from TestIntegrationMDU to be more specif
 
     async def test_mdu_analyze_endpoint(self, mdu_api_test_client_data, mocker: pytest.MonkeyPatch):
         """Tests the /mdu/analyze endpoint for successful request and response structure."""
-        (client, mock_pg_repo_instance, mock_mlflow_tracker_instance, _, _,
-         patched_pg_repo, patched_mlflow_tracker, _, _) = mdu_api_test_client_data
+        (client,
+         mock_pg_repo_instance,
+         mock_mlflow_tracker_instance,
+         mock_celery_queue_instance, # Unpack all for clarity, even if not used in this test
+         mock_domain_service_instance, # This is the one we need
+         patched_pg_repo,
+         patched_mlflow_tracker,
+         patched_celery_queue, # Unpack all
+         patched_domain_service) = mdu_api_test_client_data
 
         test_token = self._get_e2e_test_token()
         request_payload = AnalisisRequest(
@@ -180,17 +187,25 @@ class TestIntegrationMDUApi: # Renamed from TestIntegrationMDU to be more specif
         response_data = response.json()
 
         assert "analysis_id" in response_data
-        assert response_data["analysis_id"] == "saved_analysis_e2e_fixture_123"
+        assert response_data["analysis_id"] == "saved_analysis_e2e_fixture_123" # From mock_pg_repo_instance.save
         assert "status_message" in response_data
         assert "details_url" in response_data
         assert response_data["details_url"] == f"/api/v1/mdu/status/{response_data['analysis_id']}"
 
-        # Assert constructor was called (on the mock object that replaced the class)
+        # Assertions for patched class constructors
         patched_pg_repo.assert_called_once()
-        # Assert methods were called on the instance returned by the patched constructor
+        patched_mlflow_tracker.assert_called_once()
+        patched_domain_service.assert_called_once() # DomainService is also instantiated per request in app factory
+
+        # Assertions for mock instance method calls
         mock_pg_repo_instance.save.assert_called_once()
 
-        patched_mlflow_tracker.assert_called_once()
+        mock_domain_service_instance.extract_atomic_units.assert_called_once()
+        mock_domain_service_instance.form_clusters.assert_called_once()
+        mock_domain_service_instance.build_mini_theories.assert_called_once()
+        mock_domain_service_instance.synthesize_model.assert_called_once()
+        mock_domain_service_instance.calculate_metrics.assert_called_once()
+
         mock_mlflow_tracker_instance.start_run.assert_called_once()
         mock_mlflow_tracker_instance.log_params.assert_called_once()
         mock_mlflow_tracker_instance.log_metrics.assert_called_once()
@@ -201,21 +216,29 @@ class TestIntegrationMDUApi: # Renamed from TestIntegrationMDU to be more specif
         client, mock_pg_repo_instance, _, _, _, _, _, _, _ = mdu_api_test_client_data
 
         test_token = self._get_e2e_test_token()
-        # This session_id must match the one in mock_analysis_obj_for_get for the mock to work
-        test_session_id = "test_e2e_fixture"
+        test_session_id = "test_e2e_fixture" # Must match session_id in mock_analysis_obj_for_get
 
         response = await client.get(
-            f"/mdu/status/{test_session_id}", # Use the ID that the mock is set up to return
+            f"/mdu/status/{test_session_id}",
             headers={"Authorization": f"Bearer {test_token}"}
         )
         assert response.status_code == 200, f"API call failed: {response.text}"
         response_data = response.json()
 
-        # The session_id in response should be the one from the path, which is used in the .get() call
         assert response_data["session_id"] == test_session_id
         assert "current_status" in response_data
-        assert response_data["current_status"] == "completed_from_mock_db_fixture"
+        assert response_data["current_status"] == "completed_from_mock_db_fixture" # From mock AnalysisData
+
         assert "progress_percent" in response_data
+        assert isinstance(response_data["progress_percent"], float)
+        # Based on mock_analysis_obj_for_get.metrics={"progress_metric": "75.5"}
+        assert response_data["progress_percent"] == 75.5
+
+        assert "details" in response_data # Details should be the model_dump of the AnalysisData
+        expected_details_model_data = {"levels": [{"id":"lvl1"}, {"id":"lvl2"}, {"id":"lvl3"}]}
+        assert response_data["details"]["model_data"] == expected_details_model_data
+        assert response_data["details"]["metrics"]["progress_metric"] == "75.5"
+
 
         mock_pg_repo_instance.get.assert_called_once_with(test_session_id)
 
