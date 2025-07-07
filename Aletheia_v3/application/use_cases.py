@@ -40,7 +40,30 @@ class AnalysisUseCase:
         session_data_str: str, # String representation of session specific data
         config: Dict[str, Any] # Configuration for the analysis run
     ) -> Dict[str, Any]:
-        """Ejecuta análisis multinivel completo."""
+        """
+        Ejecuta el flujo completo de análisis multinivel.
+
+        Este método orquesta la extracción de unidades atómicas, formación de clusters,
+        construcción de miniteorías y la síntesis de un modelo unificado a través
+        del DomainService. El resultado se persiste utilizando el repositorio
+        configurado y las métricas clave se registran con el tracker de experimentos.
+
+        Args:
+            session_data_str: String JSON que contiene los datos específicos de la sesión
+                              necesarios para el análisis (e.g., parámetros de entrada).
+            config: Un diccionario con parámetros de configuración para la ejecución del
+                    análisis, incluyendo 'session_id' y, opcionalmente, 'id' para el
+                    registro del análisis.
+
+        Returns:
+            Un diccionario que contiene:
+                - "analysis_id": El ID del análisis guardado en el repositorio.
+                - "run_id": El ID de la ejecución del tracker de experimentos.
+                - "model": El volcado del modelo de datos de AnalysisData (Pydantic)
+                           que fue persistido.
+                - "metrics": Un diccionario con las métricas calculadas por el
+                             DomainService para el modelo unificado.
+        """
         run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
         self.tracker.log_params(config)
 
@@ -54,33 +77,47 @@ class AnalysisUseCase:
             # unified_model_obj is likely a UnifiedTheory domain object.
             # We need to convert it to the structure expected by IAnalysisRepository.save, which is AnalysisData.
 
-            # Assuming unified_model_obj.to_dict() gives the necessary fields for AnalysisData's model_data
-            # And that id, session_id are in config.
-            analysis_data_to_save = {
-                "id": config.get('id', config.get('session_id', 'default_analysis_id')), # Ensure ID for saving
-                "session_id": config.get('session_id', 'default_session_id'),
-                "model_data": unified_model_obj.to_dict().get('model_data', {}) if hasattr(unified_model_obj, 'to_dict') else {},
-                "metrics": unified_model_obj.to_dict().get('metrics', {}) if hasattr(unified_model_obj, 'to_dict') else {},
-                # status and created_at can be defaulted by AnalysisData or set by repo
+            # Convert UnifiedTheory domain object to a dictionary
+            unified_model_dict = unified_model_obj.to_dict()
+
+            # Prepare data for AnalysisData Pydantic model
+            # The 'id' for AnalysisData should be the overall analysis/session identifier,
+            # typically from config. The 'id' within unified_model_dict is for the theory itself.
+            analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
+            session_id_for_repo = config.get('session_id', 'default_session_id')
+
+            model_data_from_theory = unified_model_dict.get('model_data', {})
+            metrics_from_theory = unified_model_dict.get('metrics', {})
+
+            # Ensure levels for test compatibility if not present in model_data_from_theory
+            # This was a previous requirement, keeping it for now.
+            if 'levels' not in model_data_from_theory:
+                model_data_from_theory['levels'] = []
+
+            analysis_data_payload = {
+                "id": analysis_id_for_repo,
+                "session_id": session_id_for_repo,
+                "model_data": model_data_from_theory,
+                "metrics": metrics_from_theory,
+                # status and created_at can be defaulted by AnalysisData or set by the repository
             }
-            # Ensure levels for test (this is a bit of a hack for test compatibility)
-            if 'levels' not in analysis_data_to_save['model_data']:
-                analysis_data_to_save['model_data']['levels'] = []
 
             # Create AnalysisData Pydantic model instance
             from .ports import AnalysisData # Import here to avoid circularity if AnalysisData moves
-            analysis_pydantic_obj = AnalysisData(**analysis_data_to_save)
+            analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
 
-            analysis_id_saved = await self.repository.save(analysis_pydantic_obj)
+            # Save to repository
+            saved_analysis_id = await self.repository.save(analysis_pydantic_obj) # repository.save returns the id
 
+            # Log metrics (calculated_metrics might be more comprehensive or specific than those in unified_model_obj.metrics)
             calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
             self.tracker.log_metrics(calculated_metrics)
 
             return {
-                "analysis_id": analysis_id_saved,
+                "analysis_id": saved_analysis_id, # Use the ID returned by the save operation
                 "run_id": run_id,
-                "model": analysis_pydantic_obj.model_dump(), # Return dict version of saved data
-                "metrics": calculated_metrics
+                "model": analysis_pydantic_obj.model_dump(), # Return dict version of the saved data
+                "metrics": calculated_metrics # Return the freshly calculated metrics
             }
         finally:
             self.tracker.end_run()
@@ -96,9 +133,22 @@ class ApplicationServiceFacade: # Renamed from ApplicationFace for clarity
         self.domain_service = domain_service
 
     async def handle_analysis_request(self, request: AnalisisRequest, user: Dict[str, Any]) -> Dict[str, Any]:
-        # print(f"ApplicationServiceFacade: Handling analysis for {user.get('sub')} with request {request.sesion_id}")
-        config = request.dict()
-        config['user_id'] = user.get('sub')
+        """
+        Maneja una solicitud de análisis entrante.
+
+        Prepara la configuración y los datos de sesión a partir de la solicitud
+        y el usuario, y luego invoca el AnalysisUseCase para ejecutar el análisis.
+
+        Args:
+            request: El objeto AnalisisRequest (Pydantic model) proveniente de la API.
+            user: Un diccionario que representa al usuario autenticado (e.g., de un token JWT).
+
+        Returns:
+            Un diccionario con el resultado de la ejecución del análisis,
+            generalmente incluyendo 'analysis_id', 'run_id', 'model', y 'metrics'.
+        """
+        config = request.dict() # Convierte el Pydantic model a dict para la config
+        config['user_id'] = user.get('sub') # Añade el ID del usuario a la config
 
         # The session_data for execute_multilevel_analysis should be derived from the request.
         # Example: if parameters contain the core data to analyze.
@@ -110,32 +160,57 @@ class ApplicationServiceFacade: # Renamed from ApplicationFace for clarity
         )
         return result
 
-    async def get_analysis_status(self, session_id: str) -> Dict[str, Any]: # Changed from print to async
-        # print(f"ApplicationServiceFacade: Getting status for session {session_id}")
+    async def get_analysis_status(self, session_id: str) -> Dict[str, Any]:
+        """
+        Obtiene el estado de un análisis existente.
+
+        Consulta el repositorio para obtener los datos de un análisis basado en su session_id.
+        Si se encuentra, formatea los datos para que coincidan con el esquema
+        MDUAnalysisStatusResponse, incluyendo el estado actual, el porcentaje de progreso
+        (calculado a partir de 'progress_metric' en las métricas del análisis),
+        y los detalles completos del análisis.
+
+        Args:
+            session_id: El ID de la sesión del análisis a consultar.
+
+        Returns:
+            Un diccionario que representa el estado del análisis:
+            - "session_id": El ID de la sesión consultada.
+            - "current_status": El estado actual del análisis (e.g., "completed", "running", "NOT_FOUND").
+            - "progress_percent": Un float que indica el progreso (0.0-100.0).
+            - "details": Un diccionario con los datos completos del análisis (si se encuentra),
+                         o None si no se encuentra.
+        """
         analysis_data = await self.analysis_use_case.repository.get(session_id)
         if analysis_data:
-            progress_value = "0.0" # Default progress string
+            progress_percent_float = 0.0
             if analysis_data.metrics:
-                # Get progress_metric, default to "0.0" if not present or if None
-                metric_val = analysis_data.metrics.get("progress_metric")
+                metric_val = analysis_data.metrics.get("progress_metric") # Assuming progress_metric is a value between 0 and 100 or can be converted.
                 if metric_val is not None:
-                    progress_value = str(metric_val).replace('%', '')
                     try:
-                        # Validate if it's a floatable string, otherwise keep default "0.0"
-                        float(progress_value)
+                        progress_percent_float = float(str(metric_val).replace('%', ''))
+                        if not (0.0 <= progress_percent_float <= 100.0): # Clamp to range
+                            progress_percent_float = max(0.0, min(progress_percent_float, 100.0))
                     except ValueError:
-                        progress_value = "0.0" # Fallback if not floatable
-                else: # metric_val is None or key not found
-                    progress_value = "0.0"
+                        progress_percent_float = 0.0 # Fallback if not floatable
+
+            # Ensure analysis_data.status is not None, default to a generic status if it is.
+            current_status_str = analysis_data.status if analysis_data.status is not None else "UNKNOWN"
 
             return {
                 "session_id": session_id,
-                "status": analysis_data.status,
-                "progress": progress_value, # Use the derived progress value
-                "details": analysis_data.model_dump() # Changed from model_dump_json to return a dict
+                "current_status": current_status_str,
+                "progress_percent": progress_percent_float,
+                "details": analysis_data.model_dump() # model_dump() returns a dict
             }
-        # For NOT_FOUND, details can be None or an empty dict as per MDUAnalysisStatusResponse schema
-        return {"session_id": session_id, "status": "NOT_FOUND", "progress": "0.0", "details": None}
+
+        # Case: Analysis not found
+        return {
+            "session_id": session_id,
+            "current_status": "NOT_FOUND",
+            "progress_percent": 0.0,
+            "details": None # Conforms to MDUAnalysisStatusResponse where details is Optional
+        }
 
 
 # --- Classes from original Section 3.2 and 4, now part of Application Layer ---
