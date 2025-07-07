@@ -3,20 +3,7 @@
 # ==========================================
 fastapi==0.103.0
 uvicorn[standard]==0.23.2
-
-# ==========================================
-# Database Dependencies
-# ==========================================
-sqlalchemy==2.0.20
-# psycopg2-binary==2.9.6  # Temporarily removed - Driver for PostgreSQL
-# alembic==1.12.0  # Temporarily removed - For database migrations
-
-# ==========================================
-# Machine Learning / Statistics Dependencies
-# ==========================================
-# mlflow==2.7.1 # Temporarily commented out due to pyarrow build issues in sandbox - For experiment tracking
-scipy==1.13.1
-numpy==1.26.0
+aiohttp # For GraphQLAdapter and general async HTTP
 
 # ==========================================
 # Data Validation & Settings Management
@@ -24,16 +11,54 @@ numpy==1.26.0
 pydantic==2.4.2 # Also a FastAPI core dependency, pinned for clarity
 
 # ==========================================
+# Database Dependencies
+# ==========================================
+sqlalchemy==2.0.20
+asyncpg # For async PostgreSQL operations in mdu_cube_system.py
+# psycopg2-binary==2.9.6  # Temporarily removed - Driver for PostgreSQL, SQLAlchemy might use it for sync
+# alembic==1.12.0  # Temporarily removed - For database migrations
+
+# ==========================================
+# Machine Learning / Statistics / Data
+# ==========================================
+mlflow==2.7.1 # For experiment tracking - Re-enabled
+scipy==1.13.1
+numpy==1.26.0
+scikit-learn # For cosine_similarity, AgglomerativeClustering
+networkx # For ConceptCluster graph operations
+numba # For JITOptimizer
+
+# ==========================================
+# Task Queue & Caching
+# ==========================================
+celery[redis]>=5.0 # Celery with Redis broker/backend support
+redis # Python client for Redis
+aiokafka # For KafkaAdapter in mdu_cube_system.py
+
+# Distributed Caching
+aiocache[redis] # aiocache with Redis backend support
+
+# ==========================================
 # Security Dependencies
 # ==========================================
-python-jose[cryptography]==3.3.0 # For JWT handling
+python-jose[cryptography]==3.3.0 # For JWT handling (FastAPI examples often use this)
 passlib[bcrypt]==1.7.4 # For password hashing
+python-jwt[crypto] # PyJWT, as mdu_cube_system.py uses `import jwt` directly
+
+# ==========================================
+# Monitoring & Observability
+# ==========================================
+prometheus-client
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-grpc
 
 # ==========================================
 # Testing Dependencies
 # ==========================================
 pytest==7.4.0
+pytest-asyncio # For async test functions
 pytest-cov==4.1.0 # For code coverage reporting
+pytest-benchmark # For performance benchmark tests
 httpx==0.25.0 # HTTP client for testing FastAPI (TestClient)
 hypothesis==6.82.0 # Property-based testing
 
@@ -53,3 +78,16 @@ types-requests # Type stubs for requests (if used directly or by httpx)
 # Pre-commit Hook Management
 # ==========================================
 pre-commit==3.3.3 # The pre-commit tool itself
+
+# ==========================================
+# Optional Dependencies from mdu_cube_system.py
+# ==========================================
+# rich # For rich.console.Console
+# streamlit # For CubeDashboard
+# plotly # For CubeDashboard charts
+# cupy-cuda11x # Or specific CUDA version e.g. cupy-cuda12x. For GPU JIT.
+
+# ==========================================
+# Other Dependencies
+# ==========================================
+requests # For Docker healthcheck (can be replaced by httpx if preferred)
