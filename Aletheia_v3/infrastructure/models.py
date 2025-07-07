@@ -339,3 +339,57 @@ class DerivedConjectureDB(Base):
 # ConjectureStatusEnum.create(engine, checkfirst=True)
 # This is typically done via migrations (Alembic) in production.
 # For `create_all`, ensure the enums are defined before tables using them.
+
+# --- Nuevos Modelos para Conceptos y Relaciones ---
+from sqlalchemy.dialects.postgresql import JSONB # Para el tipo JSONB específico de PostgreSQL
+from ..core.domain_models import ConceptType as DomainConceptType # Importar el Enum de dominio
+# Nota: uuid_pkg ya está importado arriba. func, DateTime, Text, String, ForeignKey, relationship, SAEnum, Column también.
+# La clase UUID personalizada también está definida arriba.
+
+# Modelo SQLAlchemy para ScientificConcept
+class ScientificConceptDB(Base):
+    __tablename__ = "scientific_concepts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    name = Column(String(500), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    # Usar el Enum de dominio con SAEnum para crear un tipo ENUM en la BD (para PG)
+    # create_constraint=True es importante para que Alembic lo maneje bien.
+    concept_type = Column(SAEnum(DomainConceptType, name="concept_type_enum_v2", create_constraint=True, inherit_schema=False), nullable=False, index=True)
+    properties = Column(JSONB, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<ScientificConceptDB(id='{self.id}', name='{self.name}', type='{self.concept_type.value if self.concept_type else None}')>"
+
+# Modelo SQLAlchemy para DirectedRelationship
+class DirectedRelationshipDB(Base):
+    __tablename__ = "directed_relationships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    source_concept_id = Column(UUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_source_concept"), nullable=False, index=True)
+    target_concept_id = Column(UUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_target_concept"), nullable=False, index=True)
+
+    type = Column(String(100), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+    properties = Column(JSONB, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relaciones ORM con ScientificConceptDB
+    source_concept = relationship(
+        "ScientificConceptDB",
+        foreign_keys=[source_concept_id],
+        backref="relationships_as_source" # Nombre para la colección en ScientificConceptDB
+    )
+    target_concept = relationship(
+        "ScientificConceptDB",
+        foreign_keys=[target_concept_id],
+        backref="relationships_as_target" # Nombre para la colección en ScientificConceptDB
+    )
+
+    def __repr__(self):
+        return f"<DirectedRelationshipDB(id='{self.id}', type='{self.type}', source='{self.source_concept_id}', target='{self.target_concept_id}')>"
