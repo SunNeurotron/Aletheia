@@ -1,17 +1,40 @@
 # Aletheia v4.0: Plataforma de Descubrimiento Científico Guiado por IA
 
-Aletheia is an evolving end-to-end scientific discovery platform, meticulously engineered for investigating complex mathematical problems like the ABC Conjecture. This conceptual v4.0 represents a significant advancement, building upon the **Unified Development Framework (MDU)** by incorporating enhanced mathematical engines, scalability features, advanced AI techniques, and collaborative functionalities.
+Aletheia is an evolving end-to-end scientific discovery platform, meticulously engineered for investigating complex mathematical problems like the ABC Conjecture and, more broadly, for **M**odeling, **D**iscovery, and **U**nderstanding (MDU) in scientific research. This version represents a significant advancement, building upon the MDU framework by incorporating a functional knowledge graph, AI-driven synthesis capabilities, persistent storage, and interactive visualization tools.
+
+The system now supports a complete workflow: ingesting documents, extracting conceptual units, forming a hierarchical knowledge structure (clusters, propositions, theories, unified models), persisting this graph, and allowing exploration via a dedicated dashboard.
 
 For details on the evolution of the project and previous versions, please see the [CHANGELOG.md](CHANGELOG.md).
 
 ![Conceptual Diagram of Aletheia interacting with Math Universe](https://i.imgur.com/mY5L4sW.png)
-*(Conceptual: Aletheia platform using AI to find mathematical "gold" (abc-hits) in the universe of numbers.)*
+*(Conceptual: Aletheia platform using AI to find mathematical "gold" (abc-hits) in the universe of numbers, and building structured knowledge.)*
 
-## Key Enhancements and Features of Aletheia v4.0
+## Key Enhancements and Features
 
 This version integrates features developed across several focused phases, transforming the platform's capabilities:
 
-**1. Core Mathematical Engine & Foundational Performance (Phase 1):**
+**1. Knowledge Graph Core & Visualization (New Major Phase):**
+*   **Core Knowledge Entities:** Defined `ScientificConcept` and `DirectedRelationship` domain models, forming the backbone of the knowledge graph.
+*   **Persistent Storage:** Implemented SQLAlchemy-based repositories (`SQLAlchemyConceptRepository`, `SQLAlchemyRelationshipRepository`) for persisting concepts and relationships in a PostgreSQL database. Database schema managed by Alembic migrations, including new tables for these entities.
+*   **Eje X - Ingestion & Ontology Use Cases:**
+    *   `IngestDocumentUseCase`: Functional implementation for ingesting document text, creating a `DOCUMENT_SOURCE` concept, and triggering UCM extraction.
+    *   `ExtractUCMsUseCase`: Functional implementation (moved from placeholders) using regex and keyword analysis to extract UCMs (Unidades Conceptuales Mínimas) from text, persist them, and create basic `RELATED_TO_DOCUMENT_CONTEXT` relationships between co-occurring UCMs.
+    *   `LinkConceptsUseCase`: Functional implementation for manually creating and persisting relationships between any two concepts.
+*   **Eje Y - Knowledge Synthesis Use Cases:**
+    *   A full pipeline of use cases (`FormClustersUseCase`, `DerivePropositionsUseCase`, `MiniTheoryConstructionUseCase`, `ComprehensiveTheoriesUseCase`, `UnifiedModelsUseCase`) has been implemented. These cases take concepts from a lower level of abstraction, apply a (currently simple/heuristic) synthesis logic, and create/persist new concepts representing the next level in the knowledge hierarchy (e.g., CLUSTER, PROPOSITION, MINI_THEORY, etc.).
+    *   `DomainService` and `TheoryBuilder` provide more realistic (though still heuristic) synthesis logic for pattern identification and theory construction.
+*   **Interactive Knowledge Dashboard (`mdu_dashboard.py`):**
+    *   A new Streamlit dashboard dedicated to visualizing the knowledge graph.
+    *   Features a full graph explorer (all concepts and relationships) with filtering by concept type and node-click details.
+    *   Includes a hierarchy viewer to trace the components of synthesized models/theories.
+    *   Displays key statistics about the knowledge graph.
+    *   Consumes data from functional API endpoints.
+*   **Supporting API Endpoints:**
+    *   New GET endpoints in `ontology_management_router.py` (`/eje-x/concepts/`, `/eje-x/relationships/`) to list all persisted concepts and relationships.
+    *   Functional visualization endpoints in `knowledge_synthesis_router.py` (`/eje-y/visualization/hierarchy_graph/{concept_id}`, `/eje-y/visualization/synthesis_statistics`) that now query the database to provide real data for the dashboard.
+    *   Functional POST endpoints in `ontology_management_router.py` and `knowledge_synthesis_router.py` to trigger all Eje X and Eje Y use cases.
+
+**2. Core Mathematical Engine & Foundational Performance (Previously Phase 1):**
 *   **PARI/GP Integration:** The mathematical core (`core/domain.py`) now leverages the power of PARI/GP (via `cypari2`) for high-precision arithmetic, efficient GCD calculations, and advanced prime factorization in the `_radical` function. This significantly boosts performance and numerical accuracy for large number computations.
 *   **Optimized Computations:** Implemented caching (`lru_cache`) for radical computations to reduce redundant calculations.
 *   **Enhanced Domain Tests:** Expanded `tests/test_domain.py` to include rigorous testing for PARI/GP integration, large number handling, and caching.
@@ -110,12 +133,24 @@ graph TD
 
 4.  **Access Services:**
     Once all containers are running, access the services via your web browser:
-    -   **🔬 Interactive Dashboard:** [http://localhost:8501](http://localhost:8501)
+    -   **🔬 ABC Conjecture Dashboard:** [http://localhost:8501](http://localhost:8501) (Focuses on ABC Conjecture intelligent search jobs)
+    -   **💡 Knowledge Graph Dashboard:** [http://localhost:8502](http://localhost:8502) (Visualizes concepts, relationships, and synthesis hierarchy)
     -   **📄 API Documentation (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
     -   **📈 MLflow Experiments UI:** [http://localhost:5000](http://localhost:5000)
 
 5.  **Using the Platform:**
-    -   Navigate to the **Dashboard** to submit new "Intelligent Search Jobs."
+    -   Navigate to the **ABC Conjecture Dashboard** (`:8501`) to submit new "Intelligent Search Jobs" for a,b,c triples.
+    -   Explore the **Knowledge Graph Dashboard** (`:8502`) to:
+        -   View all extracted and synthesized concepts and their relationships.
+        -   Filter concepts by type.
+        -   Inspect the hierarchical breakdown of synthesized theories and models.
+        -   See overall statistics of the knowledge graph.
+    -   Use the **API** (via Swagger UI at `/docs` or programmatically) to:
+        -   Ingest new documents (`POST /eje-x/ingest-document`).
+        -   Extract UCMs directly (`POST /eje-y/ucm-extraction`).
+        -   Link concepts (`POST /eje-x/link-concepts`).
+        -   Trigger Eje Y synthesis steps (cluster formation, proposition derivation, etc.).
+        -   Retrieve concept and relationship data.
     -   Monitor job progress (Pending -> Processing -> Completed/Failed).
     -   View results and visualizations for completed jobs directly on the dashboard.
     -   Explore detailed experiment logs, parameters, and metrics in the **MLflow UI**.
@@ -164,12 +199,12 @@ If you make changes to the SQLAlchemy models (e.g., in `Aletheia_v3/infrastructu
 
 3.  **Edit the generated script:**
     Alembic will create a new file (e.g., in `Aletheia_v3/alembic/versions/`). Review this script.
-    *   **Autogenerate (Optional but Recommended for Review):** If your `alembic/env.py` is correctly configured with `target_metadata`, Alembic can attempt to autogenerate the migration operations. To use autogenerate:
+    *   **Autogenerate (Recommended for Review):** If your `alembic/env.py` is correctly configured with `target_metadata` (which it is, pointing to `Aletheia_v3.infrastructure.models.Base.metadata`), Alembic can autogenerate the migration operations:
         ```bash
-        alembic revision -m "short_description_of_changes" --autogenerate
+        alembic revision -m "add_scientific_concept_and_relationship_tables" --autogenerate
         ```
-        **Always carefully review autogenerated scripts before applying them.**
-    *   You will need to fill in the `upgrade()` and `downgrade()` functions with the appropriate `op.` commands.
+        **Always carefully review autogenerated scripts before applying them.** The autogeneration should correctly pick up `ScientificConceptDB` and `DirectedRelationshipDB`.
+    *   You generally only need to manually edit the script if autogeneration misses something complex or if you need custom SQL.
 
 4.  **Test the migration (optional but good practice):**
     *   Apply the migration to your development database:
