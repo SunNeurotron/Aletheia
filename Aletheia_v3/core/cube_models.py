@@ -26,6 +26,10 @@ class CuboMDU:
     def __init__(self):
         self.dimensiones = (4, 4, 4)
         self.matriz: np.ndarray = np.empty(self.dimensiones, dtype=object)
+        self.current_rx: int = 0
+        self.current_ry: int = 0
+        self.current_rz: int = 0
+        self.layers: list[str] = ['presentation', 'application', 'domain', 'infrastructure']
         self._inicializar_celdas()
         self._establecer_conexiones()
         self.original_matriz_state: Optional[np.ndarray] = None
@@ -110,16 +114,18 @@ class CuboMDU:
         return snapshot
 
     def rotate(self, rx: int, ry: int, rz: int): # As used by CubeHoneycombIntegration
-        """Placeholder para rotar el cubo (e.g. body rotation)."""
-        # print(f"CuboMDU: Simulating body rotation by ({rx}, {ry}, {rz}) degrees.")
-        # This is distinct from RotationEngine.rotate_face which rotates a single face.
-        # True body rotation is complex and would update all cell positions and connections.
-        pass
+        """Rotates the cube conceptually by updating its orientation attributes."""
+        self.current_rx = (self.current_rx + rx) % 360
+        self.current_ry = (self.current_ry + ry) % 360
+        self.current_rz = (self.current_rz + rz) % 360
+        print(f"CuboMDU: Orientación conceptual rotada a RX={self.current_rx}, RY={self.current_ry}, RZ={self.current_rz}")
 
     def reset_orientation(self):
-        """Placeholder para restaurar la orientación original del cubo."""
-        # print("CuboMDU: Resetting cube orientation (placeholder).")
-        pass
+        """Resets the cube's conceptual orientation to its default state."""
+        self.current_rx = 0
+        self.current_ry = 0
+        self.current_rz = 0
+        print("CuboMDU: Orientación conceptual restablecida.")
 
 
 # --- Section 3.1: Rotation Engine (from mdu_cube_system.py) ---
