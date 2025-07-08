@@ -34,6 +34,14 @@ class AnalysisUseCase:
     tracker: IExperimentTracker
     queue: ITaskQueue
     domain_service: DomainService
+    monitoring: Optional[Any] # Optional CubeMonitoring, will be injected
+
+    def __init__(self, repository: IAnalysisRepository, tracker: IExperimentTracker, queue: ITaskQueue, domain_service: DomainService, monitoring: Optional[Any] = None): # Adjusted as per instructions
+        self.repository = repository
+        self.tracker = tracker
+        self.queue = queue
+        self.domain_service = domain_service
+        self.monitoring = monitoring
 
     async def execute_multilevel_analysis(
         self,
@@ -64,63 +72,89 @@ class AnalysisUseCase:
                 - "metrics": Un diccionario con las métricas calculadas por el
                              DomainService para el modelo unificado.
         """
-        run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
-        self.tracker.log_params(config)
+        if self.monitoring:
+            self.monitoring.increment_active_analyses()
+
+        run_id = "default_run_id" # Initialize run_id with a default value
+        strategy = config.get('strategy', 'default') # Extrae la estrategia de la configuración
 
         try:
-            atoms = await self.domain_service.extract_atomic_units(session_data_str)
-            clusters = await self.domain_service.form_clusters(atoms)
-            theories = await self.domain_service.build_mini_theories(clusters)
-            unified_model_obj = await self.domain_service.synthesize_model(theories)
+            # Wrap the main logic with the monitoring context manager
+            if self.monitoring:
+                with self.monitoring.track_analysis_duration(level="full_multilevel", strategy=strategy):
+                    run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
+                    self.tracker.log_params(config)
 
-            # Prepare data for repository (expects AnalysisData Pydantic model from ports.py)
-            # unified_model_obj is likely a UnifiedTheory domain object.
-            # We need to convert it to the structure expected by IAnalysisRepository.save, which is AnalysisData.
+                    atoms = await self.domain_service.extract_atomic_units(session_data_str)
+                    clusters = await self.domain_service.form_clusters(atoms)
+                    theories = await self.domain_service.build_mini_theories(clusters)
+                    unified_model_obj = await self.domain_service.synthesize_model(theories)
 
-            # Convert UnifiedTheory domain object to a dictionary
-            unified_model_dict = unified_model_obj.to_dict()
+                    unified_model_dict = unified_model_obj.to_dict()
+                    analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
+                    session_id_for_repo = config.get('session_id', 'default_session_id')
+                    model_data_from_theory = unified_model_dict.get('model_data', {})
+                    metrics_from_theory = unified_model_dict.get('metrics', {})
+                    if 'levels' not in model_data_from_theory:
+                        model_data_from_theory['levels'] = []
 
-            # Prepare data for AnalysisData Pydantic model
-            # The 'id' for AnalysisData should be the overall analysis/session identifier,
-            # typically from config. The 'id' within unified_model_dict is for the theory itself.
-            analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
-            session_id_for_repo = config.get('session_id', 'default_session_id')
+                    analysis_data_payload = {
+                        "id": analysis_id_for_repo,
+                        "session_id": session_id_for_repo,
+                        "model_data": model_data_from_theory,
+                        "metrics": metrics_from_theory,
+                    }
+                    from .ports import AnalysisData
+                    analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
+                    saved_analysis_id = await self.repository.save(analysis_pydantic_obj)
+                    calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
+                    self.tracker.log_metrics(calculated_metrics)
 
-            model_data_from_theory = unified_model_dict.get('model_data', {})
-            metrics_from_theory = unified_model_dict.get('metrics', {})
+                    return {
+                        "analysis_id": saved_analysis_id,
+                        "run_id": run_id,
+                        "model": analysis_pydantic_obj.model_dump(),
+                        "metrics": calculated_metrics
+                    }
+            else: # Fallback if monitoring is not available
+                # This block should ideally not be reached if DI is working correctly
+                run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
+                self.tracker.log_params(config)
 
-            # Ensure levels for test compatibility if not present in model_data_from_theory
-            # This was a previous requirement, keeping it for now.
-            if 'levels' not in model_data_from_theory:
-                model_data_from_theory['levels'] = []
-
-            analysis_data_payload = {
-                "id": analysis_id_for_repo,
-                "session_id": session_id_for_repo,
-                "model_data": model_data_from_theory,
-                "metrics": metrics_from_theory,
-                # status and created_at can be defaulted by AnalysisData or set by the repository
-            }
-
-            # Create AnalysisData Pydantic model instance
-            from .ports import AnalysisData # Import here to avoid circularity if AnalysisData moves
-            analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
-
-            # Save to repository
-            saved_analysis_id = await self.repository.save(analysis_pydantic_obj) # repository.save returns the id
-
-            # Log metrics (calculated_metrics might be more comprehensive or specific than those in unified_model_obj.metrics)
-            calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
-            self.tracker.log_metrics(calculated_metrics)
-
-            return {
-                "analysis_id": saved_analysis_id, # Use the ID returned by the save operation
-                "run_id": run_id,
-                "model": analysis_pydantic_obj.model_dump(), # Return dict version of the saved data
-                "metrics": calculated_metrics # Return the freshly calculated metrics
-            }
+                atoms = await self.domain_service.extract_atomic_units(session_data_str)
+                clusters = await self.domain_service.form_clusters(atoms)
+                theories = await self.domain_service.build_mini_theories(clusters)
+                unified_model_obj = await self.domain_service.synthesize_model(theories)
+                unified_model_dict = unified_model_obj.to_dict()
+                analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
+                session_id_for_repo = config.get('session_id', 'default_session_id')
+                model_data_from_theory = unified_model_dict.get('model_data', {})
+                metrics_from_theory = unified_model_dict.get('metrics', {})
+                if 'levels' not in model_data_from_theory:
+                    model_data_from_theory['levels'] = []
+                analysis_data_payload = {
+                    "id": analysis_id_for_repo,
+                    "session_id": session_id_for_repo,
+                    "model_data": model_data_from_theory,
+                    "metrics": metrics_from_theory,
+                }
+                from .ports import AnalysisData
+                analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
+                saved_analysis_id = await self.repository.save(analysis_pydantic_obj)
+                calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
+                self.tracker.log_metrics(calculated_metrics)
+                return {
+                    "analysis_id": saved_analysis_id,
+                    "run_id": run_id,
+                    "model": analysis_pydantic_obj.model_dump(),
+                    "metrics": calculated_metrics
+                }
         finally:
-            self.tracker.end_run()
+            if self.monitoring:
+                self.monitoring.decrement_active_analyses()
+            # Ensure tracker.end_run() is only called if tracker.start_run() was successful
+            if run_id != "default_run_id" or not self.monitoring : # or some other flag indicating start_run was called
+                self.tracker.end_run()
 
 
 # The ApplicationFace from mdu_cube_system.py acts as a higher-level service facade or controller.
@@ -128,9 +162,10 @@ class AnalysisUseCase:
 # For now, placing it here as it was closely tied to AnalysisUseCase.
 # It might be better placed in a dedicated 'services.py' or refactored.
 class ApplicationServiceFacade: # Renamed from ApplicationFace for clarity
-    def __init__(self, domain_service: DomainService, repo: IAnalysisRepository, tracker: IExperimentTracker, queue: ITaskQueue):
-        self.analysis_use_case = AnalysisUseCase(repo, tracker, queue, domain_service)
+    def __init__(self, domain_service: DomainService, repo: IAnalysisRepository, tracker: IExperimentTracker, queue: ITaskQueue, monitoring: Optional[Any] = None): # Added monitoring
+        self.analysis_use_case = AnalysisUseCase(repo, tracker, queue, domain_service, monitoring) # Pass monitoring
         self.domain_service = domain_service
+        # self.monitoring = monitoring # Facade itself might not need to store it if only AnalysisUseCase uses it
 
     async def handle_analysis_request(self, request: AnalisisRequest, user: Dict[str, Any]) -> Dict[str, Any]:
         """

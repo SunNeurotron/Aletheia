@@ -23,13 +23,14 @@ class IRotable(Protocol):
 
 class CuboMDU:
     """Arquitectura cúbica 4x4x4 = 64 componentes activos"""
-    def __init__(self):
+    def __init__(self, monitoring_system: Optional[Any] = None): # Acepta el sistema
         self.dimensiones = (4, 4, 4)
         self.matriz: np.ndarray = np.empty(self.dimensiones, dtype=object)
         self._inicializar_celdas()
         self._establecer_conexiones()
         self.original_matriz_state: Optional[np.ndarray] = None
-        self.rotation_engine = RotationEngine(self)
+        self.monitoring_system = monitoring_system # Guardar el sistema de monitoreo
+        self.rotation_engine = RotationEngine(self, monitoring_system=self.monitoring_system)
 
     def _inicializar_celdas(self):
         """Inicializa las celdas del cubo."""
@@ -148,8 +149,9 @@ class CuboMDU:
 # --- Section 3.1: Rotation Engine (from mdu_cube_system.py) ---
 class RotationEngine:
     """Motor de rotación para el cubo MDU"""
-    def __init__(self, cube: CuboMDU):
+    def __init__(self, cube: CuboMDU, monitoring_system: Optional[Any] = None):
         self.cube = cube
+        self.monitoring_system = monitoring_system
         # The rotation_matrix_configs were for point rotation, not directly used in the np.rot90 logic.
         # Keeping it simple as the face rotation logic is self-contained.
 
@@ -210,6 +212,9 @@ class RotationEngine:
         # if not self.cube.validate_integrity(): # Can be noisy
             # print(f"Warning: Cube integrity may be compromised after rotating {face_name} by {degrees}.")
             # pass # This line and its comment are removed
+
+        if self.monitoring_system:
+            self.monitoring_system.track_rotation(face=face_name, degrees=degrees)
 
     def _update_connections_after_rotation(self):
         """Placeholder: Actualiza las conexiones internas de las celdas."""

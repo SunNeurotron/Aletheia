@@ -14,6 +14,7 @@ from ..application.use_cases import ApplicationServiceFacade
 from ..application.ports import IAnalysisRepository, IExperimentTracker, ITaskQueue
 from ..core.domain_services import DomainService
 from ..core.cube_models import CuboMDU # PresentationFace takes CuboMDU
+from .dependencies import get_monitoring_system # Import for monitoring system
 
 # Default/Placeholder infrastructure components if create_mdu_application_instance is not used directly
 # This is for allowing PresentationFace to be instantiated.
@@ -169,8 +170,11 @@ def create_mdu_api_application() -> FastAPI:
     # Application Service
     app_service = ApplicationServiceFacade(domain_service, repo, tracker, queue)
 
+    # Monitoring System
+    monitoring_system = get_monitoring_system()
+
     # MDU Cube instance (if needed by PresentationFace logic directly)
-    mdu_cube = CuboMDU()
+    mdu_cube = CuboMDU(monitoring_system=monitoring_system)
 
     # Security Config
     sec_config = SecurityConfig() # Load from env vars in a real app
