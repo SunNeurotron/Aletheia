@@ -21,7 +21,7 @@ from sqlalchemy import Boolean, Column, DateTime, TypeDecorator
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import Float, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # For PostgreSQL UUID type
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped, mapped_column # Consolidated imports
 from sqlalchemy.sql import func  # For server-side default timestamps if preferred
 
 # Custom UUID type for SQLite compatibility
@@ -118,23 +118,23 @@ conjecture_hits_association = Table(
 class ResearcherDB(Base):
     __tablename__ = "researchers"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    username = Column(String(100), unique=True, index=True, nullable=False)
-    full_name = Column(String(255), nullable=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    orcid = Column(
+    id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    orcid: Mapped[Optional[str]] = mapped_column(
         String(50), unique=True, nullable=True, index=True
     )  # ORCID iDs are typically 19 chars like 0000-0002-1825-0097
-    hashed_password = Column(
+    hashed_password: Mapped[str] = mapped_column(
         String, nullable=False
     )  # Store hashed passwords only
-    is_admin = Column(Boolean, default=False, nullable=False)
-    disabled = Column(
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False) # server_default=sa.false() could be added if needed
+    disabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False, server_default=sa.false()
-    )  # New field for disabling accounts
+    )  # Ensures field exists with Mapped syntax
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
