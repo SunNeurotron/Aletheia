@@ -393,3 +393,22 @@ class DirectedRelationshipDB(Base):
 
     def __repr__(self):
         return f"<DirectedRelationshipDB(id='{self.id}', type='{self.type}', source='{self.source_concept_id}', target='{self.target_concept_id}')>"
+
+
+# --- Modelo ORM para AnalysisData ---
+from sqlalchemy.orm import Mapped, mapped_column # Asegurar mapped_column y Mapped
+# uuid_pkg, DateTime, func, JSONB, String, Base ya están importados y definidos.
+from typing import Dict, Any # Para tipado de JSONB
+
+class AnalysisModel(Base):
+    __tablename__ = 'analyses'
+
+    id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    session_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False) # String con longitud
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    model_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=True)
+    metrics: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=True)
+    status: Mapped[str] = mapped_column(String(100), nullable=False) # String con longitud
+
+    def __repr__(self):
+        return f"<AnalysisModel(id='{self.id}', session_id='{self.session_id}', status='{self.status}')>"
