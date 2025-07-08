@@ -18,6 +18,7 @@ spacy>=3.0.0 # For Named Entity Recognition (NER)
 streamlit>=1.25.0
 requests>=2.25.0 # For dashboard to call API
 plotly>=5.0.0 # For interactive plots in dashboard
+streamlit-agraph>=0.0.8 # For interactive graph visualizations
 
 # Testing Suite
 pytest>=7.0.0
