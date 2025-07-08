@@ -117,10 +117,15 @@ class SQLAlchemyConceptRepository(IConceptRepository):
 
         self.db.commit()
 
-    async def list_all(self) -> List[ScientificConcept]:
-        """Lista todos los ScientificConcepts."""
-        db_concepts = self.db.query(ScientificConceptDB).all()
+    async def list_all(self, skip: int = 0, limit: int = 100) -> List[ScientificConcept]:
+        """Lista todos los ScientificConcepts con paginación."""
+        db_concepts = self.db.query(ScientificConceptDB).offset(skip).limit(limit).all()
         return [_map_concept_db_to_domain(c) for c in db_concepts if c]
+
+    async def count_all(self) -> int:
+        """Cuenta todos los ScientificConcepts."""
+        from sqlalchemy.sql import func # Import func for count
+        return self.db.query(func.count(ScientificConceptDB.id)).scalar() or 0
 
 class SQLAlchemyRelationshipRepository(IRelationshipRepository):
     """
@@ -212,9 +217,14 @@ class SQLAlchemyRelationshipRepository(IRelationshipRepository):
         db_relationships = self.db.query(DirectedRelationshipDB).filter(DirectedRelationshipDB.target_concept_id == target_uuid).all()
         return [_map_relationship_db_to_domain(r) for r in db_relationships if r]
 
-    async def list_all(self) -> List[DirectedRelationship]:
-        """Lista todas las DirectedRelationships."""
-        db_relationships = self.db.query(DirectedRelationshipDB).all()
+    async def list_all(self, skip: int = 0, limit: int = 100) -> List[DirectedRelationship]:
+        """Lista todas las DirectedRelationships con paginación."""
+        db_relationships = self.db.query(DirectedRelationshipDB).offset(skip).limit(limit).all()
         return [_map_relationship_db_to_domain(r) for r in db_relationships if r]
+
+    async def count_all(self) -> int:
+        """Cuenta todas las DirectedRelationships."""
+        from sqlalchemy.sql import func # Import func for count
+        return self.db.query(func.count(DirectedRelationshipDB.id)).scalar() or 0
 
 ```

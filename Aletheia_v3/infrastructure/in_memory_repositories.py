@@ -49,8 +49,13 @@ class InMemoryConceptRepository(IConceptRepository):
     def clear(self): # Método de ayuda para tests
         self._concepts = {}
 
-    async def list_all(self) -> List[ScientificConcept]:
-        return [copy.deepcopy(c) for c in self._concepts.values()]
+    async def list_all(self, skip: int = 0, limit: int = 100) -> List[ScientificConcept]:
+        # Apply slicing for pagination
+        all_concepts = [copy.deepcopy(c) for c in self._concepts.values()]
+        return all_concepts[skip : skip + limit]
+
+    async def count_all(self) -> int:
+        return len(self._concepts)
 
 
 class InMemoryRelationshipRepository(IRelationshipRepository):
@@ -103,8 +108,13 @@ class InMemoryRelationshipRepository(IRelationshipRepository):
         self._by_source = defaultdict(list)
         self._by_target = defaultdict(list)
 
-    async def list_all(self) -> List[DirectedRelationship]:
-        return [copy.deepcopy(r) for r in self._relationships.values()]
+    async def list_all(self, skip: int = 0, limit: int = 100) -> List[DirectedRelationship]:
+        # Apply slicing for pagination
+        all_relationships = [copy.deepcopy(r) for r in self._relationships.values()]
+        return all_relationships[skip : skip + limit]
+
+    async def count_all(self) -> int:
+        return len(self._relationships)
 
 class InMemoryAnalysisRepository(IAnalysisRepository):
     """
