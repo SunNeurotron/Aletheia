@@ -1,4 +1,4 @@
-from typing import Protocol, TypeVar, Generic, Dict, Tuple, Optional
+from typing import Protocol, TypeVar, Generic, Dict, Tuple, Optional, Any
 from dataclasses import dataclass
 import numpy as np
 import hashlib # For get_state_hash

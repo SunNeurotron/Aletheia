@@ -1,6 +1,7 @@
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 import json # For session_data_for_uc in ApplicationFace (if kept here)
+import contextlib # For nullcontext in refactored execute_multilevel_analysis
 import random # For AdaptiveAnalysisEngine placeholders
 
 # Domain services and models (adjust path based on final structure)
@@ -75,49 +76,15 @@ class AnalysisUseCase:
         if self.monitoring:
             self.monitoring.increment_active_analyses()
 
-        run_id = "default_run_id" # Initialize run_id with a default value
-        strategy = config.get('strategy', 'default') # Extrae la estrategia de la configuración
+        run_id = "default_run_id" # Inicializar por si start_run falla o monitoring es None
 
         try:
-            # Wrap the main logic with the monitoring context manager
-            if self.monitoring:
-                with self.monitoring.track_analysis_duration(level="full_multilevel", strategy=strategy):
-                    run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
-                    self.tracker.log_params(config)
+            strategy = config.get('strategy', 'default')
 
-                    atoms = await self.domain_service.extract_atomic_units(session_data_str)
-                    clusters = await self.domain_service.form_clusters(atoms)
-                    theories = await self.domain_service.build_mini_theories(clusters)
-                    unified_model_obj = await self.domain_service.synthesize_model(theories)
+            # Context manager condicional
+            duration_tracker = self.monitoring.track_analysis_duration(level="full_multilevel", strategy=strategy) if self.monitoring else contextlib.nullcontext()
 
-                    unified_model_dict = unified_model_obj.to_dict()
-                    analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
-                    session_id_for_repo = config.get('session_id', 'default_session_id')
-                    model_data_from_theory = unified_model_dict.get('model_data', {})
-                    metrics_from_theory = unified_model_dict.get('metrics', {})
-                    if 'levels' not in model_data_from_theory:
-                        model_data_from_theory['levels'] = []
-
-                    analysis_data_payload = {
-                        "id": analysis_id_for_repo,
-                        "session_id": session_id_for_repo,
-                        "model_data": model_data_from_theory,
-                        "metrics": metrics_from_theory,
-                    }
-                    from .ports import AnalysisData
-                    analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
-                    saved_analysis_id = await self.repository.save(analysis_pydantic_obj)
-                    calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
-                    self.tracker.log_metrics(calculated_metrics)
-
-                    return {
-                        "analysis_id": saved_analysis_id,
-                        "run_id": run_id,
-                        "model": analysis_pydantic_obj.model_dump(),
-                        "metrics": calculated_metrics
-                    }
-            else: # Fallback if monitoring is not available
-                # This block should ideally not be reached if DI is working correctly
+            with duration_tracker:
                 run_id = self.tracker.start_run(f"analysis_{config.get('session_id', 'unknown_session')}")
                 self.tracker.log_params(config)
 
@@ -125,6 +92,8 @@ class AnalysisUseCase:
                 clusters = await self.domain_service.form_clusters(atoms)
                 theories = await self.domain_service.build_mini_theories(clusters)
                 unified_model_obj = await self.domain_service.synthesize_model(theories)
+
+                # Prepare data for repository (expects AnalysisData Pydantic model from ports.py)
                 unified_model_dict = unified_model_obj.to_dict()
                 analysis_id_for_repo = config.get('id', config.get('session_id', 'default_analysis_id'))
                 session_id_for_repo = config.get('session_id', 'default_session_id')
@@ -132,17 +101,21 @@ class AnalysisUseCase:
                 metrics_from_theory = unified_model_dict.get('metrics', {})
                 if 'levels' not in model_data_from_theory:
                     model_data_from_theory['levels'] = []
+
                 analysis_data_payload = {
                     "id": analysis_id_for_repo,
                     "session_id": session_id_for_repo,
                     "model_data": model_data_from_theory,
                     "metrics": metrics_from_theory,
+                    # status and created_at can be defaulted by AnalysisData or set by the repository
                 }
-                from .ports import AnalysisData
+                from .ports import AnalysisData # Import here to avoid circularity if AnalysisData moves
                 analysis_pydantic_obj = AnalysisData(**analysis_data_payload)
-                saved_analysis_id = await self.repository.save(analysis_pydantic_obj)
+                saved_analysis_id = await self.repository.save(analysis_pydantic_obj) # repository.save returns the id
                 calculated_metrics = self.domain_service.calculate_metrics(unified_model_obj)
                 self.tracker.log_metrics(calculated_metrics)
+
+                # El 'return' debe estar dentro del bloque 'try' (y 'with')
                 return {
                     "analysis_id": saved_analysis_id,
                     "run_id": run_id,
@@ -150,11 +123,10 @@ class AnalysisUseCase:
                     "metrics": calculated_metrics
                 }
         finally:
+            if run_id != "default_run_id": # Solo terminar el run si se inició
+                self.tracker.end_run()
             if self.monitoring:
                 self.monitoring.decrement_active_analyses()
-            # Ensure tracker.end_run() is only called if tracker.start_run() was successful
-            if run_id != "default_run_id" or not self.monitoring : # or some other flag indicating start_run was called
-                self.tracker.end_run()
 
 
 # The ApplicationFace from mdu_cube_system.py acts as a higher-level service facade or controller.
