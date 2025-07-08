@@ -6,150 +6,130 @@ import asyncpg
 from datetime import datetime
 import hashlib
 
-# Pydantic model for Analysis data structure (also used as port's data contract)
-# If this is used by Application ports, it ideally should be in a shared location (like application/ports.py or a common schemas.py)
-# to avoid infra layer leaking into application layer via type hints.
-# For now, keeping it here as it's tightly coupled with how PostgreSQLRepository returns data.
-# This was previously in mdu_cube_system.py and also defined in application/ports.py as AnalysisData.
-# To avoid redefinition, we should import it from ports.py.
-from ..application.ports import AnalysisData # Use AnalysisData from ports
+# Importaciones de SQLAlchemy y Python
+from typing import Dict, Any, Optional
+from sqlalchemy.orm import Session
+from datetime import datetime # Usado en Pydantic model, no directamente en repo si SQLAlchemy maneja timestamps
+import uuid # Para convertir string ID a UUID si es necesario
 
-Base = declarative_base()
+# Importaciones de la aplicación
+from ..application.ports import AnalysisData, IAnalysisRepository # IAnalysisRepository para implementar la interfaz
+from .models import AnalysisModel # El nuevo modelo ORM SQLAlchemy
 
-class AnalysisModel(Base):
-    """Modelo de persistencia para análisis SQLAlchemy."""
-    __tablename__ = 'analyses' # Matches table name in mdu_cube_system
+# No más asyncpg o create_engine directamente aquí si la sesión es inyectada
+# No más Base = declarative_base() aquí, está en models.py
 
-    id = Column(String, primary_key=True, index=True)
-    session_id = Column(String, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    model_data = Column(JSON)
-    metrics = Column(JSON)
-    status = Column(String)
+class PostgreSQLRepository(IAnalysisRepository):
+    """
+    Adaptador de repositorio que utiliza SQLAlchemy ORM para interactuar con la base de datos PostgreSQL.
+    Este repositorio maneja la persistencia de los datos de análisis.
+    """
+    def __init__(self, db: Session): # Inyectar la sesión de DB
+        self.db = db
 
-class PostgreSQLRepository: # Implements IAnalysisRepository from application.ports
-    """Adaptador PostgreSQL implementando IAnalysisRepository."""
-    def __init__(self, connection_string: str):
-        self.raw_connection_string = connection_string # Keep original for reference if needed
-        # Prepare a DSN suitable for asyncpg (remove specific dialect part if present)
-        if "postgresql+asyncpg://" in connection_string:
-            self.asyncpg_connection_string = connection_string.replace("postgresql+asyncpg://", "postgresql://")
-        elif "postgres+asyncpg://" in connection_string: # Some might use this
-            self.asyncpg_connection_string = connection_string.replace("postgres+asyncpg://", "postgres://")
+    async def save(self, analysis_data_obj: AnalysisData) -> str:
+        """
+        Guarda o actualiza un objeto de análisis en la base de datos.
+        Si el objeto ya existe (mismo ID), se actualiza. Sino, se crea uno nuevo.
+        """
+        # Convertir ID de string a UUID si el modelo lo espera como UUID y Pydantic lo da como str
+        # En AnalysisModel, id es Mapped[uuid_pkg.UUID] y AnalysisData.id es str.
+        # SQLAlchemy con PG_UUID(as_uuid=True) debería manejar la conversión de str a UUID automáticamente
+        # para la consulta y la inserción/actualización.
+        obj_id = uuid.UUID(analysis_data_obj.id) if isinstance(analysis_data_obj.id, str) else analysis_data_obj.id
+
+
+        db_obj = self.db.query(AnalysisModel).filter(AnalysisModel.id == obj_id).first()
+
+        if db_obj:
+            # Actualizar campos existentes
+            db_obj.session_id = analysis_data_obj.session_id
+            db_obj.model_data = analysis_data_obj.model_data # SQLAlchemy maneja JSONB
+            db_obj.metrics = analysis_data_obj.metrics     # SQLAlchemy maneja JSONB
+            db_obj.status = analysis_data_obj.status
+            # created_at es server_default y no debería actualizarse en un save normal.
+            # Si se necesita un campo 'updated_at', debería añadirse al modelo AnalysisModel con onupdate=func.now().
         else:
-            self.asyncpg_connection_string = connection_string
-
-        try:
-            # Synchronous engine for initial table creation (if not handled by Alembic)
-            sync_conn_str = connection_string.replace("postgresql+asyncpg://", "postgresql://") \
-                                             .replace("postgresql+psycopg2://", "postgresql://") \
-                                             .replace("postgres+asyncpg://", "postgres://")
-            if "postgresql://" not in sync_conn_str and "postgres://" not in sync_conn_str:
-                # Attempt to construct a basic DSN if it's just host/db etc.
-                # This is a fallback and might not always be correct.
-                if '://' not in sync_conn_str: # e.g. just "localhost"
-                    sync_conn_str = f"postgresql://{sync_conn_str}"
-                else: # e.g. someotherdialect://...
-                    sync_conn_str = f"postgresql://{sync_conn_str.split('://',1)[-1]}"
-
-            # Check if '?' exists in the connection string, it may cause issues with create_engine if not handled
-            if '?' in sync_conn_str:
-                # Basic attempt to clean common problematic query params for sync engine
-                # This is a heuristic and might not cover all cases. Proper config is better.
-                base_sync_conn_str, query_params = sync_conn_str.split('?',1)
-                allowed_params = {} # Example: filter params if needed, or just use base
-                # For now, using base string if '?' is present, assuming core part is okay.
-                # This could be risky if essential params for sync connection are in query part.
-                # print(f"Warning: '?' in DB connection string '{sync_conn_str}', attempting to use base part '{base_sync_conn_str}' for sync engine.")
-                # sync_conn_str = base_sync_conn_str
-                # Safer: Let create_engine try with the full string first, then fallback or error.
-                # For now, assume the provided string is manageable by create_engine after dialect swap.
-                pass
-
-
-            self.engine = create_engine(sync_conn_str) # Use the modified string
-            Base.metadata.create_all(self.engine)
-            # print(f"PostgreSQLRepository: Tables checked/created using sync engine with '{sync_conn_str}'.")
-        except Exception as e:
-            print(f"PostgreSQLRepository: Error creating SQLAlchemy engine or tables with '{sync_conn_str}': {e}. Schema might not be up to date.")
-            # In a real app, this might raise an error or have a more robust fallback/logging.
-
-    async def save(self, analysis_obj: AnalysisData) -> str: # Expects AnalysisData Pydantic model
-        """Guarda análisis con transacciones ACID."""
-        # Data is already structured by AnalysisData Pydantic model
-        try:
-            conn = await asyncpg.connect(self.asyncpg_connection_string)
-            async with conn.transaction():
-                result = await conn.fetchrow(
-                    """
-                    INSERT INTO analyses (id, session_id, created_at, model_data, metrics, status)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    ON CONFLICT (id) DO UPDATE SET
-                        session_id = EXCLUDED.session_id,
-                        created_at = EXCLUDED.created_at,
-                        model_data = EXCLUDED.model_data,
-                        metrics = EXCLUDED.metrics,
-                        status = EXCLUDED.status
-                    RETURNING id
-                    """,
-                    analysis_obj.id,
-                    analysis_obj.session_id,
-                    analysis_obj.created_at or datetime.utcnow(), # Ensure created_at
-                    analysis_obj.model_data,
-                    analysis_obj.metrics,
-                    analysis_obj.status
-                )
-            await conn.close()
-            return result['id'] if result else analysis_obj.id
-        except Exception as e:
-            print(f"PostgreSQLRepository Save Error with '{self.asyncpg_connection_string}': {e}") # Use asyncpg_connection_string for logging
-            raise # Re-raise the exception to be handled by the caller
-
-    async def get(self, analysis_id: str) -> Optional[AnalysisData]:
-        """Recupera un análisis por ID."""
-        try:
-            conn = await asyncpg.connect(self.asyncpg_connection_string)
-            row = await conn.fetchrow(
-                "SELECT id, session_id, created_at, model_data, metrics, status FROM analyses WHERE id = $1",
-                analysis_id
+            # Crear nueva instancia de AnalysisModel
+            db_obj = AnalysisModel(
+                id=obj_id, # Usar el ID convertido si es necesario
+                session_id=analysis_data_obj.session_id,
+                # created_at es manejado por server_default=func.now() en el modelo,
+                # no necesita ser pasado aquí a menos que se quiera sobreescribir.
+                # Si Pydantic model tiene created_at y queremos usarlo:
+                # created_at=analysis_data_obj.created_at or datetime.utcnow(),
+                # pero es mejor dejar que la BD lo maneje con server_default.
+                model_data=analysis_data_obj.model_data,
+                metrics=analysis_data_obj.metrics,
+                status=analysis_data_obj.status
             )
-            await conn.close()
-            if row:
-                # Convert row (asyncpg Record) to dict, then to AnalysisData Pydantic model
-                return AnalysisData(**dict(row))
-            return None
-        except Exception as e:
-            print(f"PostgreSQLRepository Get Error for ID '{analysis_id}' with '{self.connection_string}': {e}")
-            return None # Or raise, depending on desired error handling
-
-    async def update(self, analysis_id: str, data_to_update: Dict[str, Any]) -> None:
-        """Actualiza un análisis existente."""
-        set_clauses = []
-        values = []
-        param_idx = 1
-        for key, value in data_to_update.items():
-            # Ensure key is a valid column name to prevent SQL injection if keys are not controlled
-            # For this system, keys are likely controlled (e.g., 'status', 'metrics').
-            if key in AnalysisModel.__table__.columns.keys(): # Check against SQLAlchemy model columns
-                set_clauses.append(f"{key} = ${param_idx}")
-                values.append(value)
-                param_idx += 1
-            else:
-                print(f"PostgreSQLRepository Update Warning: Invalid field '{key}' skipped for update.")
-
-
-        if not set_clauses:
-            print(f"PostgreSQLRepository Update: No valid fields to update for ID '{analysis_id}'.")
-            return
-
-        values.append(analysis_id) # For WHERE clause
-        stmt = f"UPDATE analyses SET {', '.join(set_clauses)} WHERE id = ${param_idx}"
+            self.db.add(db_obj)
 
         try:
-            conn = await asyncpg.connect(self.asyncpg_connection_string)
-            await conn.execute(stmt, *values)
-            await conn.close()
+            self.db.commit()
+            self.db.refresh(db_obj)
         except Exception as e:
-            print(f"PostgreSQLRepository Update Error for ID '{analysis_id}' with '{self.asyncpg_connection_string}': {e}")
-            # Consider re-raising or specific error handling
+            self.db.rollback()
+            # print(f"Error en PostgreSQLRepository.save: {e}") # O usar logging
+            raise # Re-lanzar para que la capa de servicio/API lo maneje
+
+        return str(db_obj.id) # Devolver ID como string, según la interfaz
+
+    async def get(self, analysis_id_str: str) -> Optional[AnalysisData]:
+        """Recupera un análisis por su ID."""
+        try:
+            # Convertir string ID a UUID para la consulta
+            obj_id = uuid.UUID(analysis_id_str)
+        except ValueError:
+            # print(f"ID de análisis inválido: {analysis_id_str}") # O logging
+            return None # ID no es un UUID válido
+
+        db_obj = self.db.query(AnalysisModel).filter(AnalysisModel.id == obj_id).first()
+
+        if db_obj:
+            # Mapear de AnalysisModel (SQLAlchemy) a AnalysisData (Pydantic)
+            return AnalysisData(
+                id=str(db_obj.id), # Asegurar que el ID sea string para Pydantic
+                session_id=db_obj.session_id,
+                created_at=db_obj.created_at, # SQLAlchemy debería devolver datetime
+                model_data=db_obj.model_data,
+                metrics=db_obj.metrics,
+                status=db_obj.status
+            )
+        return None
+
+    async def update(self, analysis_id_str: str, data_to_update: Dict[str, Any]) -> None:
+        """Actualiza campos específicos de un análisis existente."""
+        try:
+            obj_id = uuid.UUID(analysis_id_str)
+        except ValueError:
+            # print(f"ID de análisis inválido para update: {analysis_id_str}") # O logging
+            raise ValueError(f"Analysis with id {analysis_id_str} not found for update due to invalid ID format.")
+
+
+        db_obj = self.db.query(AnalysisModel).filter(AnalysisModel.id == obj_id).first()
+
+        if not db_obj:
+            raise ValueError(f"Analysis with id {analysis_id_str} not found for update.")
+
+        for key, value in data_to_update.items():
+            if hasattr(db_obj, key):
+                # Casos especiales: si el modelo espera UUID para 'id' pero se pasa str
+                if key == "id" and isinstance(value, str):
+                    try:
+                        setattr(db_obj, key, uuid.UUID(value))
+                    except ValueError:
+                        # print(f"Valor de ID inválido '{value}' para actualización.")
+                        pass # O manejar el error
+                else:
+                    setattr(db_obj, key, value)
+            # else:
+                # print(f"Advertencia: Campo '{key}' no existe en AnalysisModel, omitido en update.")
+
+        try:
+            self.db.commit()
+            self.db.refresh(db_obj)
+        except Exception as e:
+            self.db.rollback()
+            # print(f"Error en PostgreSQLRepository.update: {e}") # O logging
             raise

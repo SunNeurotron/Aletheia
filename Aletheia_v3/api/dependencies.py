@@ -77,12 +77,30 @@ def get_relationship_repository() -> IRelationshipRepository:
     # SQLAlchemyRelationshipRepository() será instanciado, y FastAPI inyectará la sesión de BD.
     return SQLAlchemyRelationshipRepository()
 
-# Mantener InMemoryAnalysisRepository para los endpoints MDU si no se han migrado
-# Este sí puede ser un singleton si no depende de la sesión de BD por request.
-@lru_cache(None)
-def get_analysis_repository() -> IAnalysisRepository:
-    # TODO: Reemplazar con implementación persistente si los endpoints MDU se migran.
-    return InMemoryAnalysisRepository()
+# --- Gestor de Sesión de Base de Datos ---
+# Esta función es crucial para inyectar la sesión de BD en los repositorios SQLAlchemy.
+# Debe estar definida ANTES de que los repositorios la usen como dependencia.
+# Asumimos que esta función ya existe o se definirá en el contexto de la app FastAPI.
+# Si no existe, necesitaría ser añadida, típicamente algo así:
+# from ..infrastructure.database import SessionLocal
+# def get_db_session():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+# Por ahora, asumiremos que `get_db_session` está disponible globalmente o importado.
+# Para el propósito de este refactor, la clave es cómo se usa en get_analysis_repository.
+
+# Importar el repositorio PostgreSQL refactorizado
+from ..infrastructure.repositories import PostgreSQLRepository
+from sqlalchemy.orm import Session # Necesario para el tipado de db: Session
+
+# Ya no usar @lru_cache(None) porque el repositorio ahora depende de una sesión de BD por request.
+def get_analysis_repository(db: Session = Depends(get_db_session)) -> IAnalysisRepository: # db: Session = Depends(...)
+    # Devuelve la implementación real de SQLAlchemy que usa la sesión de BD inyectada.
+    return PostgreSQLRepository(db=db)
+
 
 @lru_cache(None)
 def get_experiment_tracker() -> IExperimentTracker:

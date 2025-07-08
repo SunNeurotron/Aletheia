@@ -29,6 +29,7 @@ class CuboMDU:
         self._inicializar_celdas()
         self._establecer_conexiones()
         self.original_matriz_state: Optional[np.ndarray] = None
+        self.rotation_engine = RotationEngine(self)
 
     def _inicializar_celdas(self):
         """Inicializa las celdas del cubo."""
@@ -95,9 +96,31 @@ class CuboMDU:
         return [self.matriz[i,j,k] for i in range(self.dimensiones[0]) for j in range(self.dimensiones[1]) for k in range(self.dimensiones[2])]
 
     def rotate_to_perspective(self, perspective: str):
-        """Placeholder: Rota el cubo a una nueva perspectiva."""
-        # print(f"CuboMDU: Rotating cube to perspective: {perspective}")
-        pass # Actual rotation logic would use RotationEngine
+        """Rota el cubo a una nueva perspectiva utilizando RotationEngine."""
+        print(f"CuboMDU: Iniciando rotación a la perspectiva: {perspective}")
+        if perspective == 'temporal':
+            # Rotar cara "frontal" 90 grados en Z
+            print("CuboMDU: Aplicando perspectiva temporal - Rotando cara frontal 90 grados en Z.")
+            self.rotation_engine.rotate_face("front", 90)
+        elif perspective == 'causal':
+            # Rotar cara "derecha" 90 grados en X
+            print("CuboMDU: Aplicando perspectiva causal - Rotando cara derecha 90 grados en X.")
+            self.rotation_engine.rotate_face("right", 90)
+        elif perspective == 'emergent':
+            # Rotar cara "top" 90 grados en Y, y luego cara "front" -90 grados en Z
+            print("CuboMDU: Aplicando perspectiva emergente - Rotando cara superior 90 grados en Y y frontal -90 grados en Z.")
+            self.rotation_engine.rotate_face("top", 90)
+            self.rotation_engine.rotate_face("front", -90) # Rotación antihoraria
+        elif perspective == 'hierarchical':
+            # Restablecer la orientación del cubo o aplicar una rotación predefinida (sin efecto)
+            print("CuboMDU: Aplicando perspectiva jerárquica - Restableciendo orientación o sin rotación efectiva.")
+            # Podríamos llamar a self.reset_orientation() si existiera una implementación completa.
+            # O aplicar una rotación sin efecto como marcador:
+            self.rotation_engine.rotate_face("back", 0)
+        else:
+            print(f"CuboMDU: Perspectiva '{perspective}' no reconocida. No se aplicará rotación.")
+
+        print(f"CuboMDU: Rotación a la perspectiva '{perspective}' completada.")
 
     def get_state_snapshot(self) -> Dict[Tuple[int,int,int], str]:
         """Devuelve un snapshot del estado del cubo para comparación."""
