@@ -15,6 +15,7 @@
 # infrastructure/models.py
 import uuid as uuid_pkg  # To avoid conflict with column name
 from datetime import datetime
+from typing import Optional, Dict, Any, List # Moved and added Optional
 
 import sqlalchemy as sa  # Import for sa.false()
 from sqlalchemy import Boolean, Column, DateTime, TypeDecorator
@@ -70,7 +71,7 @@ conjecture_hits_association = Table(
 class ResearcherDB(Base):
     __tablename__ = "researchers"
 
-    id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
     full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
@@ -113,45 +114,25 @@ class JobDB(Base):
 
     __tablename__ = "discovery_jobs"
 
-    # Job identifier, typically a UUID string. Primary key.
-    id = Column(String, primary_key=True, index=True)
-
-    # Status of the job (e.g., "pending", "processing", "completed", "failed").
-    # Indexed for faster querying by status.
-    status = Column(String, default="pending", index=True)
-
-    # Number of Bayesian optimization calls requested for this job.
-    n_calls = Column(Integer, nullable=False)
-
-    # Timestamp when the job was created. Defaults to current UTC time.
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    # Alternatively, for database server-side default:
-    # created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Timestamp when the job was last updated.
-    # Updates on every modification to the job record.
-    updated_at = Column(
+    id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+    status: Mapped[str] = mapped_column(String, default="pending", index=True)
+    n_calls: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
-    # Alternatively, for database server-side default:
-    # updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # Relationship to HitDB: A job can have multiple hits.
-    # `back_populates` creates a bidirectional relationship.
-    # `cascade="all, delete-orphan"` means that when a JobDB is deleted,
-    # all its associated HitDB records are also deleted.
-    hits = relationship(
-        "HitDB", back_populates="job", cascade="all, delete-orphan"
+    hits: Mapped[List["HitDB"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
     )
 
-    # Link to the researcher who submitted the job
-    submitter_id = Column(
-        UUID(as_uuid=True),
+    submitter_id: Mapped[Optional[uuid_pkg.UUID]] = mapped_column(
+        CommonUUID(as_uuid=True),
         ForeignKey("researchers.id"),
         nullable=True,
         index=True,
-    )  # Nullable if jobs can be anonymous or system-generated
-    submitter = relationship("ResearcherDB", back_populates="submitted_jobs")
+    )
+    submitter: Mapped[Optional["ResearcherDB"]] = relationship(back_populates="submitted_jobs")
 
     def __repr__(self):
         return f"<JobDB(id='{self.id}', status='{self.status}', n_calls={self.n_calls})>"
@@ -164,40 +145,21 @@ class HitDB(Base):
 
     __tablename__ = "discovery_hits"
 
-    # Auto-incrementing primary key for the hit.
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(String, ForeignKey("discovery_jobs.id"), nullable=False, index=True)
+    a: Mapped[int] = mapped_column(Integer, nullable=False)
+    b: Mapped[int] = mapped_column(Integer, nullable=False)
+    c: Mapped[int] = mapped_column(Integer, nullable=False)
+    quality: Mapped[float] = mapped_column(Float, nullable=False, index=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
-    # Foreign key linking this hit to its parent job. Indexed for faster lookups.
-    job_id = Column(
-        String, ForeignKey("discovery_jobs.id"), nullable=False, index=True
-    )  # This is UUID string from JobDB.id
+    job: Mapped["JobDB"] = relationship(back_populates="hits")
 
-    # The components of the abc-triple.
-    # Consider using BigInteger if numbers can exceed standard integer limits (approx 2*10^9)
-    # from sqlalchemy import BigInteger
-    a = Column(Integer, nullable=False)  # Or BigInteger
-    b = Column(Integer, nullable=False)
-    c = Column(Integer, nullable=False)  # c = a + b
-
-    # The calculated quality 'q' of the triple. Indexed for sorting/querying by quality.
-    quality = Column(Float, nullable=False, index=True)
-
-    # Timestamp when this hit was recorded.
-    discovered_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    # Alternatively, for database server-side default:
-    # discovered_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    # Relationship to JobDB: A hit belongs to one job.
-    job = relationship("JobDB", back_populates="hits")
-
-    # Relationships for collaboration
-    attributions = relationship(
-        "DiscoveryAttributionDB",
+    attributions: Mapped[List["DiscoveryAttributionDB"]] = relationship(
         back_populates="hit",
         cascade="all, delete-orphan",
     )
-    conjectures_supported = relationship(
-        "DerivedConjectureDB",
+    conjectures_supported: Mapped[List["DerivedConjectureDB"]] = relationship(
         secondary=conjecture_hits_association,
         back_populates="supporting_hits",
     )
@@ -209,31 +171,23 @@ class HitDB(Base):
 class DiscoveryAttributionDB(Base):
     __tablename__ = "discovery_attributions"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    hit_id = Column(
-        Integer, ForeignKey("discovery_hits.id"), nullable=False, index=True
-    )
-    researcher_id = Column(
-        UUID(as_uuid=True),
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    hit_id: Mapped[int] = mapped_column(Integer, ForeignKey("discovery_hits.id"), nullable=False, index=True)
+    researcher_id: Mapped[uuid_pkg.UUID] = mapped_column(
+        CommonUUID(as_uuid=True),
         ForeignKey("researchers.id"),
         nullable=False,
         index=True,
     )
-
-    contribution_type = Column(
+    contribution_type: Mapped[ContributionTypeEnum] = mapped_column(
         SAEnum(ContributionTypeEnum, name="contribution_type_enum"),
         nullable=False,
     )
-    # Example values for contribution_type: 'discovered_by_job' (could link to job's submitter),
-    # 'verified_by_user', 'analyzed_by_user', 'tagged_by_user'
+    details: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    attributed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    details = Column(
-        Text, nullable=True
-    )  # E.g., verification notes, analysis summary
-    attributed_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    hit = relationship("HitDB", back_populates="attributions")
-    researcher = relationship("ResearcherDB", back_populates="attributions")
+    hit: Mapped["HitDB"] = relationship(back_populates="attributions")
+    researcher: Mapped["ResearcherDB"] = relationship(back_populates="attributions")
 
     def __repr__(self):
         return f"<DiscoveryAttributionDB(hit_id={self.hit_id}, researcher_id='{self.researcher_id}', type='{self.contribution_type}')>"
@@ -242,42 +196,36 @@ class DiscoveryAttributionDB(Base):
 class DerivedConjectureDB(Base):
     __tablename__ = "derived_conjectures"
 
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    title = Column(String(500), nullable=False)
-    description = Column(Text, nullable=False)  # Can include LaTeX, markdown
-
-    status = Column(
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)  # Can include LaTeX, markdown
+    status: Mapped[ConjectureStatusEnum] = mapped_column(
         SAEnum(ConjectureStatusEnum, name="conjecture_status_enum"),
         nullable=False,
         default=ConjectureStatusEnum.PROPOSED,
         index=True,
     )
-
-    proposer_id = Column(
-        UUID(as_uuid=True),
+    proposer_id: Mapped[uuid_pkg.UUID] = mapped_column(
+        CommonUUID(as_uuid=True),
         ForeignKey("researchers.id"),
         nullable=False,
         index=True,
     )
-    proposer = relationship(
-        "ResearcherDB", back_populates="proposed_conjectures"
-    )
+    proposer: Mapped["ResearcherDB"] = relationship(back_populates="proposed_conjectures")
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    # Many-to-many relationship with HitDB for supporting evidence
-    supporting_hits = relationship(
-        "HitDB",
+    supporting_hits: Mapped[List["HitDB"]] = relationship(
         secondary=conjecture_hits_association,
         back_populates="conjectures_supported",
     )
 
     # Potentially, a self-referential relationship for related conjectures (e.g., parent/child conjectures)
-    # parent_conjecture_id = Column(Integer, ForeignKey('derived_conjectures.id'), nullable=True)
-    # related_conjectures = relationship("DerivedConjectureDB", remote_side=[id])
+    # parent_conjecture_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey('derived_conjectures.id'), nullable=True)
+    # related_conjectures: Mapped[List["DerivedConjectureDB"]] = relationship(remote_side=[id]) # Example, adjust as needed
 
     def __repr__(self):
         return f"<DerivedConjectureDB(title='{self.title[:50]}...', proposer_id='{self.proposer_id}', status='{self.status}')>"
@@ -350,12 +298,12 @@ class DirectedRelationshipDB(Base):
 # --- Modelo ORM para AnalysisData ---
 # Ensure Mapped, mapped_column are available (already imported at the top)
 # uuid_pkg, DateTime, func, JSONB, String, Base ya están importados y definidos.
-from typing import Dict, Any, List # Para tipado de JSONB y List para Mapped[List[...]]
+# from typing import Dict, Any, List # Para tipado de JSONB y List para Mapped[List[...]] # Removed this line
 
 class AnalysisModel(Base):
     __tablename__ = 'analyses'
 
-    id: Mapped[uuid_pkg.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
     session_id: Mapped[str] = mapped_column(String(255), index=True, nullable=False) # String con longitud
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     model_data: Mapped[Dict[str, Any]] = mapped_column(JSONB, nullable=True)

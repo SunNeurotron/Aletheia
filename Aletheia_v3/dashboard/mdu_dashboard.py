@@ -253,22 +253,51 @@ def main():
     st.title("🔬 Aletheia - Dashboard del Grafo de Conocimiento")
     st.markdown("Explora los conceptos y relaciones generados y sintetizados por el sistema Aletheia.")
 
-    tab_titles = [
-        "Explorador del Grafo Completo",
-        "Jerarquía de Síntesis",
-        "Estadísticas del Grafo"
-    ]
-    tab1, tab2, tab3 = st.tabs(tab_titles)
+    # Check for token before attempting to load any data dependent tabs
+    if not st.session_state.jwt_token:
+        st.info("Introduce un token JWT en la barra lateral para continuar.")
+        return # Stop further execution if no token
 
-    with tab1:
-        display_full_knowledge_graph()
+    # Attempt to load concepts once for reuse if needed, e.g., for hierarchy selector
+    # This is a basic approach; more sophisticated state management might be needed for large apps
+    # For now, let's assume display_synthesis_hierarchy will fetch its own list or be adapted.
+    # The current display_full_knowledge_graph fetches its own concepts.
 
-    with tab2:
-        st.header(tab_titles[1])
-        display_synthesis_hierarchy(concepts_data) # Pasar todos los conceptos para el selector
+    tab_explorador, tab_jerarquia, tab_estadisticas = st.tabs([
+        "Explorador del Grafo",
+        "Visor de Jerarquía",
+        "Estadísticas"
+    ])
 
-    with tab3:
-        st.header(tab_titles[2])
+    with tab_explorador:
+        st.header("Explorador del Grafo Completo")
+        display_full_knowledge_graph() # This function fetches its own concepts and relationships
+
+    with tab_jerarquia:
+        st.header("Visor de Jerarquía de Conceptos")
+        # display_synthesis_hierarchy needs a list of all concepts for its dropdown.
+        # For simplicity, let's fetch concepts again here or adapt the function.
+        # A more optimized way would be to fetch concepts once and pass them around.
+        # For now, let's assume it's okay to fetch within the function or it gets adapted.
+        # The original code passed 'concepts_data' which was defined in another tab's scope.
+        # We need to ensure 'all_concepts' is available.
+        # A quick fix for now: fetch concepts if needed by the hierarchy tab
+        # This might be redundant if the full graph already loaded them.
+        # Consider passing data or having a shared cache if performance becomes an issue.
+
+        # For now, let's modify display_synthesis_hierarchy to fetch its own list of concepts
+        # if not provided, or we ensure it's called with the data.
+        # The original display_synthesis_hierarchy took `all_concepts` as an argument.
+        # Let's make it self-sufficient for now by fetching concepts for the selector.
+        all_concepts_for_hierarchy = get_api_data("/eje-x/concepts/") # Fetch concepts for the dropdown
+        if all_concepts_for_hierarchy:
+            display_synthesis_hierarchy(all_concepts_for_hierarchy)
+        else:
+            st.warning("No se pudieron cargar los conceptos para el selector de jerarquía.")
+
+
+    with tab_estadisticas:
+        st.header("Estadísticas de Síntesis del Grafo")
         display_synthesis_statistics()
 
 # --- Sección 3: Estadísticas de Síntesis ---
@@ -292,10 +321,20 @@ def display_synthesis_statistics():
                 for j in range(cols_per_row):
                     if i + j < num_metrics:
                         stat_item = overall_stats[i+j]
-                        cols[j].metric(label=stat_item["name"], value=stat_item["value"], delta=stat_item.get("unit")) # Usar unit como delta es un hack, mejor solo mostrarlo
+                        display_label = stat_item["name"]
+                        cols[j].metric(label=display_label, value=stat_item["value"])
+                        # Display unit below the metric if it exists and is not None
+                        if stat_item.get("unit") is not None: # Check explicitly for None
+                            cols[j].markdown(f"<small><i>({stat_item['unit']})</i></small>", unsafe_allow_html=True)
 
-            # Alternativa más simple: tabla para overall_stats
-            # st.table(pd.DataFrame(overall_stats)) # Requeriría import pandas as pd
+            # Consider pandas table as an alternative if overall_stats structure is complex
+            # Example:
+            # try:
+            #     import pandas as pd
+            #     df_overall_stats = pd.DataFrame(overall_stats)
+            #     st.table(df_overall_stats.set_index('name')) # Assuming 'name' can be an index
+            # except ImportError:
+            #     st.json([{"name": s["name"], "value": s["value"], "unit": s.get("unit")} for s in overall_stats])
 
         else:
             st.info("No hay estadísticas generales disponibles.")
