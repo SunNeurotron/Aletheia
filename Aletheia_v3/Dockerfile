@@ -42,7 +42,8 @@ COPY requirements.txt .
 # Using a virtual environment within the Docker image is a good practice
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+    /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
+    /opt/venv/bin/python -m spacy download en_core_web_sm
 
 # Now copy the entire project's source code into the container
 # This includes all subdirectories (api, core, infrastructure, dashboard, tests)

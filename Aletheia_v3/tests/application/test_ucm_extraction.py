@@ -1,17 +1,47 @@
 import pytest
-from unittest.mock import AsyncMock, MagicMock # AsyncMock para métodos de repo
+import pytest_asyncio # For async fixtures
+from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 from datetime import datetime, timezone
 
+# Module to test
 from Aletheia_v3.application.use_cases import ExtractUCMsUseCase
+# Dependencies to mock
 from Aletheia_v3.application.ports import IConceptRepository, IRelationshipRepository
-from Aletheia_v3.api.schemas import ( # Usar los schemas de API como DTOs de entrada/salida para el UC
+# DTOs
+from Aletheia_v3.api.schemas import (
     UCMExtractionRequestSchema as UCMExtractionInput,
     UCMExtractionResponseSchema,
-    ExtractedUCMSchema,
-    ExtractedRelationshipSchema
+    # ExtractedUCMSchema, # These will be part of the response, implicitly tested
+    # ExtractedRelationshipSchema
 )
+# Domain models
 from Aletheia_v3.core.domain_models import ScientificConcept, ConceptType, DirectedRelationship
+
+# --- Mock spaCy components ---
+class MockSpacySpan:
+    def __init__(self, text, label_, start_char, end_char):
+        self.text = text
+        self.label_ = label_
+        self.start_char = start_char
+        self.end_char = end_char
+
+class MockSpacyDoc:
+    def __init__(self, ents):
+        self.ents = ents
+
+class MockSpacyNLP:
+    def __init__(self, mock_entities_data):
+        # mock_entities_data: list of tuples (text, label, start, end)
+        self.mock_entities_data = mock_entities_data
+
+    def __call__(self, text_content):
+        # Create MockSpacySpan objects from the mock_entities_data
+        mock_spans = [
+            MockSpacySpan(text=data[0], label_=data[1], start_char=data[2], end_char=data[3])
+            for data in self.mock_entities_data
+        ]
+        return MockSpacyDoc(ents=mock_spans)
 
 # --- Fixtures ---
 
@@ -23,143 +53,120 @@ async def mock_concept_repo() -> AsyncMock:
 async def mock_relationship_repo() -> AsyncMock:
     return AsyncMock(spec=IRelationshipRepository)
 
+# Fixture for ExtractUCMsUseCase with mocked spaCy
 @pytest.fixture
-def extract_ucms_use_case(mock_concept_repo: AsyncMock, mock_relationship_repo: AsyncMock) -> ExtractUCMsUseCase:
-    return ExtractUCMsUseCase(concept_repo=mock_concept_repo, relationship_repo=mock_relationship_repo)
+def extract_ucms_use_case_ner(
+    mock_concept_repo: AsyncMock,
+    mock_relationship_repo: AsyncMock,
+    mock_spacy_nlp_object: MockSpacyNLP # This fixture will be parameterized in tests
+) -> ExtractUCMsUseCase:
+    # Patch spacy.load for the duration of this use case's instantiation
+    with patch('Aletheia_v3.application.use_cases.spacy.load') as mock_spacy_load:
+        mock_spacy_load.return_value = mock_spacy_nlp_object
+        use_case = ExtractUCMsUseCase(
+            concept_repo=mock_concept_repo,
+            relationship_repo=mock_relationship_repo
+        )
+        # Ensure the nlp object was set using the mock
+        assert use_case.nlp == mock_spacy_nlp_object, "spaCy model not mocked correctly in use case"
+        return use_case
 
-# --- Tests para _extract_terms_from_text ---
-
-class TestExtractTermsFromText:
-
-    def test_extracts_capitalized_phrases(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        text = "This paper discusses Advanced AI Techniques. We also look at Machine Learning Models. Python is a language."
-        # Esperado: "Advanced AI Techniques", "Machine Learning Models"
-        # "Python" podría ser capturado por single_word si las frases son pocas.
-        terms = extract_ucms_use_case._extract_terms_from_text(text, min_freq=1) # min_freq=1 para capturar todas las frases
-        assert "Advanced AI Techniques" in terms
-        assert "Machine Learning Models" in terms
-        # assert "Python" not in terms # Si la lógica prioriza frases y hay suficientes
-
-    def test_extracts_frequent_single_words_if_few_phrases(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        text = "An analysis of data and its subsequent data processing. The data was clean."
-        # Esperado (con min_freq=2): "data" -> Data
-        # "analysis", "processing" aparecen 1 vez.
-        terms = extract_ucms_use_case._extract_terms_from_text(text, min_freq=2)
-        assert "Data" in terms # Capitalizado
-        assert "analysis" not in terms # Freq 1
-        assert "processing" not in terms # Freq 1
-
-    def test_no_terms_extracted_from_empty_or_stopwords_only_text(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        assert extract_ucms_use_case._extract_terms_from_text("") == []
-        assert extract_ucms_use_case._extract_terms_from_text("is the and of for") == []
-
-    def test_stopwords_are_ignored(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        text = "The quick brown fox and the lazy dog. The Fox is a name."
-        # Esperado (min_freq=1): "quick brown fox", "lazy dog", "Fox" (si las frases son pocas)
-        # O si min_freq=2 para palabras: "Fox" (si "The Fox" no se toma como frase)
-        terms_mf1 = extract_ucms_use_case._extract_terms_from_text(text, min_freq=1)
-        # La lógica actual prioriza frases, "The Fox" es una frase capitalizada
-        assert "The Fox" in terms_mf1
-        assert "quick brown fox" not in terms_mf1 # No capitalizada
-        assert "lazy dog" not in terms_mf1 # No capitalizada
-
-        # Para que "Fox" salga como palabra individual, necesitaríamos que no haya frases o pocas.
-        text_simple_fox = "A fox and a fox. The fox."
-        terms_simple_fox_mf2 = extract_ucms_use_case._extract_terms_from_text(text_simple_fox, min_freq=2)
-        assert "Fox" in terms_simple_fox_mf2 # "fox" aparece 3 veces, se capitaliza.
-
-    def test_phrase_length_limit(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        text = "This Is A Very Long Capitalized Phrase Of More Than Five Words. Short Phrase."
-        terms = extract_ucms_use_case._extract_terms_from_text(text, min_freq=1)
-        assert "Short Phrase" in terms
-        assert "This Is A Very Long Capitalized Phrase Of More Than Five Words" not in terms
-
-    def test_single_word_length_and_freq(self, extract_ucms_use_case: ExtractUCMsUseCase):
-        text = "abc abc def def def ghi jk lmno pqrst uvwxyz. AI AI." # AI es < 3 letras
-        terms = extract_ucms_use_case._extract_terms_from_text(text, min_freq=2)
-        assert "Abc" in terms # Freq 2, len 3
-        assert "Def" in terms # Freq 3, len 3
-        assert "ghi" not in terms # Freq 1
-        assert "Lmno" in terms # Freq 1, pero si no hay frases, podría entrar si es de los N mas comunes. La logica actual toma top 15 si freq >= min_freq
-        # La lógica actual toma top 15 si freq >= min_freq y no hay frases.
-        # Si min_freq=2, Lmno no entra.
-        assert "Lmno" not in terms # Freq 1, no cumple min_freq=2
-        assert "Pqrst" not in terms # Freq 1
-        assert "Uvwxyz" not in terms # Freq 1
-        assert "AI" not in terms # len < 3
-
-# --- Tests para el método execute ---
+# --- Tests for NER-based execute method ---
 @pytest.mark.asyncio
-class TestExtractUCMsUseCaseExecute:
+class TestExtractUCMsUseCaseExecuteNER:
 
-    async def test_execute_extracts_and_persists_ucms_and_relations(
-        self, extract_ucms_use_case: ExtractUCMsUseCase,
+    @pytest.mark.parametrize("mock_spacy_nlp_object, test_text, expected_entities_count, expected_relations_count, expected_log_messages", [
+        (
+            MockSpacyNLP([("Apple Inc.", "ORG", 0, 10), ("Tim Cook", "PERSON", 15, 23)]),
+            "Apple Inc. and Tim Cook are famous.",
+            2, 1,
+            ["Processed text with spaCy NER. Found 2 entities.", "Persisted 2 UCMs from NER.", "Creadas 1 relaciones entre UCMs."]
+        ),
+        (
+            MockSpacyNLP([]), # No entities found by NER
+            "Some generic text without entities.",
+            0, 0,
+            ["Processed text with spaCy NER. Found 0 entities.", "No UCMs were extracted from the document."]
+        ),
+        (
+            MockSpacyNLP([("London", "GPE", 5, 11)]),
+            "I live in London.",
+            1, 0, # Only one UCM, so no relationships
+            ["Processed text with spaCy NER. Found 1 entities.", "Persisted 1 UCMs from NER."]
+        )
+    ])
+    async def test_execute_with_ner_entities(
+        self, extract_ucms_use_case_ner: ExtractUCMsUseCase, # Uses the fixture that receives mock_spacy_nlp_object
         mock_concept_repo: AsyncMock,
-        mock_relationship_repo: AsyncMock
+        mock_relationship_repo: AsyncMock,
+        test_text: str,
+        expected_entities_count: int,
+        expected_relations_count: int,
+        expected_log_messages: List[str]
+        # mock_spacy_nlp_object is implicitly used by extract_ucms_use_case_ner fixture
     ):
-        test_text = "Important Concept A is related to Key Phrase B. Concept A again."
-        source_doc_id = "doc_123"
+        source_doc_id = f"doc_{uuid.uuid4()}"
         input_data = UCMExtractionInput(
             text_content=test_text,
             source_document_id=source_doc_id,
-            source_metadata={"year": 2024}
+            source_metadata={"test_run": True}
         )
 
-        # _extract_terms_from_text con min_freq=2 debería encontrar "Important Concept A" y "Key Phrase B"
-        # (asumiendo que "Concept A" no se toma como frase separada y "Important Concept A" tiene freq 1)
-        # Vamos a mockear _extract_terms_from_text para controlar la salida para este test
-        extracted_terms_mock = ["Important Concept A", "Key Phrase B"]
-        extract_ucms_use_case._extract_terms_from_text = MagicMock(return_value=extracted_terms_mock)
+        # The use case already has the mocked nlp object from the fixture
+        response = await extract_ucms_use_case_ner.execute(input_data)
 
-        response = await extract_ucms_use_case.execute(input_data)
+        assert mock_concept_repo.add.call_count == expected_entities_count
 
-        assert mock_concept_repo.add.call_count == 2
-        # Verificar los conceptos añadidos
-        added_concepts_domain = [call_args[0][0] for call_args in mock_concept_repo.add.call_args_list]
+        if expected_entities_count > 0:
+            added_concepts_domain = [call.args[0] for call in mock_concept_repo.add.call_args_list]
+            # Example check for the first concept if entities were expected
+            # This assumes mock_spacy_nlp_object.mock_entities_data is accessible if needed for deep validation
+            # For now, we check properties based on the mocked spaCy behavior
+            first_mock_entity_data = extract_ucms_use_case_ner.nlp.mock_entities_data[0] if extract_ucms_use_case_ner.nlp.mock_entities_data else None
+            if first_mock_entity_data:
+                assert added_concepts_domain[0].name == first_mock_entity_data[0]
+                assert added_concepts_domain[0].properties["ner_label"] == first_mock_entity_data[1]
+                assert added_concepts_domain[0].properties["extraction_method"] == "spacy_ner_en_core_web_sm"
 
-        assert added_concepts_domain[0].name == "Important Concept A"
-        assert added_concepts_domain[0].concept_type == ConceptType.UCM
-        assert added_concepts_domain[0].properties["source_document_id"] == source_doc_id
-
-        assert added_concepts_domain[1].name == "Key Phrase B"
-        assert added_concepts_domain[1].concept_type == ConceptType.UCM
-
-        # Debería crearse 1 relación entre los 2 UCMs
-        assert mock_relationship_repo.add.call_count == 1
-        added_relation_domain: DirectedRelationship = mock_relationship_repo.add.call_args[0][0]
-        assert added_relation_domain.type == "RELATED_TO_DOCUMENT_CONTEXT"
-        assert {added_relation_domain.source_concept_id, added_relation_domain.target_concept_id} == \
-               {added_concepts_domain[0].id, added_concepts_domain[1].id}
+        assert mock_relationship_repo.add.call_count == expected_relations_count
 
         assert isinstance(response, UCMExtractionResponseSchema)
         assert response.source_document_id == source_doc_id
-        assert len(response.extracted_concepts) == 2
-        assert response.extracted_concepts[0].name == "Important Concept A"
-        assert response.extracted_concepts[1].name == "Key Phrase B"
-        assert len(response.extracted_relationships) == 1
-        assert response.extracted_relationships[0].type == "RELATED_TO_DOCUMENT_CONTEXT"
-        assert "Persistidos 2 UCMs." in response.processing_log
-        assert "Creadas 1 relaciones entre UCMs." in response.processing_log
+        assert len(response.extracted_concepts) == expected_entities_count
+        assert len(response.extracted_relationships) == expected_relations_count
 
+        for log_msg in expected_log_messages:
+            assert log_msg in response.processing_log
 
-    async def test_execute_no_terms_extracted(
-        self, extract_ucms_use_case: ExtractUCMsUseCase,
-        mock_concept_repo: AsyncMock,
-        mock_relationship_repo: AsyncMock
+    async def test_execute_spacy_model_not_loaded(
+        self, mock_concept_repo: AsyncMock, mock_relationship_repo: AsyncMock
     ):
-        input_data = UCMExtractionInput(text_content="the of and is", source_document_id="doc_empty")
+        # Test behavior when spaCy model fails to load in __init__
+        with patch('Aletheia_v3.application.use_cases.spacy.load') as mock_spacy_load:
+            mock_spacy_load.side_effect = OSError("Simulated model not found")
+            use_case = ExtractUCMsUseCase(
+                concept_repo=mock_concept_repo,
+                relationship_repo=mock_relationship_repo
+            )
+            assert use_case.nlp is None
 
-        # _extract_terms_from_text devolverá lista vacía
-        extract_ucms_use_case._extract_terms_from_text = MagicMock(return_value=[])
+            input_data = UCMExtractionInput(text_content="Some text", source_document_id="doc_no_nlp")
+            response = await use_case.execute(input_data)
 
-        response = await extract_ucms_use_case.execute(input_data)
+            mock_concept_repo.add.assert_not_called()
+            mock_relationship_repo.add.assert_not_called()
+            assert "spaCy NLP model not available. NER extraction skipped." in response.processing_log
+            assert "No UCMs were extracted from the document." in response.processing_log
 
-        mock_concept_repo.add.assert_not_called()
-        mock_relationship_repo.add.assert_not_called()
+# --- Tests for _extract_terms_via_regex (if kept and used) ---
+# These tests would be similar to the old TestExtractTermsFromText if that logic is retained.
+# For now, as it's a stub, no new tests for it.
+# class TestExtractTermsViaRegex:
+#     ...
 
-        assert response.source_document_id == "doc_empty"
-        assert len(response.extracted_concepts) == 0
-        assert len(response.extracted_relationships) == 0
-        assert "No se extrajeron términos/UCMs significativos." in response.processing_log
+# Note: The original tests for _extract_terms_from_text are now less relevant as the primary
+# extraction mechanism has changed. They could be adapted for _extract_terms_via_regex
+# if that method is fully implemented and used as a fallback.
+# For this refactoring, the focus is on testing the new NER path.
 
 ```
