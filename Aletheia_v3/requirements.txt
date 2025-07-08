@@ -11,6 +11,7 @@ redis[hiredis]>=4.0.0 # For Celery broker and backend
 scikit-optimize>=0.9.0 # For Bayesian Optimization
 numpy>=1.20.0 # Often a dependency of scikit-optimize, good to have explicit
 pandas>=1.3.0 # For data handling, used in dashboard
+scikit-learn>=1.0.0 # For ML utilities, potentially in LikelihoodService
 
 # Dashboard
 streamlit>=1.25.0
