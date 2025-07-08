@@ -897,6 +897,16 @@ from collections import Counter, defaultdict # Para clustering por palabras clav
 # Nota: uuid, datetime, timezone, IConceptRepository, ScientificConcept, ConceptType
 # ya están importados en el contexto del archivo use_cases.py.
 
+# Adapter for MDL
+from ..core.mdl_synthesis.adapters import map_concept_to_representation
+# For placeholder embeddings
+import numpy as np
+# For unique IDs
+import uuid
+# For timestamps
+from datetime import datetime, timezone
+
+
 # Stopwords muy básicas, se podrían expandir
 STOP_WORDS = set([
     "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
@@ -1263,9 +1273,13 @@ class MiniTheoryConstructionUseCase: # Reemplaza Protocol
 class ComprehensiveTheoriesUseCase: # Reemplaza Protocol
     """
     Caso de uso para construir una teoría comprehensiva a partir de un conjunto de mini-teorías.
+    Refactorizado para usar FindOptimalModelUseCase.
     """
-    def __init__(self, concept_repo: IConceptRepository):
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 find_optimal_model_uc: FindOptimalModelUseCase): # Added dependency
         self.concept_repo = concept_repo
+        self.find_optimal_model_uc = find_optimal_model_uc # Store dependency
 
     async def execute(self, input_data: ComprehensiveTheoriesInputSchema) -> ComprehensiveTheoriesResponseSchema:
         """
@@ -1279,34 +1293,131 @@ class ComprehensiveTheoriesUseCase: # Reemplaza Protocol
         6. Devuelve información sobre la teoría creada.
         """
         if not input_data.mini_theory_ids:
-            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="No mini-theory IDs provided.")
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="No mini-theory IDs provided for construction.")
 
-        # Asumimos que los IDs son válidos por ahora
-        mini_theory_ids_to_link = input_data.mini_theory_ids
+        # 1. Load input mini-theory ScientificConcept objects
+        input_mini_theories: List[ScientificConcept] = []
+        for mt_id in input_data.mini_theory_ids:
+            mt_concept = await self.concept_repo.get_by_id(mt_id)
+            if mt_concept and mt_concept.concept_type == ConceptType.MINI_THEORY:
+                input_mini_theories.append(mt_concept)
+            else:
+                # Handle case where a mini-theory ID is invalid or not a mini-theory
+                # For now, log a warning or skip
+                # logger.warning(f"Mini-theory with ID {mt_id} not found or not a MINI_THEORY.")
+                pass
 
-        comp_theory_id = f"compth_{uuid.uuid4().hex}"
-        comp_theory_name = input_data.name or f"Teoría Comprehensiva basada en {len(mini_theory_ids_to_link)} mini-teorías"
+        if not input_mini_theories:
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="No valid mini-theories found for input IDs.")
 
-        comp_theory_concept = ScientificConcept(
-            id=comp_theory_id,
-            name=comp_theory_name,
-            description=f"Teoría comprehensiva agregando: {', '.join(mini_theory_ids_to_link)}.",
-            concept_type=ConceptType.COMPREHENSIVE_THEORY, # Necesita estar en Enum ConceptType
-            properties={
-                "member_mini_theory_ids": mini_theory_ids_to_link,
-                "construction_method": "aggregation_v1"
-            },
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+        # 2. Generate Candidate Comprehensive Theories
+        candidate_comp_theories: List[ScientificConcept] = []
+
+        # Candidate 1: Aggregate all input mini-theories
+        comp_theory_id_1 = f"compth_{uuid.uuid4().hex}"
+        name_1 = input_data.name or f"Comprehensive Theory from {len(input_mini_theories)} mini-theories"
+        desc_1 = f"Comprehensive theory integrating mini-theories: {', '.join(mt.name for mt in input_mini_theories)}."
+        cand1_props = {
+            "member_mini_theory_ids": [mt.id for mt in input_mini_theories],
+            "construction_method": "mdl_aggregation_v1",
+            "derivation_details": "Aggregated all provided mini-theories."
+        }
+        # Add placeholder embedding for the candidate theory itself
+        cand1_props["embedding"] = np.random.rand(1, 384).tolist()[0] # Assuming 384-dim embeddings
+
+        candidate_1 = ScientificConcept(
+            id=comp_theory_id_1, name=name_1, description=desc_1,
+            concept_type=ConceptType.COMPREHENSIVE_THEORY, properties=cand1_props,
+            created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
         )
-        await self.concept_repo.add(comp_theory_concept)
+        candidate_comp_theories.append(candidate_1)
+
+        # Candidate 2: (If > 3 inputs) Aggregate a subset (e.g., first 3)
+        if len(input_mini_theories) > 3:
+            subset_mini_theories = input_mini_theories[:3]
+            comp_theory_id_2 = f"compth_{uuid.uuid4().hex}"
+            name_2 = f"Focused Comprehensive Theory from {len(subset_mini_theories)} mini-theories"
+            desc_2 = f"Focused comprehensive theory from subset: {', '.join(mt.name for mt in subset_mini_theories)}."
+            cand2_props = {
+                "member_mini_theory_ids": [mt.id for mt in subset_mini_theories],
+                "construction_method": "mdl_subset_aggregation_v1",
+                "derivation_details": f"Aggregated first {len(subset_mini_theories)} provided mini-theories."
+            }
+            cand2_props["embedding"] = np.random.rand(1, 384).tolist()[0]
+            candidate_2 = ScientificConcept(
+                id=comp_theory_id_2, name=name_2, description=desc_2,
+                concept_type=ConceptType.COMPREHENSIVE_THEORY, properties=cand2_props,
+                created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
+            )
+            candidate_comp_theories.append(candidate_2)
+
+        # Candidate 3: Alternative description for Candidate 1
+        comp_theory_id_3 = f"compth_{uuid.uuid4().hex}"
+        name_3 = input_data.name or f"Integrated Perspective from {len(input_mini_theories)} mini-theories"
+        desc_3 = f"An integrated perspective synthesizing the following mini-theories: {'; '.join(mt.name for mt in input_mini_theories)}."
+        cand3_props = { # Same members as candidate 1
+            "member_mini_theory_ids": [mt.id for mt in input_mini_theories],
+            "construction_method": "mdl_aggregation_v1_alt_desc",
+            "derivation_details": "Aggregated all provided mini-theories with alternative phrasing."
+        }
+        cand3_props["embedding"] = np.random.rand(1, 384).tolist()[0]
+        candidate_3 = ScientificConcept(
+            id=comp_theory_id_3, name=name_3, description=desc_3,
+            concept_type=ConceptType.COMPREHENSIVE_THEORY, properties=cand3_props,
+            created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)
+        )
+        candidate_comp_theories.append(candidate_3)
+
+        if not candidate_comp_theories:
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="Could not generate candidate comprehensive theories.")
+
+        # 3. Map Candidates to ModelRepresentation
+        model_representations = [map_concept_to_representation(ct) for ct in candidate_comp_theories]
+
+        # 4. Invoke Optimization
+        lambda_param = 1.0  # Example value, might need tuning
+        try:
+            optimization_result = self.find_optimal_model_uc.execute(
+                candidate_models=model_representations,
+                data=input_mini_theories, # Data D is the list of input mini-theory ScientificConcepts
+                lambda_param=lambda_param,
+                optimization_parameters={"use_case": "ComprehensiveTheoriesUseCase"}
+            )
+        except Exception as e:
+            # logger.error(f"Error during MDL optimization in ComprehensiveTheoriesUseCase: {e}")
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message=f"Optimization error: {e}")
+
+        # 5. Process Result
+        winning_theory_id_str = optimization_result.best_model.identifier
+        winning_theory_concept = next((cand for cand in candidate_comp_theories if str(cand.id) == winning_theory_id_str), None)
+
+        if not winning_theory_concept:
+            # This should not happen if find_optimal_model_uc returns a valid model from candidates
+            # logger.error("Winning comprehensive theory ID not found among candidates.")
+            return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=None, message="Could not identify winning comprehensive theory among candidates.")
+
+        # Update winning concept with MDL metrics if desired (optional, as per design they are in properties)
+        winning_theory_concept.properties["mdl_synthesis_details"] = {
+            "complexity": optimization_result.best_model_metrics.complexity,
+            "log_likelihood": optimization_result.best_model_metrics.log_likelihood,
+            "mdl_cost": optimization_result.best_model_metrics.mdl_cost,
+            "parameters": optimization_result.parameters
+        }
+        winning_theory_concept.updated_at = datetime.now(timezone.utc)
+
+
+        # 6. Persist and Return
+        await self.concept_repo.add(winning_theory_concept)
 
         created_info = ConceptInfoSchema(
-            id=comp_theory_concept.id,
-            name=comp_theory_concept.name,
-            concept_type=comp_theory_concept.concept_type.value
+            id=str(winning_theory_concept.id), # Ensure ID is string for schema
+            name=winning_theory_concept.name,
+            concept_type=winning_theory_concept.concept_type.value
         )
-        return ComprehensiveTheoriesResponseSchema(created_comprehensive_theory=created_info, message=f"Teoría comprehensiva '{comp_theory_name}' creada.")
+        return ComprehensiveTheoriesResponseSchema(
+            created_comprehensive_theory=created_info,
+            message=f"Comprehensive theory '{winning_theory_concept.name}' selected and created via MDL."
+        )
 
 
 class UnifiedModelsUseCase: # Reemplaza Protocol
