@@ -17,8 +17,9 @@ WORKDIR /opt/aletheia
 # this might be minimal. netcat-openbsd is for the entrypoint script's DB check.
 # For cypari2 (PARI/GP), we need libgmp-dev, libmpfr-dev, libmpc-dev.
 # Numba often needs llvm and tbb, but pip wheels might handle this. Let's add build-essentials.
+# Added libpari-dev for cypari2 compilation
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends netcat-openbsd gcc build-essential libgmp-dev libmpfr-dev libmpc-dev postgresql-client && \
+    apt-get install -y --no-install-recommends netcat-openbsd gcc build-essential libgmp-dev libmpfr-dev libmpc-dev libpari-dev postgresql-client && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
