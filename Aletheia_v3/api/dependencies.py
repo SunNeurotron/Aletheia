@@ -197,10 +197,14 @@ def get_form_clusters_use_case(
         find_optimal_model_uc=find_optimal_model_uc
     )
 
-def get_derive_propositions_use_case( # Nombre de función actualizado
-    concept_repo: IConceptRepository = Depends(get_concept_repository)
-) -> DerivePropositionsUseCase: # Tipo de retorno actualizado
-    return DerivePropositionsUseCase(concept_repo=concept_repo) # Clase actualizada
+def get_derive_propositions_use_case(
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+    find_optimal_model_uc: FindOptimalModelUseCase = Depends(get_find_optimal_model_use_case)
+) -> DerivePropositionsUseCase:
+    return DerivePropositionsUseCase(
+        concept_repo=concept_repo,
+        find_optimal_model_uc=find_optimal_model_uc
+    )
 
 def get_mini_theory_construction_use_case(
     concept_repo: IConceptRepository = Depends(get_concept_repository)
