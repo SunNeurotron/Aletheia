@@ -910,13 +910,21 @@ MIN_COMMON_KEYWORDS_FOR_CLUSTER = 2
 
 
 class FormClustersUseCase: # Reemplaza el Protocol
-    """
-    Caso de uso para formar clústeres de conceptos (UCMs) basados en palabras clave compartidas.
-    """
-    def __init__(self, concept_repo: IConceptRepository):
-        self.concept_repo = concept_repo
+# Import FindOptimalModelUseCase for dependency injection
+from .mdl_synthesis_use_cases import FindOptimalModelUseCase
 
-    def _extract_keywords(self, text: Optional[str]) -> Set[str]:
+class FormClustersUseCase: # Reemplaza el Protocol
+    """
+    Caso de uso para formar clústeres de conceptos (UCMs).
+    Refactorizado para usar FindOptimalModelUseCase para seleccionar el mejor clustering.
+    """
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 find_optimal_model_uc: FindOptimalModelUseCase):
+        self.concept_repo = concept_repo
+        self.find_optimal_model_uc = find_optimal_model_uc
+
+    def _extract_keywords(self, text: Optional[str]) -> Set[str]: # This method might become obsolete or change
         if not text:
             return set()
         # Tokenización simple y eliminación de stopwords
