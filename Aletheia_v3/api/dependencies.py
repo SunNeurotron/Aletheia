@@ -207,9 +207,13 @@ def get_derive_propositions_use_case(
     )
 
 def get_mini_theory_construction_use_case(
-    concept_repo: IConceptRepository = Depends(get_concept_repository)
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+    find_optimal_model_uc: FindOptimalModelUseCase = Depends(get_find_optimal_model_use_case)
 ) -> MiniTheoryConstructionUseCase:
-    return MiniTheoryConstructionUseCase(concept_repo=concept_repo)
+    return MiniTheoryConstructionUseCase(
+        concept_repo=concept_repo,
+        find_optimal_model_uc=find_optimal_model_uc
+    )
 
 def get_comprehensive_theories_use_case(
     concept_repo: IConceptRepository = Depends(get_concept_repository)
