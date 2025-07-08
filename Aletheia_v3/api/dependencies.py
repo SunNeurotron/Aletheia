@@ -48,6 +48,15 @@ from .schemas import (
     UnifiedModelsInputSchema, UnifiedModelsResultSchema
 )
 
+# MDL Synthesis components
+from ..core.mdl_synthesis.services import (
+    KolmogorovComplexityProxyService,
+    LikelihoodService,
+    OmegaCostService
+)
+from ..application.mdl_synthesis_use_cases import FindOptimalModelUseCase
+
+
 # Infraestructura (Trackers, Queues, Monitoring - Implementaciones directas o mocks simples)
 from ..infrastructure.monitoring import CubeMonitoring
 
@@ -151,10 +160,42 @@ def get_link_concepts_use_case(
 
 # Eje Y (Actualizado para usar implementaciones reales)
 
+# --- MDL Synthesis Service Providers ---
+@lru_cache(None)
+def get_kolmogorov_complexity_proxy_service() -> KolmogorovComplexityProxyService:
+    return KolmogorovComplexityProxyService()
+
+@lru_cache(None)
+def get_likelihood_service() -> LikelihoodService:
+    # This will provide the placeholder LikelihoodService for now
+    return LikelihoodService()
+
+@lru_cache(None)
+def get_omega_cost_service() -> OmegaCostService:
+    return OmegaCostService()
+
+# --- MDL Synthesis Use Case Provider ---
+@lru_cache(None)
+def get_find_optimal_model_use_case(
+    complexity_service: KolmogorovComplexityProxyService = Depends(get_kolmogorov_complexity_proxy_service),
+    likelihood_service: LikelihoodService = Depends(get_likelihood_service),
+    omega_cost_service: OmegaCostService = Depends(get_omega_cost_service)
+) -> FindOptimalModelUseCase:
+    return FindOptimalModelUseCase(
+        complexity_service=complexity_service,
+        likelihood_service=likelihood_service,
+        omega_cost_service=omega_cost_service
+    )
+
+# --- Eje Y Use Case Providers (Updated) ---
 def get_form_clusters_use_case(
-    concept_repo: IConceptRepository = Depends(get_concept_repository)
+    concept_repo: IConceptRepository = Depends(get_concept_repository),
+    find_optimal_model_uc: FindOptimalModelUseCase = Depends(get_find_optimal_model_use_case)
 ) -> FormClustersUseCase:
-    return FormClustersUseCase(concept_repo=concept_repo)
+    return FormClustersUseCase(
+        concept_repo=concept_repo,
+        find_optimal_model_uc=find_optimal_model_uc
+    )
 
 def get_derive_propositions_use_case( # Nombre de función actualizado
     concept_repo: IConceptRepository = Depends(get_concept_repository)
