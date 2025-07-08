@@ -239,3 +239,97 @@ class TestMDUSystemSuite:
                     # This is a very loose conceptual check.
                     # assert time_ratio < (size_ratio ** 1.8), f"Potential scaling performance issue at size {curr_res['size']}"
                     pass # Actual scaling assertions depend on expected complexity and real timings.
+
+    @pytest.mark.asyncio
+    async def test_adaptive_engine_learns_from_runs(self, mocker): # mdu_system_integration_instance no es necesaria aquí
+        """
+        Tests if the AdaptiveAnalysisEngine adapts its strategy_weights based on simulated performance.
+        """
+        from ...application.use_cases import AdaptiveAnalysisEngine # Importar la clase
+
+        adaptive_engine = AdaptiveAnalysisEngine()
+        initial_weights = adaptive_engine.strategy_weights.copy()
+        num_runs = 20 # Aumentar para ver un efecto más claro
+        target_strategy_to_reward = 'emergent'
+
+        # Para observar la evolución (opcional)
+        # weight_history = {strategy: [weight] for strategy, weight in initial_weights.items()}
+
+        for i in range(num_runs):
+            # 1. Crear contexto de análisis simulado
+            # Podríamos variar esto, o mantenerlo constante para ver si converge a la mejor estrategia para ESE contexto.
+            # Por ahora, un contexto que podría favorecer 'emergent' (datos grandes, alta complejidad)
+            analysis_context_sim = {
+                'data_size': random.randint(8000, 15000),
+                'complexity_estimate': random.uniform(0.6, 0.9)
+            }
+
+            # 2. El motor selecciona una estrategia
+            # select_optimal_path devuelve una lista ordenada, tomamos la primera
+            optimal_paths = adaptive_engine.select_optimal_path(analysis_context_sim)
+            if not optimal_paths:
+                # Esto no debería pasar si _evaluate_strategy_fit siempre devuelve > 0 y hay estrategias
+                chosen_strategy = list(adaptive_engine.strategy_weights.keys())[0] # Fallback
+            else:
+                chosen_strategy = optimal_paths[0]
+
+            # 3. Simular métricas de rendimiento basadas en la estrategia elegida
+            simulated_performance_metrics = {
+                'strategy_used': chosen_strategy,
+                'consensus_confidence': 0.0,
+                'final_model': {'combined_unique_insights_app': []},
+                # Añadir otras métricas que _calculate_success_metric podría usar
+            }
+
+            if chosen_strategy == target_strategy_to_reward:
+                # Simular un buen resultado
+                simulated_performance_metrics['consensus_confidence'] = random.uniform(0.7, 0.95)
+                simulated_performance_metrics['final_model']['combined_unique_insights_app'] = [f"insight_{k}" for k in range(random.randint(5,10))]
+            else:
+                # Simular un resultado mediocre o malo
+                simulated_performance_metrics['consensus_confidence'] = random.uniform(0.2, 0.5)
+                simulated_performance_metrics['final_model']['combined_unique_insights_app'] = [f"insight_{k}" for k in range(random.randint(0,2))]
+
+            # 4. El motor adapta su estrategia
+            adaptive_engine.adapt_strategy(simulated_performance_metrics)
+
+            # for strategy, weight in adaptive_engine.strategy_weights.items():
+            #     weight_history[strategy].append(weight)
+
+        # Imprimir historial de pesos para depuración (opcional)
+        # print("\nWeight history:")
+        # for strategy, history in weight_history.items():
+        #     print(f"{strategy}: {[f'{w:.3f}' for w in history]}")
+        # print(f"Final weights: {adaptive_engine.strategy_weights}")
+
+        # 5. Aserción final
+        final_weights = adaptive_engine.strategy_weights
+
+        # Verificar que el peso de la estrategia recompensada es el más alto o ha aumentado significativamente
+        rewarded_strategy_final_weight = final_weights.get(target_strategy_to_reward, 0)
+
+        # Comprobar que es el más alto
+        is_highest = True
+        for strategy, weight in final_weights.items():
+            if strategy != target_strategy_to_reward and weight > rewarded_strategy_final_weight:
+                is_highest = False
+                break
+
+        # Comprobar que ha aumentado respecto al inicial (después de la primera normalización)
+        # La primera normalización hace que todos los pesos sean 1/num_strategies si empiezan en 1.0
+        num_strategies = len(initial_weights)
+        initial_normalized_weight_approx = 1.0 / num_strategies if num_strategies > 0 else 0
+
+        # Puede que no sea el *más* alto si otras estrategias también dieron buenos resultados por casualidad
+        # o si el contexto cambiaba mucho. Una aserción más robusta es que haya aumentado.
+        # Para este test, como forzamos el "éxito" de la target_strategy, debería ser el más alto.
+        assert rewarded_strategy_final_weight > initial_normalized_weight_approx, \
+            f"El peso de la estrategia recompensada '{target_strategy_to_reward}' ({rewarded_strategy_final_weight:.3f}) no aumentó significativamente respecto al inicial (~{initial_normalized_weight_approx:.3f}). Final weights: {final_weights}"
+
+        # Y que es considerablemente mayor que al menos alguna otra estrategia (si hay más de una)
+        if num_strategies > 1:
+            other_weights_sum = sum(w for s, w in final_weights.items() if s != target_strategy_to_reward)
+            avg_other_weight = other_weights_sum / (num_strategies -1) if (num_strategies -1) > 0 else 0
+            assert rewarded_strategy_final_weight > avg_other_weight, \
+                f"El peso de la estrategia recompensada '{target_strategy_to_reward}' ({rewarded_strategy_final_weight:.3f}) no es mayor que el promedio de las otras ({avg_other_weight:.3f}). Final weights: {final_weights}"
+            assert is_highest, f"La estrategia recompensada '{target_strategy_to_reward}' no terminó con el peso más alto. Final weights: {final_weights}"
