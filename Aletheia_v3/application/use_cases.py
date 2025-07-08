@@ -1097,9 +1097,13 @@ class FormClustersUseCase: # Reemplaza el Protocol
 class DerivePropositionsUseCase: # Nombre actualizado y reemplaza Protocol
     """
     Caso de uso para derivar proposiciones a partir de clústeres de conceptos.
+    Refactorizado para usar FindOptimalModelUseCase.
     """
-    def __init__(self, concept_repo: IConceptRepository):
+    def __init__(self,
+                 concept_repo: IConceptRepository,
+                 find_optimal_model_uc: FindOptimalModelUseCase): # Added dependency
         self.concept_repo = concept_repo
+        self.find_optimal_model_uc = find_optimal_model_uc # Store dependency
 
     async def execute(self, input_data: PropositionDerivationInputSchema) -> PropositionDerivationResultSchema:
         """
