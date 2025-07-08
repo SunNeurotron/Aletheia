@@ -423,9 +423,50 @@ class AdaptiveAnalysisEngine:
             num_strategies = len(self.strategy_weights)
             if num_strategies > 0: self.strategy_weights = {k: 1.0/num_strategies for k in self.strategy_weights}
 
-    def _calculate_performance_gradients(self, metrics: dict) -> Dict[str, float]:
-        # print("AdaptiveAnalysisEngine: Calculating performance gradients (placeholder).")
-        return {s: metrics.get(f"{s}_score_improvement", random.uniform(-0.1, 0.1)) for s in self.strategy_weights}
+    def _calculate_success_metric(self, metrics: dict) -> float:
+        """
+        Calcula una métrica de éxito compuesta basada en las métricas de rendimiento.
+        """
+        confidence = metrics.get('consensus_confidence', 0.0) or 0.0 # Asegurar que no sea None
+
+        num_insights = 0
+        final_model = metrics.get('final_model')
+        if isinstance(final_model, dict):
+            # La estructura esperada es que final_model contenga combined_unique_insights_app
+            # como se define en CubeHoneycombIntegration._integrate_perspectives
+            insights = final_model.get('combined_unique_insights_app', [])
+            if isinstance(insights, list):
+                num_insights = len(insights)
+
+        # Métrica de éxito: ponderar confianza y número de insights (normalizado)
+        # Normalizar num_insights a un rango [0,1] (ej. capado a 10 insights max para la contribución)
+        normalized_insights_score = min(num_insights, 10) / 10.0
+
+        success_score = (confidence * 0.7) + (normalized_insights_score * 0.3)
+        return success_score
+
+    def _calculate_performance_gradients(self, performance_metrics: dict) -> Dict[str, float]:
+        """
+        Calcula los gradientes de rendimiento para cada estrategia.
+        El gradiente es positivo si la estrategia usada tuvo éxito, negativo si no.
+        Las estrategias no usadas tienen gradiente cero.
+        """
+        success_score = self._calculate_success_metric(performance_metrics)
+
+        gradients: Dict[str, float] = {}
+        strategy_used = performance_metrics.get('strategy_used', 'exhaustive') # Default a una estrategia conocida
+
+        for strategy_name in self.strategy_weights.keys():
+            if strategy_name == strategy_used:
+                # El gradiente es la "sorpresa": éxito actual vs. un umbral (0.5).
+                # Un valor > 0 significa mejor que el umbral, < 0 peor.
+                gradient = success_score - 0.5
+                gradients[strategy_name] = gradient
+            else:
+                # No actualizamos las estrategias que no se usaron en esta ronda.
+                gradients[strategy_name] = 0.0
+
+        return gradients
 
     def select_optimal_path(self, analysis_context: dict) -> List[str]:
         context_features = self._extract_context_features(analysis_context)
@@ -439,9 +480,49 @@ class AdaptiveAnalysisEngine:
         return {"data_size": context.get("data_size", 100), "complexity_est": context.get("complexity_estimate", 0.5)}
 
     def _evaluate_strategy_fit(self, strategy: str, features: Dict[str, Any]) -> float:
-        # print(f"AdaptiveAnalysisEngine: Evaluating fit for strategy {strategy} (placeholder).")
-        if strategy == 'exhaustive': return 1.0 / (1 + features.get("data_size", 1000) * 0.01 + 1e-6) # Avoid div by zero
-        return random.random()
+        """
+        Evalúa qué tan adecuada es una estrategia dado un contexto de análisis.
+        Devuelve un score entre (aprox) 0.1 y 1.0.
+        """
+        data_size = features.get('data_size', 1000) # Default si no está
+        complexity = features.get('complexity_est', 0.5) # Default si no está
+
+        score = 0.1 # Default score bajo
+
+        if strategy == 'exhaustive':
+            # Favorece datos pequeños y de baja complejidad. Penalizado por tamaño y complejidad.
+            # El score disminuye a medida que data_size o complexity aumentan.
+            # (data_size / 5000.0) -> 0.2 para data_size=1000; 1.0 para data_size=5000; 2.0 para data_size=10000
+            # complexity es 0.0 a 1.0
+            denominator = 1.0 + (data_size / 5000.0) + (complexity * 2.0) # Ponderar más la complejidad
+            score = 1.0 / denominator if denominator > 0.1 else 0.1 # Evitar división por cero o score muy alto
+
+        elif strategy == 'progressive':
+            # Bueno para datos de tamaño medio, menos sensible a la complejidad inicial.
+            # Score base alto, penalizado ligeramente por extremos de tamaño.
+            base_score = 0.8
+            if data_size > 15000 or data_size < 500:
+                base_score -= 0.2 # Penalización mayor
+            elif data_size > 8000 or data_size < 1000:
+                base_score -= 0.1
+            # Ligera penalización por muy baja complejidad (podría no necesitar 'progressive')
+            if complexity < 0.2:
+                 base_score -= 0.1
+            score = base_score
+
+        elif strategy == 'temporal' or strategy == 'causal':
+            # Favorecido si la complejidad estimada es alta (sugiere que hay estructura para encontrar).
+            # Score base + bonus por complejidad.
+            score = 0.3 + complexity * 0.7 # Rango ~0.3 a 1.0
+
+        elif strategy == 'emergent':
+             # Favorecido por datos grandes y de alta complejidad.
+             # Normalizar data_size, ej. capado a 20000 para el score.
+             norm_data_size = min(data_size, 20000) / 20000.0 # Rango 0 a 1
+             # Score base bajo, aumenta con tamaño y complejidad
+             score = 0.1 + (norm_data_size * 0.45) + (complexity * 0.45) # Rango ~0.1 a 1.0
+
+        return max(0.05, min(score, 1.0)) # Asegurar que el score esté entre 0.05 y 1.0
 
 
 # --- CubeHoneycombIntegration Class and its methods ---
