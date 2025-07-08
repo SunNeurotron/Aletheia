@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [4.1.0] - 2024-07-26
+
+### Added
+-   **Functional Knowledge Graph Core:**
+    -   Implemented `ScientificConcept` and `DirectedRelationship` domain models.
+    -   Introduced `SQLAlchemyConceptRepository` and `SQLAlchemyRelationshipRepository` for persistent storage of concepts and relationships in PostgreSQL.
+    -   Configured Alembic migrations for new `scientific_concepts` and `directed_relationships` tables.
+-   **Eje X - Functional Ingestion & Ontology Use Cases:**
+    -   `IngestDocumentUseCase`: Processes document text, creates `DOCUMENT_SOURCE` concepts, and triggers UCM extraction.
+    -   `ExtractUCMsUseCase`: Implemented with regex/keyword-based term extraction, persists UCMs, and creates `RELATED_TO_DOCUMENT_CONTEXT` relationships.
+    -   `LinkConceptsUseCase`: Allows manual creation of relationships between concepts.
+-   **Eje Y - Functional Knowledge Synthesis Use Cases:**
+    -   `FormClustersUseCase`: Implements keyword-based clustering of UCMs, creating `CLUSTER` concepts.
+    -   `DerivePropositionsUseCase`: Generates `PROPOSITION` concepts from clusters.
+    -   Aggregation Use Cases (`MiniTheoryConstructionUseCase`, `ComprehensiveTheoriesUseCase`, `UnifiedModelsUseCase`): Create `MINI_THEORY`, `COMPREHENSIVE_THEORY`, and `UNIFIED_MODEL` concepts by aggregating lower-level entities.
+    -   Enhanced `DomainService` and `TheoryBuilder` with more realistic (heuristic-based) synthesis logic.
+-   **API Enhancements:**
+    -   New API routers (`ontology_management_router.py`, `knowledge_synthesis_router.py`) exposing Eje X and Eje Y use cases.
+    -   Endpoints for all Eje X and Eje Y use cases (e.g., `POST /eje-x/ingest-document`, `POST /eje-y/cluster-formation`).
+    -   New GET endpoints for listing all concepts (`GET /eje-x/concepts/`) and relationships (`GET /eje-x/relationships/`).
+    -   Functional API endpoints for knowledge graph visualization:
+        -   `GET /eje-y/visualization/hierarchy_graph/{concept_id}`: Constructs and returns hierarchy data from the database.
+        -   `GET /eje-y/visualization/synthesis_statistics`: Calculates and returns statistics from the database.
+    -   Refined API schemas (`api/schemas.py`) for all new DTOs and responses.
+    -   Updated API dependency injection (`api/dependencies.py`) to use SQLAlchemy repositories and functional use cases.
+-   **Interactive Knowledge Graph Dashboard (`mdu_dashboard.py`):**
+    -   New Streamlit dashboard for visualizing the knowledge graph.
+    -   Features: Full graph explorer with filtering, node detail display, synthesis hierarchy viewer, and statistics display.
+    -   Consumes data from the new functional API endpoints.
+    -   Added as a new service in `docker-compose.yml` on port `8502`.
+-   **Testing:**
+    -   Added dedicated unit tests for `ExtractUCMsUseCase` (`test_ucm_extraction.py`).
+    -   Significantly updated API tests (`test_api.py`) to cover new Eje X, Eje Y, and visualization endpoints, including database interaction for setup and verification.
+
+### Changed
+-   Refactored DTOs from `application/dtos.py` to `api/schemas.py` (and deleted `application/dtos.py`).
+-   Updated `README.md` (root and `Aletheia_v3/`) to reflect new functionalities and system state.
+-   Replaced placeholder implementations for Eje Y use cases and `ExtractUCMsUseCase` with functional logic.
+-   Switched `IConceptRepository` and `IRelationshipRepository` dependencies from in-memory to SQLAlchemy implementations.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
