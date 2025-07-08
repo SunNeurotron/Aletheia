@@ -24,61 +24,13 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID  # For PostgreSQL UUI
 from sqlalchemy.orm import relationship, Mapped, mapped_column # Consolidated imports
 from sqlalchemy.sql import func  # For server-side default timestamps if preferred
 
-# Custom UUID type for SQLite compatibility
-class UUID(TypeDecorator):
-    """Platform-independent UUID type.
+# Custom UUID type is now imported from aletheia_common.db.custom_types
+# The local definition has been removed.
 
-    Uses PostgreSQL's UUID type, otherwise uses
-    CHAR(32), storing as string.
-    """
-    impl = String(32) # Default implementation for non-PG dialects
-    cache_ok = True
-
-    def __init__(self, as_uuid=True, *args, **kwargs):
-        # as_uuid is relevant for PG, and for our Python-side processing
-        self.as_uuid = as_uuid
-        # Pass only relevant args to String, or none if String(32) is fixed.
-        # String type itself doesn't take *args, **kwargs in its __init__ beyond length.
-        # The TypeDecorator's impl is already String(32).
-        super(UUID, self).__init__()
-
-
-    def load_dialect_impl(self, dialect):
-        if dialect.name == 'postgresql':
-            return dialect.type_descriptor(PG_UUID(as_uuid=self.as_uuid))
-        else:
-            # For other dialects, we've already set self.impl to String(32)
-            return dialect.type_descriptor(String(32))
-
-    def process_bind_param(self, value, dialect):
-        if value is None:
-            return value
-        # For PG, PG_UUID handles UUID objects directly if as_uuid=True at type creation.
-        # If we pass a string, it's fine. If we pass UUID, it's fine.
-        if dialect.name != 'postgresql':
-            if isinstance(value, uuid_pkg.UUID):
-                return str(value) # Store as string for non-PG
-        return value # Return UUID object for PG, string for others
-
-    def process_result_value(self, value, dialect):
-        if value is None:
-            return value
-        if dialect.name == 'postgresql':
-            # PG_UUID with as_uuid=True should return UUID objects.
-            # If it returns string, convert it (though it should handle it).
-            if self.as_uuid and isinstance(value, str): return uuid_pkg.UUID(value)
-            return value
-        else: # For SQLite (String(32))
-            if self.as_uuid:
-                if isinstance(value, uuid_pkg.UUID): return value
-                try:
-                    return uuid_pkg.UUID(value) # value is a string from DB
-                except (TypeError, ValueError):
-                    return value # Or handle error
-            return value # Return as string if as_uuid is False (though our default is True)
-
-# Import Base from the database module in the same directory
-from .database import Base
+# Import Base from the common db module
+from aletheia_common.db.base import Base
+# Import custom UUID type from common db module
+from aletheia_common.db.custom_types import UUID as CommonUUID # Alias to avoid conflict if local UUID is still temp present
 
 
 import enum # Import Python's enum module
@@ -350,16 +302,20 @@ from ..core.domain_models import ConceptType as DomainConceptType # Importar el 
 class ScientificConceptDB(Base):
     __tablename__ = "scientific_concepts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    name = Column(String(500), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    # Usar el Enum de dominio con SAEnum para crear un tipo ENUM en la BD (para PG)
-    # create_constraint=True es importante para que Alembic lo maneje bien.
-    concept_type = Column(SAEnum(DomainConceptType, name="concept_type_enum_v2", create_constraint=True, inherit_schema=False), nullable=False, index=True)
-    properties = Column(JSONB, nullable=True)
+    id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    name: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    concept_type: Mapped[DomainConceptType] = mapped_column(SAEnum(DomainConceptType, name="concept_type_enum_v2", create_constraint=True, inherit_schema=False), nullable=False, index=True)
+    properties: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships will be defined here for SQLAlchemy ORM to understand connections
+    # Even if the other side (e.g. DirectedRelationshipDB) defines the foreign key
+    relationships_as_source: Mapped[List["DirectedRelationshipDB"]] = relationship(foreign_keys="DirectedRelationshipDB.source_concept_id", back_populates="source_concept")
+    relationships_as_target: Mapped[List["DirectedRelationshipDB"]] = relationship(foreign_keys="DirectedRelationshipDB.target_concept_id", back_populates="target_concept")
+
 
     def __repr__(self):
         return f"<ScientificConceptDB(id='{self.id}', name='{self.name}', type='{self.concept_type.value if self.concept_type else None}')>"
@@ -368,27 +324,23 @@ class ScientificConceptDB(Base):
 class DirectedRelationshipDB(Base):
     __tablename__ = "directed_relationships"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    source_concept_id = Column(UUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_source_concept"), nullable=False, index=True)
-    target_concept_id = Column(UUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_target_concept"), nullable=False, index=True)
+    id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
+    source_concept_id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_source_concept"), nullable=False, index=True)
+    target_concept_id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), ForeignKey("scientific_concepts.id", name="fk_relationship_target_concept"), nullable=False, index=True)
 
-    type = Column(String(100), nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    properties = Column(JSONB, nullable=True)
+    type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    properties: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB, nullable=True)
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relaciones ORM con ScientificConceptDB
-    source_concept = relationship(
-        "ScientificConceptDB",
-        foreign_keys=[source_concept_id],
-        backref="relationships_as_source" # Nombre para la colección en ScientificConceptDB
+    source_concept: Mapped["ScientificConceptDB"] = relationship(
+        foreign_keys=[source_concept_id], back_populates="relationships_as_source"
     )
-    target_concept = relationship(
-        "ScientificConceptDB",
-        foreign_keys=[target_concept_id],
-        backref="relationships_as_target" # Nombre para la colección en ScientificConceptDB
+    target_concept: Mapped["ScientificConceptDB"] = relationship(
+        foreign_keys=[target_concept_id], back_populates="relationships_as_target"
     )
 
     def __repr__(self):
@@ -396,9 +348,9 @@ class DirectedRelationshipDB(Base):
 
 
 # --- Modelo ORM para AnalysisData ---
-from sqlalchemy.orm import Mapped, mapped_column # Asegurar mapped_column y Mapped
+# Ensure Mapped, mapped_column are available (already imported at the top)
 # uuid_pkg, DateTime, func, JSONB, String, Base ya están importados y definidos.
-from typing import Dict, Any # Para tipado de JSONB
+from typing import Dict, Any, List # Para tipado de JSONB y List para Mapped[List[...]]
 
 class AnalysisModel(Base):
     __tablename__ = 'analyses'
