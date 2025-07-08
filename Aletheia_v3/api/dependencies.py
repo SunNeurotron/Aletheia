@@ -48,7 +48,13 @@ from .schemas import (
     UnifiedModelsInputSchema, UnifiedModelsResultSchema
 )
 
-# Infraestructura (Trackers, Queues - Implementaciones directas o mocks simples)
+# Infraestructura (Trackers, Queues, Monitoring - Implementaciones directas o mocks simples)
+from ..infrastructure.monitoring import CubeMonitoring
+
+@lru_cache(None)
+def get_monitoring_system() -> CubeMonitoring:
+    return CubeMonitoring()
+
 class PlaceholderExperimentTracker(IExperimentTracker):
     def start_run(self, name: str) -> str: return "placeholder_run_id"
     def log_params(self, params: dict) -> None: pass
@@ -176,8 +182,15 @@ def get_application_service_facade(
     domain_service: DomainService = Depends(get_domain_service),
     repo: IAnalysisRepository = Depends(get_analysis_repository),
     tracker: IExperimentTracker = Depends(get_experiment_tracker),
-    queue: ITaskQueue = Depends(get_task_queue)
+    queue: ITaskQueue = Depends(get_task_queue),
+    monitoring: CubeMonitoring = Depends(get_monitoring_system)
 ) -> ApplicationServiceFacade:
-    return ApplicationServiceFacade(domain_service=domain_service, repo=repo, tracker=tracker, queue=queue)
+    return ApplicationServiceFacade(
+        domain_service=domain_service,
+        repo=repo,
+        tracker=tracker,
+        queue=queue,
+        monitoring=monitoring
+    )
 
 ```
