@@ -1,270 +1,207 @@
-# Aletheia v4.0: Plataforma de Descubrimiento Científico Guiado por IA
+<div align="center">
+<img src="https://i.imgur.com/mY5L4sW.png" alt="Diagrama Conceptual de Aletheia" width="600"/>
+<h1>Aletheia v4.0</h1>
+<p><strong>Plataforma de Descubrimiento Científico Guiado por IA</strong></p>
+<p>Descubriendo las fronteras de la ciencia y las matemáticas con inteligencia artificial.</p>
 
-Aletheia is an evolving end-to-end scientific discovery platform, meticulously engineered for investigating complex mathematical problems like the ABC Conjecture and, more broadly, for **M**odeling, **D**iscovery, and **U**nderstanding (MDU) in scientific research. This version represents a significant advancement, building upon the MDU framework by incorporating a functional knowledge graph, AI-driven synthesis capabilities, persistent storage, and interactive visualization tools.
+<p>
+<a href="Aletheia_v3/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licencia"></a>
+<a href="#"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python" alt="Python"></a>
+<a href="#"><img src="https://img.shields.io/badge/FastAPI-0.103+-009688?logo=fastapi" alt="FastAPI"></a>
+<a href="#"><img src="https://img.shields.io/badge/Streamlit-1.27-FF4B4B?logo=streamlit" alt="Streamlit"></a>
+<a href="#"><img src="https://img.shields.io/badge/Docker-24.0-2496ED?logo=docker" alt="Docker"></a>
+<a href="#"><img src="https://img.shields.io/badge/PostgreSQL-15-336791?logo=postgresql" alt="PostgreSQL"></a>
+<a href="#"><img src="https://img.shields.io/badge/status-en--desarrollo-orange" alt="Estado"></a>
+</p>
+</div>
 
-The system now supports a complete workflow: ingesting documents, extracting conceptual units, forming a hierarchical knowledge structure (clusters, propositions, theories, unified models), persisting this graph, and allowing exploration via a dedicated dashboard.
 
-For details on the evolution of the project and previous versions, please see the [CHANGELOG.md](CHANGELOG.md).
+Aletheia es una plataforma integral y en evolución para el descubrimiento científico, meticulosamente diseñada para investigar problemas matemáticos complejos como la Conjetura ABC y, de forma más amplia, para el Modelado, Descubrimiento y Comprensión (MDC o MDU en inglés) en la investigación científica.
 
-![Conceptual Diagram of Aletheia interacting with Math Universe](https://i.imgur.com/mY5L4sW.png)
-*(Conceptual: Aletheia platform using AI to find mathematical "gold" (abc-hits) in the universe of numbers, and building structured knowledge.)*
+Esta versión representa un avance significativo sobre el marco MDC, incorporando un grafo de conocimiento funcional, capacidades de síntesis guiadas por IA, almacenamiento persistente y herramientas de visualización interactivas. El sistema ahora soporta un flujo de trabajo completo: ingesta de documentos, extracción de unidades conceptuales, formación de una estructura de conocimiento jerárquica y exploración a través de un dashboard dedicado.
 
-## Key Enhancements and Features
+Para detalles sobre la evolución del proyecto y versiones anteriores, consulta el archivo CHANGELOG.md.
 
-This version integrates features developed across several focused phases, transforming the platform's capabilities:
+🚀 Características Principales
 
-**1. Knowledge Graph Core & Visualization (New Major Phase):**
-*   **Core Knowledge Entities:** Defined `ScientificConcept` and `DirectedRelationship` domain models, forming the backbone of the knowledge graph.
-*   **Persistent Storage:** Implemented SQLAlchemy-based repositories (`SQLAlchemyConceptRepository`, `SQLAlchemyRelationshipRepository`) for persisting concepts and relationships in a PostgreSQL database. Database schema managed by Alembic migrations, including new tables for these entities.
-*   **Eje X - Ingestion & Ontology Use Cases:**
-    *   `IngestDocumentUseCase`: Functional implementation for ingesting document text, creating a `DOCUMENT_SOURCE` concept, and triggering UCM extraction.
-    *   `ExtractUCMsUseCase`: Functional implementation (moved from placeholders) using regex and keyword analysis to extract UCMs (Unidades Conceptuales Mínimas) from text, persist them, and create basic `RELATED_TO_DOCUMENT_CONTEXT` relationships between co-occurring UCMs.
-    *   `LinkConceptsUseCase`: Functional implementation for manually creating and persisting relationships between any two concepts.
-*   **Eje Y - Knowledge Synthesis Use Cases:**
-    *   A full pipeline of use cases (`FormClustersUseCase`, `DerivePropositionsUseCase`, `MiniTheoryConstructionUseCase`, `ComprehensiveTheoriesUseCase`, `UnifiedModelsUseCase`) has been implemented. These cases take concepts from a lower level of abstraction, apply a (currently simple/heuristic) synthesis logic, and create/persist new concepts representing the next level in the knowledge hierarchy (e.g., CLUSTER, PROPOSITION, MINI_THEORY, etc.).
-    *   `DomainService` and `TheoryBuilder` provide more realistic (though still heuristic) synthesis logic for pattern identification and theory construction.
-*   **Interactive Knowledge Dashboard (`mdu_dashboard.py`):**
-    *   A new Streamlit dashboard dedicated to visualizing the knowledge graph.
-    *   Features a full graph explorer (all concepts and relationships) with filtering by concept type and node-click details.
-    *   Includes a hierarchy viewer to trace the components of synthesized models/theories.
-    *   Displays key statistics about the knowledge graph.
-    *   Consumes data from functional API endpoints.
-*   **Supporting API Endpoints:**
-    *   New GET endpoints in `ontology_management_router.py` (`/eje-x/concepts/`, `/eje-x/relationships/`) to list all persisted concepts and relationships.
-    *   Functional visualization endpoints in `knowledge_synthesis_router.py` (`/eje-y/visualization/hierarchy_graph/{concept_id}`, `/eje-y/visualization/synthesis_statistics`) that now query the database to provide real data for the dashboard.
-    *   Functional POST endpoints in `ontology_management_router.py` and `knowledge_synthesis_router.py` to trigger all Eje X and Eje Y use cases.
+Esta versión integra funcionalidades desarrolladas a lo largo de varias fases, transformando las capacidades de la plataforma.
 
-**2. Core Mathematical Engine & Foundational Performance (Previously Phase 1):**
-*   **PARI/GP Integration:** The mathematical core (`core/domain.py`) now leverages the power of PARI/GP (via `cypari2`) for high-precision arithmetic, efficient GCD calculations, and advanced prime factorization in the `_radical` function. This significantly boosts performance and numerical accuracy for large number computations.
-*   **Optimized Computations:** Implemented caching (`lru_cache`) for radical computations to reduce redundant calculations.
-*   **Enhanced Domain Tests:** Expanded `tests/test_domain.py` to include rigorous testing for PARI/GP integration, large number handling, and caching.
-*   *(Numba JIT compilation was considered but deferred as PARI/GP addressed primary bottlenecks).*
+🧠 Núcleo de Grafo de Conocimiento y Visualización
 
-**2. Distributed Computing & Scalability (Phase 2 - Conceptual Designs & Initial Configs):**
-*   **Kubernetes Readiness:** Kubernetes deployment and service configurations in the `kubernetes/` directory have been refined for increased robustness (e.g., explicit command arguments for containers, verified environment variable sourcing, appropriate probes). A conceptual `ingress.yaml` has been added to illustrate how services would be exposed externally. These provide a more detailed blueprint for orchestrated, scalable deployments.
-*   **Advanced Celery Worker Management:** Implemented task routing in `infrastructure/celery_worker.py` (e.g., to `math_heavy` queue). Conceptual designs for worker scaling using Kubernetes HPAs and KEDA are documented in `docs/celery_scaling_and_parallel_bayes_opt.md`. Worker Kubernetes deployment (`kubernetes/worker-deployment.yaml`) now includes explicit command arguments and a basic liveness probe.
-*   **Database Scalability Strategies:** `infrastructure/db_optimizations.sql` provides SQL examples for PostgreSQL optimizations like table partitioning and specialized indexing, crucial for managing massive datasets of mathematical results. Kubernetes configurations for the database (`kubernetes/db-*.yaml`) have been reviewed for correctness.
-*   **HPC Adaptation Concepts:** `docs/HPC_ADAPTATION.md` includes example SLURM scripts and MPI (`mpi4py`) code snippets, illustrating how Aletheia's core could be adapted for traditional High-Performance Computing environments.
+Entidades de Conocimiento: Modelos de dominio ScientificConcept y DirectedRelationship que forman la columna vertebral del grafo.
 
-**3. Advanced AI & Extensibility (Phase 3):**
-*   **Custom Acquisition Function Heuristics:** Developed `core/custom_acquisitions.py` with a `get_structural_bonus` function. This heuristic, integrated into the Bayesian optimization objective in `core/use_cases.py`, guides the search towards numbers with potentially simpler structures (e.g., powers of small primes).
-*   **Plugin Architecture:** Introduced a flexible plugin system. Interfaces are defined in `plugins/plugin_interfaces.py` (e.g., for search strategies, quality evaluators, data postprocessors). A basic plugin manager (`plugins/manager.py`) handles discovery and loading from `plugins/available/`. An `example_quality_evaluator.py` demonstrates its usage.
-*   **Dask Integration Concepts:** `docs/DASK_INTEGRATION.md` explores using Dask for large-scale parallel data processing, complete with illustrative examples.
+Almacenamiento Persistente: Repositorios basados en SQLAlchemy para persistir conceptos y relaciones en una base de datos PostgreSQL, con esquema gestionado por migraciones de Alembic.
 
-**4. Enhanced User Experience & Collaboration (Phase 4):**
-*   **Advanced Dashboard Visualizations:** The Streamlit dashboard (`dashboard/dashboard.py`) now features 3D scatter plots of (a,b,c) hits colored by quality, enhancing data exploration. A placeholder for "Factor Analysis" outlines future analytical displays.
-*   **Collaborative Data Model & API:**
-    *   Extended the database schema (`infrastructure/models.py`) with `ResearcherDB`, `DiscoveryAttributionDB`, and `DerivedConjectureDB` models to support multi-user interactions.
-    *   Added corresponding Pydantic schemas (`api/schemas.py`) and new CRUD API endpoints (`api/api_server.py`) for managing researchers and derived conjectures, along with a basic endpoint for attributions.
-*   **Refined Security (Conceptual Designs):**
-    *   `docs/RBAC_MLFLOW.md` discusses strategies for Role-Based Access Control for MLflow experiments.
-    *   `docs/API_SCOPES.md` outlines a design for OAuth2 scopes for granular API authorization.
+Eje X - Ingesta y Ontología:
 
-**Foundational Features (from initial MDU setup, integrated into v4.0):**
--   **Modular & Layered Architecture:** `core`, `infrastructure`, `api`, `dashboard`, `tests`.
--   **AI-Powered Intelligent Search Core:** Bayesian Optimization with `scikit-optimize`.
--   **Comprehensive Testing Suite (`pytest`):** Unit and integration tests, including tests for authentication and authorization logic.
--   **Secure API with JWT Authentication and Role-Based Authorization:** Utilizes FastAPI and `python-jose` for JWTs. Implements role-based access control (RBAC) with roles such as "researcher" and "admin" to protect sensitive endpoints and operations. User authentication is handled against the `ResearcherDB`.
--   **Scientific Experiment Tracking (`MLflow`):** Integrated into Celery workers.
--   **Containerized Deployment (`Docker`, `docker-compose.yml`):** For reproducible local/dev execution.
+IngestDocumentUseCase: Ingesta texto, crea conceptos DOCUMENT_SOURCE y dispara la extracción de UCMs.
 
-## System Architecture Diagram
+ExtractUCMsUseCase: Extrae Unidades Conceptuales Mínimas (UCM) usando regex y análisis de palabras clave.
 
+LinkConceptsUseCase: Permite la creación manual de relaciones entre conceptos.
+
+Eje Y - Síntesis de Conocimiento:
+
+Pipeline completo (FormClusters, DerivePropositions, MiniTheoryConstruction, etc.) que toma conceptos de un nivel y los sintetiza en un nivel superior de abstracción (CLUSTER, PROPOSICIÓN, MINI_THEORY).
+
+Dashboard de Conocimiento Interactivo (mdu_dashboard.py):
+
+Un nuevo dashboard en Streamlit para visualizar el grafo de conocimiento.
+
+Explorador de grafo completo con filtros, visor de jerarquías y estadísticas clave.
+
+🧮 Motor Matemático de Alto Rendimiento
+
+Integración con PARI/GP: El núcleo matemático (core/domain.py) utiliza cypari2 para aritmética de alta precisión y factorización de primos, aumentando drásticamente el rendimiento y la exactitud.
+
+Cálculos Optimizados: Caching (lru_cache) para reducir cálculos redundantes de radicales.
+
+🌐 Computación Distribuida y Escalabilidad
+
+Listo para Kubernetes: Configuraciones robustas en el directorio kubernetes/ para un despliegue orquestado y escalable.
+
+Gestión Avanzada de Celery: Enrutamiento de tareas a colas especializadas (ej. math_heavy) y diseños conceptuales para autoescalado con KEDA.
+
+Estrategias de Escalabilidad de BD: Ejemplos en infrastructure/db_optimizations.sql para particionamiento de tablas e indexación avanzada en PostgreSQL.
+
+Adaptación a HPC: Documentación en docs/HPC_ADAPTATION.md con ejemplos de scripts para SLURM y código mpi4py.
+
+🧩 IA Avanzada y Arquitectura de Plugins
+
+Heurísticas de Adquisición Personalizadas: La función get_structural_bonus en core/custom_acquisitions.py guía la optimización bayesiana hacia números con estructuras potencialmente más simples.
+
+Arquitectura de Plugins: Un sistema flexible para extender la plataforma con nuevas estrategias de búsqueda, evaluadores de calidad o post-procesadores de datos.
+
+Conceptos de Integración con Dask: Exploración en docs/DASK_INTEGRATION.md para usar Dask en el procesamiento de datos a gran escala.
+
+🎨 Experiencia de Usuario y Colaboración
+
+Visualizaciones Avanzadas: Gráficos de dispersión 3D en el dashboard (dashboard/dashboard.py) para una mejor exploración de los resultados.
+
+Modelo de Datos Colaborativo: Esquema de base de datos y API extendidos para soportar múltiples investigadores, atribuciones de descubrimiento y conjeturas derivadas.
+
+Seguridad Refinada (Diseño Conceptual): Estrategias para Control de Acceso Basado en Roles (RBAC) y autorización granular de API mediante scopes de OAuth2.
+
+🏗️ Diagrama de Arquitectura del Sistema
 ```mermaid
 graph TD
-    User[<img src='https://img.icons8.com/ios-filled/50/000000/user.png' width='20'/> User] -->|Interacts via Browser| Dashboard[🔬 Streamlit Dashboard]
+    User[<img src='https://img.icons8.com/ios-filled/50/000000/user.png' width='20'/> Usuario] -->|Interactúa vía Navegador| Dashboard[🔬 Dashboard Streamlit]
 
-    subgraph "Aletheia Platform (Dockerized Services)"
-        Dashboard -- HTTP Request --> API[🚀 FastAPI API Server]
-        API -- Stores/Retrieves Job Data --> DB[(🐘 PostgreSQL DB)]
-        API -- Enqueues Task --> MQ[🏎️ Redis Message Queue]
+    subgraph "Plataforma Aletheia (Servicios en Docker)"
+        Dashboard -- Petición HTTP --> API[🚀 Servidor API FastAPI]
+        API -- Almacena/Recupera Datos --> DB[(🐘 BD PostgreSQL)]
+        API -- Encola Tarea --> MQ[🏎️ Cola de Mensajes Redis]
 
-        Worker[⚙️ Celery Worker] -- Picks Task --> MQ
-        Worker -- Executes --> AISearch[🧠 AI Search Use Case (core.use_cases)]
-        AISearch -- Uses --> DomainLogic[📚 Domain Logic (core.domain)]
-        Worker -- Stores Results --> DB
-        Worker -- Logs Experiment --> MLflowServer[📈 MLflow Tracking Server]
+        Worker[⚙️ Worker Celery] -- Toma Tarea --> MQ
+        Worker -- Ejecuta --> AISearch[🧠 Caso de Uso de Búsqueda IA (core.use_cases)]
+        AISearch -- Utiliza --> DomainLogic[📚 Lógica de Dominio (core.domain)]
+        Worker -- Almacena Resultados --> DB
+        Worker -- Registra Experimento --> MLflowServer[📈 Servidor de Tracking MLflow]
 
-        MLflowServer -- Stores Metadata --> DB
-        MLflowServer -- Stores Artifacts (Optional) --> ArtifactStore[(📦 Artifact Store e.g. S3/MinIO)]
+        MLflowServer -- Almacena Metadatos --> DB
+        MLflowServer -- Almacena Artefactos (Opcional) --> ArtifactStore[(📦 Almacén de Artefactos e.g. S3/MinIO)]
     end
 
-    User -->|Views Experiments| MLflowUI[<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> MLflow UI]
-    MLflowUI -- Reads Data --> MLflowServer
+    User -->|Visualiza Experimentos| MLflowUI[<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> UI de MLflow]
+    MLflowUI -- Lee Datos --> MLflowServer
 
     style User fill:#fff,stroke:#333,stroke-width:2px
-    style Dashboard fill:#f9f,stroke:#333,stroke-width:2px
-    style API fill:#ccf,stroke:#333,stroke-width:2px
-    style DB fill:#cff,stroke:#333,stroke-width:2px
-    style MQ fill:#ffc,stroke:#333,stroke-width:2px
+    style Dashboard fill:#FF4B4B,stroke:#333,stroke-width:2px,color:#fff
+    style API fill:#009688,stroke:#333,stroke-width:2px,color:#fff
+    style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
+    style MQ fill:#DC382D,stroke:#333,stroke-width:2px,color:#fff
     style Worker fill:#fcf,stroke:#333,stroke-width:2px
     style AISearch fill:#ddf,stroke:#333,stroke-width:2px
     style DomainLogic fill:#eef,stroke:#333,stroke-width:2px
-    style MLflowServer fill:#cfc,stroke:#333,stroke-width:2px
+    style MLflowServer fill:#00AEEC,stroke:#333,stroke-width:2px,color:#fff
     style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
     style ArtifactStore fill:#eee,stroke:#333,stroke-width:2px
 ```
-*(To view the diagram, copy the MermaidJS code into a compatible renderer like the Mermaid Live Editor or integrated IDE plugins.)*
 
-## Prerequisites
+(GitHub y otros visores modernos renderizan este diagrama automáticamente. Si no lo ves, puedes copiar el código en un editor de Mermaid.)
 
--   Docker Engine (latest version recommended)
--   Docker Compose (latest version recommended)
+🛠️ Cómo Ejecutar la Plataforma
+📋 Prerrequisitos
 
-## How to Run the Platform
+Docker Engine (última versión recomendada)
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone <your-repository-url>
-    cd Aletheia_project_root # Assuming the main project is cloned here
-    ```
-    (Note: Adapt `cd` command if your project structure differs, e.g. if this README is in `Aletheia_v3` which is the project root for docker-compose)
+Docker Compose (última versión recomendada)
 
-2.  **Review Documentation:**
-    *   Before running, it's highly recommended to review the **[End-to-End Use Case Example](docs/END_TO_END_USE_CASE.md)** to understand the platform's workflow and capabilities.
-    *   Detailed documents on specific features (Kubernetes, Celery Scaling, Database Optimizations, HPC Adaptation, Plugins, Security Concepts, Dask) are available in the `docs/` and `kubernetes/` directories.
+🚀 Pasos de Ejecución
 
-3.  **Build and Start Services:**
-    From the directory containing `docker-compose.yml` (e.g., `Aletheia_v3/`), execute:
-    ```bash
-    docker-compose up --build
-    ```
-    The first build may take several minutes as it downloads base images and installs dependencies. Subsequent starts will be faster.
-
-4.  **Access Services:**
-    Once all containers are running, access the services via your web browser:
-    -   **🔬 ABC Conjecture Dashboard:** [http://localhost:8501](http://localhost:8501) (Focuses on ABC Conjecture intelligent search jobs)
-    -   **💡 Knowledge Graph Dashboard:** [http://localhost:8502](http://localhost:8502) (Visualizes concepts, relationships, and synthesis hierarchy)
-    -   **📄 API Documentation (Swagger UI):** [http://localhost:8000/docs](http://localhost:8000/docs)
-    -   **📈 MLflow Experiments UI:** [http://localhost:5000](http://localhost:5000)
-
-5.  **Using the Platform:**
-    -   Navigate to the **ABC Conjecture Dashboard** (`:8501`) to submit new "Intelligent Search Jobs" for a,b,c triples.
-    -   Explore the **Knowledge Graph Dashboard** (`:8502`) to:
-        -   View all extracted and synthesized concepts and their relationships.
-        -   Filter concepts by type.
-        -   Inspect the hierarchical breakdown of synthesized theories and models.
-        -   See overall statistics of the knowledge graph.
-    -   Use the **API** (via Swagger UI at `/docs` or programmatically) to:
-        -   Ingest new documents (`POST /eje-x/ingest-document`).
-        -   Extract UCMs directly (`POST /eje-y/ucm-extraction`).
-        -   Link concepts (`POST /eje-x/link-concepts`).
-        -   Trigger Eje Y synthesis steps (cluster formation, proposition derivation, etc.).
-        -   Retrieve concept and relationship data.
-    -   Monitor job progress (Pending -> Processing -> Completed/Failed).
-    -   View results and visualizations for completed jobs directly on the dashboard.
-    -   Explore detailed experiment logs, parameters, and metrics in the **MLflow UI**.
-    -   Interact with the **API** programmatically via its documented endpoints (e.g., using `curl` or a tool like Postman). Obtain a JWT token from the `/token` endpoint for protected routes.
-
-6.  **Running Tests (Optional):**
-    To execute the `pytest` suite within the API service container:
-    Open a new terminal window, navigate to the directory containing `docker-compose.yml`, and run:
-    ```bash
-    docker-compose exec api pytest tests/
-    ```
-    This command executes the tests located in the `tests/` directory inside the `api` container (assuming tests are within the `Aletheia_v3` module context).
-
-7.  **Stopping the Platform:**
-    To stop all services, press `Ctrl+C` in the terminal where `docker-compose up` is running, then execute:
-    ```bash
-    docker-compose down
-    ```
-    This will stop and remove the containers. Data in the PostgreSQL database and MLflow (if configured with a volume or external backend) will persist across sessions due to Docker volumes.
-
-## Database Migrations (Alembic)
-
-This project uses [Alembic](https://alembic.sqlalchemy.org/) to manage database schema migrations for the main Aletheia application (typically within the `Aletheia_v3` module). This replaces the previous automatic table creation using `SQLAlchemy.Base.metadata.create_all()`.
-
-### Applying Migrations
-
-When you start the application using `docker-compose up`, a service named `alembic_migrate` (or similar, check your `docker-compose.yml`) will automatically run. This service waits for the database to be ready and then applies any pending migrations by executing `alembic upgrade head`. This ensures your database schema is up-to-date before the API and worker services start fully.
-
-### Generating New Migrations
-
-If you make changes to the SQLAlchemy models (e.g., in `Aletheia_v3/infrastructure/models.py`), you will need to generate a new migration script.
-
-1.  **Ensure your development environment is set up:**
-    *   Have the `ALETHEIA_V3_DATABASE_URL` (or equivalent) environment variable correctly pointing to your development database.
-    *   Make sure you have `alembic` installed in your Python environment (`pip install -r requirements.txt` from the relevant module).
-
-2.  **Generate the migration script:**
-    Navigate to the directory containing `alembic.ini` (e.g., `Aletheia_v3/`) in your terminal and run:
-    ```bash
-    alembic revision -m "short_description_of_changes"
-    ```
-    For example:
-    ```bash
-    alembic revision -m "add_new_field_to_jobdb"
-    ```
-
-3.  **Edit the generated script:**
-    Alembic will create a new file (e.g., in `Aletheia_v3/alembic/versions/`). Review this script.
-    *   **Autogenerate (Recommended for Review):** If your `alembic/env.py` is correctly configured with `target_metadata` (which it is, pointing to `Aletheia_v3.infrastructure.models.Base.metadata`), Alembic can autogenerate the migration operations:
-        ```bash
-        alembic revision -m "add_scientific_concept_and_relationship_tables" --autogenerate
-        ```
-        **Always carefully review autogenerated scripts before applying them.** The autogeneration should correctly pick up `ScientificConceptDB` and `DirectedRelationshipDB`.
-    *   You generally only need to manually edit the script if autogeneration misses something complex or if you need custom SQL.
-
-4.  **Test the migration (optional but good practice):**
-    *   Apply the migration to your development database:
-        ```bash
-        alembic upgrade head
-        ```
-    *   Test your application.
-    *   Test the downgrade (if applicable and non-destructive):
-        ```bash
-        alembic downgrade -1 # Downgrade one revision
-        alembic upgrade head # Upgrade again
-        ```
-
-5.  **Commit the migration script:**
-    Add the new migration script from the `alembic/versions/` directory to your Git commit.
-
-### Troubleshooting Migrations
-*   **Ensure `DATABASE_URL` is set correctly** in your environment or `alembic.ini`.
-*   **Check `alembic/env.py`** that `target_metadata` points to your SQLAlchemy models' `Base.metadata`.
-*   If `alembic current` shows an unexpected state, ensure your database's `alembic_version` table is correct. `alembic stamp head` can mark the current DB as matching the latest migration.
-
-## Advanced Deployment & Scalability
-
-The platform is designed with scalability in mind. The following concepts and configurations are part of ongoing or planned enhancements for large-scale deployment:
-
-*   **Kubernetes:** Basic deployment configurations for running Aletheia services (API, Celery Workers, Dashboard, Database, Redis, MLflow) on Kubernetes can be found in the `kubernetes/` directory. These provide a starting point for scalable, orchestrated deployments.
-*   **Celery Worker Scaling:** Strategies for scaling Celery workers, including task routing to specialized queues (e.g., `math_heavy`) and conceptual use of Kubernetes Horizontal Pod Autoscalers (HPAs), are outlined in `docs/celery_scaling_and_parallel_bayes_opt.md`.
-*   **Database Optimization:** For handling massive datasets of mathematical results, advanced PostgreSQL optimizations such as table partitioning and specialized indexing are crucial. Example SQL commands and strategies are documented in `infrastructure/db_optimizations.sql`.
-
-Refer to the respective module/document paths and the "Documentación Avanzada y Conceptos de Diseño" section below for detailed information on each feature.
-
-## Documentación Avanzada y Conceptos de Diseño
-
-For a deeper understanding of specific aspects of the Aletheia platform, refer to the following documents:
-
-*   **Casos de Uso y Flujos de Trabajo:**
-    *   [Guía de Uso End-to-End](docs/END_TO_END_USE_CASE.md): Un recorrido completo por un caso de uso típico de la plataforma.
-*   **Arquitectura y Diseño Detallado:**
-    *   [Arquitectura de Plugins y Extensibilidad](plugins/plugin_interfaces.py): Define las interfaces para extender la plataforma (ver también `plugins/manager.py` y `plugins/available/example_quality_evaluator.py`).
-    *   [Adaptación a Entornos HPC](docs/HPC_ADAPTATION.md): Conceptos y ejemplos para ejecutar componentes de Aletheia en clusters de High-Performance Computing.
-    *   [Integración con Dask para Procesamiento Distribuido](docs/DASK_INTEGRATION.md): Ideas y ejemplos para usar Dask en el análisis de datos a gran escala.
-*   **Escalabilidad y Operaciones:**
-    *   [Escalado de Celery Workers y Optimización Bayesiana Paralela](docs/celery_scaling_and_parallel_bayes_opt.md): Estrategias para escalar los workers de Celery y paralelizar la optimización.
-    *   [Configuraciones de Kubernetes](kubernetes/): Descriptores de despliegue para varios componentes de la plataforma.
-    *   [Optimizaciones de Base de Datos](infrastructure/db_optimizations.sql): Técnicas para optimizar PostgreSQL con grandes volúmenes de datos.
-*   **Seguridad:**
-    *   [Control de Acceso Basado en Roles (RBAC) para MLflow](docs/RBAC_MLFLOW.md): Estrategias para asegurar el acceso a los experimentos en MLflow.
-    *   [Scopes de API para Autorización Granular](docs/API_SCOPES.md): Diseño para la autorización detallada en la API usando OAuth2 scopes.
-*   **Módulos Adicionales:**
-    *   [Módulo Aletheia-Stats](aletheia_stats/README.md): Documentación del servicio de análisis estadístico.
-
-## License and Disclaimer
-
-This project is licensed under the Apache License 2.0. Copyright 2025 Alant.
-See the `LICENSE` file and the root `NOTICE` file for details.
-Please also review the `DISCLAIMER.md` file for important limitations and responsibilities associated with the use of this software.
-
-*(Note: The `LICENSE`, `NOTICE` and `DISCLAIMER.md` files are expected to be in the project root or relevant module directory).*
-
----
-Author: Alant
-Year: 2025
+1️⃣ Clona el Repositorio:
+```bash
+git clone https://github.com/alanturingai/aletheia-v4.git # Reemplaza con la URL real del repositorio
+cd aletheia-v4 # O el nombre del directorio raíz del proyecto
 ```
+
+2️⃣ Revisa la Documentación (Recomendado):
+Antes de lanzar la plataforma, te sugerimos leer la [Guía de Uso End-to-End](Aletheia_v3/docs/END_TO_END_USE_CASE.md) para entender el flujo de trabajo completo.
+
+3️⃣ Construye e Inicia los Servicios:
+Desde el directorio que contiene `docker-compose.yml` (ej. `Aletheia_v3/`), ejecuta:
+```bash
+docker-compose up --build
+```
+La primera vez puede tardar varios minutos. Los inicios posteriores serán mucho más rápidos.
+
+4️⃣ Accede a los Servicios:
+Una vez que los contenedores estén en ejecución, accede a las interfaces desde tu navegador:
+
+🔬 Dashboard (Conjetura ABC): http://localhost:8501
+
+💡 Dashboard (Grafo de Conocimiento): http://localhost:8502
+
+📄 Documentación de la API (Swagger): http://localhost:8000/docs
+
+📈 UI de Experimentos (MLflow): http://localhost:5000
+
+5️⃣ Ejecuta las Pruebas (Opcional):
+Abre una nueva terminal y ejecuta las pruebas dentro del contenedor de la API:
+```bash
+docker-compose exec api pytest tests/
+```
+
+6️⃣ Detén la Plataforma:
+Para detener todos los servicios, presiona Ctrl+C en la terminal donde se ejecuta docker-compose y luego:
+```bash
+docker-compose down
+```
+Los datos de PostgreSQL persistirán gracias a los volúmenes de Docker.
+
+🗃️ Migraciones de Base de Datos (Alembic)
+
+Este proyecto utiliza Alembic para gestionar las migraciones del esquema de la base de datos.
+
+Aplicación Automática: Al iniciar con docker-compose up, el servicio alembic_migrate aplicará automáticamente las migraciones pendientes antes de que la API y los workers arranquen.
+
+Generación de Nuevas Migraciones: Si modificas los modelos en infrastructure/models.py, debes generar un nuevo script de migración. Ejecuta el siguiente comando dentro del entorno de desarrollo apropiado:
+```bash
+# Navega al directorio que contiene alembic.ini (ej. Aletheia_v3/)
+alembic revision -m "descripcion_corta_de_los_cambios" --autogenerate
+```
+Importante: Revisa siempre los scripts autogenerados antes de confirmarlos en el repositorio.
+
+📚 Documentación Avanzada y Conceptos de Diseño
+
+Para un entendimiento más profundo de la plataforma, consulta los siguientes documentos en el directorio `Aletheia_v3/docs/` (a menos que se indique lo contrario):
+
+*   [Guía de Uso End-to-End](Aletheia_v3/docs/END_TO_END_USE_CASE.md)
+*   Arquitectura de Plugins y Extensibilidad (`Aletheia_v3/plugins/README.md` y `Aletheia_v3/plugins/plugin_interfaces.py`)
+*   [Adaptación a Entornos HPC](Aletheia_v3/docs/HPC_ADAPTATION.md)
+*   [Integración con Dask para Procesamiento Distribuido](Aletheia_v3/docs/DASK_INTEGRATION.md)
+*   [Escalado de Celery Workers y Optimización Bayesiana Paralela](Aletheia_v3/docs/celery_scaling_and_parallel_bayes_opt.md)
+*   Configuraciones de Kubernetes (`Aletheia_v3/kubernetes/README.md`)
+*   Optimizaciones de Base de Datos (`Aletheia_v3/infrastructure/db_optimizations.sql`)
+*   [Control de Acceso (RBAC) para MLflow](Aletheia_v3/docs/RBAC_MLFLOW.md)
+*   [Scopes de API para Autorización Granular](Aletheia_v3/docs/API_SCOPES.md)
+
+⚖️ Licencia y Descargo de Responsabilidad
+
+Este proyecto está licenciado bajo la Licencia Apache 2.0. Copyright © 2025 Alant.
+Consulta los archivos `Aletheia_v3/LICENSE` y `NOTICE` (en la raíz del proyecto) para más detalles.
+Por favor, revisa también el archivo `Aletheia_v3/DISCLAIMER.md` para conocer las limitaciones y responsabilidades importantes asociadas con el uso de este software.
+
+<div align="center">
+<p>Autor: Alant | Año: 2025</p>
+</div>
