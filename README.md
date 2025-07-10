@@ -1,5 +1,5 @@
 <div align="center">
-[<img src="https://github.com/SunNeurotron/Aletheia/assets/169130601/e3f8450c-61e8-4378-9242-99947411002d" alt="Diagrama Conceptual de Aletheia" width="600"/>](https://github.com/SunNeurotron/Aletheia/issues/102)
+(https://github.com/SunNeurotron/Aletheia/issues/102)
 <h1>Aletheia v4.0</h1>
 <p><strong>Plataforma de Descubrimiento Científico Guiado por IA</strong></p>
 <p>Descubriendo las fronteras de la ciencia y las matemáticas con inteligencia artificial.</p>
