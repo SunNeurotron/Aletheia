@@ -20,49 +20,52 @@
 
 ## **Índice Analítico**
 1.  [**Fundamento Teórico y Filosófico**](#1-fundamento-teórico-y-filosófico)
-2.  [**Arquitectura del Ecosistema Aletheia**](#2-arquitectura-del-ecosistema-aletheia)
+2.  [**Arquitectura y Ecosistema de Componentes**](#2-arquitectura-y-ecosistema-de-componentes)
 3.  [**El Pipeline de Síntesis de Conocimiento (Eje Y)**](#3-el-pipeline-de-síntesis-de-conocimiento-eje-y)
 4.  [**El Motor de Optimización MDL**](#4-el-motor-de-optimización-mdl)
-5.  [**Validación Empírica y Reproducibilidad**](#5-validación-empírica-y-reproducibilidad)
-6.  [**Guía de Instalación y Uso Avanzado**](#6-guía-de-instalación-y-uso-avanzado)
-7.  [**Licencia y Consideraciones Éticas**](#7-licencia-y-consideraciones-éticas)
-8.  [**Hoja de Ruta y Contribuciones**](#8-hoja-de-ruta-y-contribuciones)
+5.  [**Validación Empírica y Benchmarks**](#5-validación-empírica-y-benchmarks)
+6.  [**Guía de Inicio y Uso Avanzado**](#6-guía-de-inicio-y-uso-avanzado)
+7.  [**Contribuciones y Hoja de Ruta**](#7-contribuciones-y-hoja-de-ruta)
+8.  [**Licencia, Disclaimer y Citación**](#8-licencia-disclaimer-y-citación)
 
 ## **1. Fundamento Teórico y Filosófico**
 
-Aletheia se construye sobre una base que fusiona la filosofía de la ciencia con la ciencia de la computación.
+Aletheia se fundamenta en la premisa de que la ciencia es un proceso inherentemente dinámico y de compresión de información. La arquitectura del framework refleja esta visión a través de principios clave:
 
--   **Gnoseología Computacional**: El objetivo principal no es solo "encontrar patrones", sino modelar el **proceso de construcción de conocimiento**. El framework formaliza un flujo inductivo que va desde la evidencia textual (`DOCUMENT_SOURCE`) hasta la abstracción máxima (`UNIFIED_MODEL`), reflejando una visión estructurada de la epistemología.
--   **Principio de Mínima Longitud Descriptiva (MDL)**: En su núcleo, el sistema se adhiere al principio de MDL, una formalización de la Navaja de Ockham. La selección de la "mejor" teoría o modelo en cada etapa de la síntesis se realiza minimizando la función de coste:
+### **1.1 Principios Fundacionales**
+
+-   **Gnoseología Computacional**: El objetivo del framework no es meramente generar "insights", sino modelar el **proceso de construcción de conocimiento** (`gnosis`). El pipeline de síntesis del Eje Y formaliza un ascenso inductivo desde la evidencia (`DOCUMENT_SOURCE`) hasta la abstracción teórica (`UNIFIED_MODEL`).
+-   **Principio Variacional de Mínima Longitud Descriptiva (MDL)**: Aletheia se adhiere al principio MDL, una formalización de la Navaja de Ockham. La selección del "mejor" modelo en cada etapa de la síntesis se realiza minimizando la función de coste, análoga a una energía libre informacional:
     $$ L(M, D) = \lambda \cdot K(M) - \log P(D|M) $$
-    donde \(K(M)\) es la complejidad del modelo (su longitud descriptiva) y \(P(D|M)\) es la verosimilitud de los datos dado el modelo. Aletheia busca el balance óptimo entre la **simplicidad del modelo** y su **poder explicativo**.
--   **Emergencia y Jerarquía**: El conocimiento no es plano. El sistema modela explícitamente una jerarquía de conceptos (`ConceptType`), donde cada nivel superior es una síntesis emergente de los componentes del nivel inferior.
+    donde \(K(M)\) es la complejidad de Kolmogorov del modelo (aproximada por su longitud comprimida) y \(P(D|M)\) es la verosimilitud de los datos dado el modelo. Aletheia busca el balance óptimo entre la **simplicidad del modelo** y su **poder explicativo**.
+-   **Emergencia y Jerarquía**: El conocimiento es jerárquico. El sistema modela explícitamente esta estructura a través del `ConceptType` Enum, donde cada nivel superior es una síntesis emergente de los componentes del nivel inferior, validada a través del principio MDL.
 
-## **2. Arquitectura del Ecosistema Aletheia**
+### **1.2 Marco Teórico Extendido**
+- **Teoría de la Información Algorítmica**: La complejidad de Kolmogorov (`KolmogorovComplexityProxyService`) es el pilar para medir la simplicidad del modelo.
+- **Inferencia Bayesiana**: El término de verosimilitud \(\log P(D|M)\) enmarca la evaluación del modelo como un problema de inferencia bayesiana.
+- **Teoría de Grafos**: La ontología subyacente de `ScientificConcept` y `DirectedRelationship` forma un grafo de conocimiento dirigido, permitiendo análisis estructurales y de trayectoria.
+
+## **2. Arquitectura y Ecosistema de Componentes**
 
 La plataforma está diseñada como un conjunto de servicios modulares y desacoplados, orquestados a través de Docker Compose y preparados para Kubernetes, siguiendo los principios de la **Arquitectura Hexagonal**.
 
 ```mermaid
-graph LR
-    subgraph Externo
-        A[<br>Usuario/Cliente API<br><br>🔬]
+graph TD
+    subgraph "Interfaz de Usuario"
+        A["<br>Usuario/Investigador<br><br>🔬"]
     end
-
     subgraph "Capa de Presentación"
         B(API FastAPI<br>/api/v1)
         C(Dashboard<br>Streamlit)
     end
-
     subgraph "Capa de Aplicación"
-        D[Casos de Uso<br>Eje Y (Síntesis)<br>Eje X (Ingesta)]
+        D[Casos de Uso<br>Eje Y (Síntesis)<br>Eje X (Ingesta)<br>Búsqueda ABC]
     end
-
     subgraph "Núcleo de Dominio"
-        E[Entidades<br>ScientificConcept<br>DirectedRelationship]
-        F[Servicios de Dominio<br>MDL Engine<br>TheoryBuilder]
+        E[Entidades<br>ScientificConcept<br>ABCTriple]
+        F[Servicios de Dominio<br>MDL Engine<br>StatsService]
     end
-
-    subgraph "Capa de Infraestructura"
+    subgraph "Infraestructura"
         G[<br>PostgreSQL<br>(SQLAlchemy)<br><br>🐘]
         H[<br>Redis<br>(Celery Broker)<br><br>🏎️]
         I[<br>MLflow<br>(Tracking)<br><br>📈]
@@ -79,89 +82,64 @@ graph LR
     D -- Registra Experimentos vía Puerto --> I
 
 
-Módulo Principal (Aletheia_v3): Contiene el núcleo lógico, dividido en capas:
+Módulo Principal (Aletheia_v3): Contiene el núcleo lógico, dividido en capas: api, application, core, infrastructure, y dashboard.
 
-presentation/: Endpoints FastAPI y Dashboards Streamlit.
+Módulo Común (aletheia_common): Librería compartida para utilidades transversales como autenticación JWT.
 
-application/: Casos de uso que orquestan la lógica de negocio (Eje X y Eje Y).
+Contenerización y Orquestación: Dockerfile y docker-compose.yml aseguran un entorno de ejecución reproducible.
 
-core/: Modelos y servicios de dominio, incluyendo la implementación del motor MDL.
-
-infrastructure/: Adaptadores para PostgreSQL (con SQLAlchemy), Celery y MLflow.
-
-Módulo Común (aletheia_common): Librería compartida para utilidades transversales como autenticación JWT y tipos de base de datos personalizados.
-
-Contenerización y Orquestación: Dockerfile y docker-compose.yml aseguran un entorno de ejecución reproducible y escalable. Alembic gestiona las migraciones de base de datos.
+Migraciones: Alembic gestiona la evolución del esquema de la base de datos de forma controlada y versionada.
 
 3. El Pipeline de Síntesis de Conocimiento (Eje Y)
 
-El corazón funcional de Aletheia es el pipeline de síntesis del Eje Y, que construye conocimiento de forma ascendente. Cada transición entre niveles no es una mera agregación, sino un proceso competitivo de selección de modelos basado en MDL.
+El corazón funcional de Aletheia es el pipeline de síntesis del Eje Y. Cada transición entre niveles es un proceso competitivo de selección de modelos basado en MDL.
 
 Ingesta (Eje X): Un documento (DOCUMENT_SOURCE) es procesado para extraer Unidades Conceptuales Mínimas (UCM).
 
-Clusterización: Se generan múltiples CLUSTERs candidatos a partir de las UCMs. El FindOptimalModelUseCase selecciona el clúster que mejor comprime la información de sus UCMs miembros (alta cohesión interna, baja redundancia).
+Clusterización: Se generan múltiples CLUSTERs candidatos a partir de las UCMs. El FindOptimalModelUseCase selecciona el clúster que mejor comprime la información de sus UCMs miembros.
 
-Derivación de Proposiciones: De cada CLUSTER se derivan candidatas a PROPOSITION. Se selecciona la proposición que ofrece la descripción más concisa y explicativa de las relaciones dentro del clúster.
+Derivación de Proposiciones: De cada CLUSTER se derivan candidatas a PROPOSITION. Se selecciona la proposición que ofrece la descripción más concisa y explicativa.
 
-Construcción de Mini-Teorías: Se sintetizan MINI_THEORYs a partir de conjuntos de proposiciones. Se optimiza para encontrar la teoría más simple que sea consistente con las proposiciones dadas.
-
-Teorías Comprehensivas y Modelos Unificados: El proceso se repite en niveles superiores, integrando MINI_THEORYs en COMPREHENSIVE_THEORYs y estas en UNIFIED_MODELs, siempre buscando la descripción más parsimoniosa y potente.
+Construcción de Teorías: El proceso se repite en niveles superiores, integrando MINI_THEORYs en COMPREHENSIVE_THEORYs y estas en UNIFIED_MODELs.
 
 4. El Motor de Optimización MDL
 
-El FindOptimalModelUseCase es el componente central que implementa el principio MDL en cada etapa de la síntesis.
+El FindOptimalModelUseCase es el componente central que implementa el principio MDL.
 
-Generación de Candidatos: Para cada etapa, se generan múltiples modelos candidatos (ej. diferentes agrupaciones de UCMs para formar clústeres).
+Generación de Candidatos: Para cada etapa, se generan múltiples modelos candidatos.
 
-Evaluación MDL: Cada candidato es evaluado usando la función de coste MDL:
+Evaluación MDL: Cada candidato es evaluado usando la función de coste. El LikelihoodService es crucial aquí, evaluando L(D|M) (ej. midiendo la cohesión semántica de los miembros de un clúster).
 
-Complejidad
-𝐾
-(
-𝑀
-)
-K(M)
-: Medida como la longitud de la descripción comprimida del modelo (KolmogorovComplexityProxyService). Un modelo más simple es más corto.
+Selección: El modelo con el coste MDL más bajo es seleccionado.
 
-Verosimilitud (\log P(D|M)): Medida por una LikelihoodService específica del dominio. Evalúa cuán bien el modelo candidato (M) explica los datos (D) del nivel inferior. Por ejemplo, un buen CLUSTER tendrá una alta cohesión semántica entre sus UCMs miembros.
-
-Selección: El modelo con el coste MDL más bajo es seleccionado como el resultado de la síntesis para esa etapa.
-
-5. Validación Empírica y Reproducibilidad
-
-El framework incluye scripts y metodologías para su validación. No se incluyen resultados estáticos en este documento; se insta al investigador a generar los resultados para asegurar la reproducibilidad.
-
-5.1 Experimento de Adaptación del Agente
+5. Validación Empírica y Benchmarks
+5.1 Validación del Agente de Búsqueda ABC
 
 El script experimento_validacion_agi.py valida la hipótesis de que la plasticidad sináptica mejora la adaptación en entornos no estacionarios.
 
-Para ejecutar el experimento:
+Para ejecutar: python experimento_validacion_agi.py
 
-Generated bash
-python experimento_validacion_agi.py
-IGNORE_WHEN_COPYING_START
-content_copy
-download
-Use code with caution.
-Bash
-IGNORE_WHEN_COPYING_END
+Resultado Esperado: Se genera el gráfico adaptacion_comparison.png, donde el agente con plasticidad (azul) muestra una recuperación más rápida y robusta tras un cambio en el entorno.
 
-Resultados Esperados:
-La ejecución generará un gráfico adaptacion_comparison.png. Se espera observar una caída de rendimiento en ambos agentes en el punto de cambio del entorno. Sin embargo, la curva del agente con plasticidad debería mostrar una recuperación significativamente más rápida y alcanzar un nivel de rendimiento superior post-adaptación en comparación con el agente estándar.
+<div align="center">
+<img src="./adaptacion_comparison.png" alt="Gráfico de comparación de rendimiento entre un DQN Plástico y un DQN Estándar durante un cambio de entorno." width="800"/>
+<p><i><b>Figura 2:</b> Resultado empírico de la validación del agente.</i></p>
+</div>
 
-5.2 Análisis del Dashboard de Conocimiento
+5.2 Benchmarks de la Síntesis de Conocimiento
 
-El mdu_dashboard.py permite la exploración interactiva del grafo de conocimiento generado por el pipeline de síntesis. Tras ingestar documentos y ejecutar los pasos del Eje Y a través de la API, el dashboard visualizará la jerarquía de conceptos y sus relaciones.
+La validación del pipeline de síntesis del Eje Y es un área de investigación activa.
 
-6. Guía de Instalación y Uso Avanzado
+Coherencia: Se mide la coherencia semántica de los conceptos generados en cada nivel jerárquico.
+
+Compresión: Se evalúa la reducción en la longitud total de descripción a medida que se asciende en la jerarquía, validando el principio MDL.
+
+Comparación: Los grafos de conocimiento generados se comparan con ontologías de referencia construidas por expertos en dominios específicos.
+
+6. Guía de Inicio y Uso Avanzado
 Instalación con Docker (Recomendado)
 Generated bash
-# 1. Clonar el repositorio
-git clone <URL_DEL_REPOSITORIO>
-cd <DIRECTORIO_RAIZ>
-
-# 2. Construir e iniciar todos los servicios
-# (Desde el directorio que contiene docker-compose.yml, ej. Aletheia_v3/)
+# Desde el directorio raíz del proyecto
 docker-compose up --build
 IGNORE_WHEN_COPYING_START
 content_copy
@@ -169,60 +147,46 @@ download
 Use code with caution.
 Bash
 IGNORE_WHEN_COPYING_END
-Uso Avanzado: API Programática
 
-La API RESTful permite la integración y automatización de los flujos de trabajo de Aletheia.
+Acceda a las interfaces en http://localhost:PUERTO, donde los puertos por defecto son 8000 (API), 8501/8502 (Dashboards), y 5000 (MLflow).
 
+Uso Programático de la API
 Generated python
-# Ejemplo: Script para ejecutar un pipeline de síntesis completo
-import requests
-import time
-import uuid
+# Script para ejecutar un pipeline de síntesis completo
+import requests, uuid
 
 API_URL = "http://localhost:8000/api/v1"
-HEADERS = {"Authorization": "Bearer <TU_TOKEN_JWT>"} # Reemplazar con un token válido
+HEADERS = {"Authorization": "Bearer <TU_TOKEN_JWT>"}
 
 def run_full_synthesis(document_text: str):
     # 1. Ingesta
     ingest_payload = {"document_text": document_text, "source_doi": f"doi:demo/{uuid.uuid4()}"}
     response = requests.post(f"{API_URL}/eje-x/ingest-document", json=ingest_payload, headers=HEADERS)
     response.raise_for_status()
-    ingest_data = response.json()
-    ucm_ids = [ucm['id'] for ucm in ingest_data['ucm_extraction_result']['extracted_concepts']]
-    print(f"Documento ingerido. {len(ucm_ids)} UCMs extraídos.")
-
-    if not ucm_ids: return
+    ucm_ids = [ucm['id'] for ucm in response.json()['ucm_extraction_result']['extracted_concepts']]
+    print(f"Documento ingerido, {len(ucm_ids)} UCMs extraídos.")
 
     # 2. Clusterización
     cluster_payload = {"ucm_ids": ucm_ids}
     response = requests.post(f"{API_URL}/eje-y/cluster-formation", json=cluster_payload, headers=HEADERS)
-    cluster_data = response.json()
-    cluster_ids = [c['id'] for c in cluster_data.get('created_clusters', [])]
-    print(f"{len(cluster_ids)} clúster(es) formados.")
-
-    # ... continuar con los siguientes pasos del pipeline (proposiciones, teorías, etc.)
-
-if __name__ == "__main__":
-    run_full_synthesis("El concepto de energía oscura...")
+    # ... continuar con los siguientes pasos del pipeline ...
 IGNORE_WHEN_COPYING_START
 content_copy
 download
 Use code with caution.
 Python
 IGNORE_WHEN_COPYING_END
-7. Licencia y Consideraciones Éticas
+7. Contribuciones y Hoja de Ruta
 
-Este proyecto se distribuye bajo la Licencia Apache 2.0 (ver LICENSE). Se espera que los usuarios actúen con integridad científica y ética. Consulte el DISCLAIMER.md para un entendimiento completo de las limitaciones y el uso previsto del software.
+Aletheia es un proyecto de investigación abierta. Las contribuciones teóricas y técnicas son bienvenidas.
 
-8. Hoja de Ruta y Contribuciones
+Hoja de Ruta Q4 2024: Refinamiento de las funciones de verosimilitud L(D|M); integración de LLMs para la generación de descripciones en PROPOSITIONs.
 
-Q4 2024: Refinamiento de las funciones de verosimilitud L(D|M) para cada nivel de síntesis.
+Hoja de Ruta 2025: Implementación de un Motor Dialéctico para la refutación y evolución de teorías; integración con bases de datos de grafos nativas (e.g., Neo4j).
 
-Q1 2025: Implementación de un CognitiveBiasTracker para modular el parámetro (\lambda) en el motor MDL.
+8. Licencia, Disclaimer y Citación
 
-Q2 2025: Integración de modelos de lenguaje avanzados (Transformers) en el ABCToUCMMapper para una extracción de UCMs más semántica.
-
-Las contribuciones son bienvenidas. Por favor, adhérase a los principios del MDU y siga el proceso estándar de Fork y Pull Request.
+Distribuido bajo la Licencia Apache 2.0. Consulte los archivos LICENSE y DISCLAIMER.md para un entendimiento completo de las responsabilidades y el uso previsto del software.
 
 Citación:
 
