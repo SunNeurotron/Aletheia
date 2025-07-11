@@ -52,23 +52,23 @@ La plataforma está diseñada como un conjunto de servicios modulares y desacopl
 ```mermaid
 graph TD
     subgraph "Interfaz de Usuario"
-        A["<br>Usuario/Investigador<br><br>🔬"]
+        A["\nUsuario/Investigador\n\n🔬"]
     end
     subgraph "Capa de Presentación"
-        B(API FastAPI<br>/api/v1)
-        C(Dashboard<br>Streamlit)
+        B("API FastAPI\n/api/v1")
+        C("Dashboard\nStreamlit")
     end
     subgraph "Capa de Aplicación"
-        D[Casos de Uso<br>Eje Y (Síntesis)<br>Eje X (Ingesta)<br>Búsqueda ABC]
+        D["Casos de Uso\nEje Y (Síntesis)\nEje X (Ingesta)\nBúsqueda ABC"]
     end
     subgraph "Núcleo de Dominio"
-        E[Entidades<br>ScientificConcept<br>ABCTriple]
-        F[Servicios de Dominio<br>MDL Engine<br>StatsService]
+        E["Entidades\nScientificConcept\nABCTriple"]
+        F["Servicios de Dominio\nMDL Engine\nStatsService"]
     end
     subgraph "Infraestructura"
-        G[<br>PostgreSQL<br>(SQLAlchemy)<br><br>🐘]
-        H[<br>Redis<br>(Celery Broker)<br><br>🏎️]
-        I[<br>MLflow<br>(Tracking)<br><br>📈]
+        G["\nPostgreSQL\n(SQLAlchemy)\n\n🐘"]
+        H["\nRedis\n(Celery Broker)\n\n🏎️"]
+        I["\nMLflow\n(Tracking)\n\n📈"]
     end
 
     A -- HTTP/HTTPS --> B
