@@ -1,8 +1,10 @@
-# Módulo `aletheia_common`
+# Aletheia-Common Module
 
-`aletheia_common` es una biblioteca interna compartida que proporciona utilidades, esquemas y configuraciones comunes para todo el ecosistema de Aletheia. Su propósito es centralizar el código transversal para evitar la duplicación y garantizar la consistencia entre los diferentes microservicios y módulos de la plataforma.
+## Propósito
 
-**Este módulo no es un servicio desplegable**, sino una dependencia para otros módulos.
+El módulo `aletheia_common` sirve como una biblioteca compartida de utilidades y definiciones comunes utilizadas por varios módulos dentro del ecosistema Aletheia. Su objetivo es promover la reutilización de código, la consistencia y reducir la duplicación entre diferentes componentes de la plataforma.
+
+Este módulo **no** está diseñado para ser un servicio independiente, sino una colección de herramientas y bloques de construcción importables.
 
 ## Rol en el Ecosistema Aletheia
 
@@ -43,31 +45,58 @@ graph TD
     style S fill:#fcf6bd
 ```
 
+## Cumplimiento del MDU
+
+Este módulo se adhiere a los principios del **Marco de Desarrollo Unificado (MDU)**, especialmente en lo referente a:
+- **Modularidad:** Proporciona componentes bien definidos y reutilizables.
+- **Calidad de Producción:** Incluye código robusto con tipado estático y se espera que tenga pruebas asociadas (aunque las pruebas de los componentes comunes pueden residir en los módulos que los utilizan o en una suite de pruebas dedicada si es necesario).
+- **Claridad:** Busca ofrecer interfaces claras y bien documentadas para sus utilidades.
+
 ## Estructura del Módulo
 
--   **`auth/`**: Lógica para la gestión de tokens JWT (creación, validación, decodificación).
--   **`db/`**: Componentes de base de datos compartidos, como tipos de datos personalizados (`custom_types.py`) o modelos base de SQLAlchemy (`base.py`).
--   **`mlflow_utils/`**: Funciones de ayuda para estandarizar la interacción con el servidor de MLflow.
--   **`schemas/`**: Esquemas Pydantic comunes (ej. respuestas de error, modelos de usuario) para mantener la consistencia en las APIs.
-
-## Uso
-
-Este módulo se instala como una dependencia local en los entornos de desarrollo y de CI/CD de los otros módulos. Para utilizar sus componentes, simplemente impórtelos directamente.
-
-```python
-# Ejemplo de uso en otro módulo (ej. Aletheia_v3/api/auth.py)
-
-from aletheia_common.auth import jwt_handler
-from aletheia_common.schemas import UserSchema
-
-def get_current_user(token: str) -> UserSchema:
-    user_data = jwt_handler.decode_token(token)
-    return UserSchema(**user_data)
 ```
+aletheia_common/
+├── auth/                     # Utilidades de autenticación (ej. manejo de JWT)
+│   └── jwt_handler.py
+├── db/                       # Utilidades de base de datos (ej. sesiones, base models - si aplica)
+├── mlflow_utils/             # Funciones de ayuda para interactuar con MLflow
+├── schemas/                  # Esquemas Pydantic comunes (ej. respuestas de error estándar)
+└── README.md                 # Este archivo
+```
+*(Nota: La estructura real puede variar y expandirse según las necesidades. No se espera que este módulo tenga su propio `Dockerfile` o `docker-compose.yml` ya que no es un servicio desplegable por sí mismo.)*
 
-## Desarrollo
+## Componentes Clave
 
--   **Propósito**: Añadir aquí solo código que sea genuinamente reutilizado por **dos o más** módulos.
--   **Dependencias**: Mantener las dependencias de este módulo al mínimo absoluto.
--   **Pruebas**: Las utilidades de `aletheia_common` se prueban de forma indirecta a través de las pruebas de los módulos que las consumen. Esto asegura que los componentes comunes funcionan correctamente en su contexto de uso real.
--   **Calidad de Código**: Ejecutar `pre-commit run --all-files` desde la raíz del proyecto para asegurar el cumplimiento de los estándares de formato y linting.
+-   **`auth/jwt_handler.py`**: Podría contener funciones para crear, decodificar y validar tokens JWT, utilizando una configuración centralizada de secretos.
+-   **`db/`**: Podría incluir configuraciones de base de datos reutilizables, clases base para modelos SQLAlchemy, o helpers para la gestión de sesiones.
+-   **`mlflow_utils/`**: Funciones para simplificar el logging de parámetros, métricas o artefactos a MLflow de una manera estandarizada.
+-   **`schemas/`**: Definiciones Pydantic para estructuras de datos comunes, como mensajes de error estándar, respuestas paginadas genéricas, etc., que pueden ser reutilizadas por las APIs de diferentes módulos.
+
+## Configuración y Uso
+
+Este módulo está destinado a ser importado por otros módulos de Aletheia.
+
+1.  **Instalación (como parte de otro módulo):**
+    Las dependencias de `aletheia_common` deberían ser mínimas y, idealmente, estar cubiertas por las dependencias de los módulos que lo utilizan. Si tuviera dependencias únicas, estas deberían gestionarse en el contexto del proyecto global o del módulo consumidor.
+
+2.  **Uso:**
+    Simplemente importe las utilidades necesarias en otros módulos:
+    ```python
+    # Ejemplo en otro módulo:
+    # from aletheia_common.auth import jwt_handler
+    # from aletheia_common.schemas import ErrorResponse
+    #
+    # token_data = jwt_handler.decode_token(token, secret_key)
+    # return ErrorResponse(detail="Ocurrió un error")
+    ```
+
+## Desarrollo y Pruebas
+
+-   **Linters/Formateadores**: Ejecutar `pre-commit run --all-files` desde la raíz del repositorio Aletheia.
+-   **Pruebas**:
+    Las pruebas para las utilidades en `aletheia_common` pueden ser incluidas en los módulos que las utilizan para asegurar que se comportan como se espera en ese contexto. Alternativamente, si el módulo crece en complejidad, podría tener su propio directorio `tests/` dentro de `aletheia_common/`.
+
+## Contribuciones
+
+Las contribuciones deben enfocarse en funcionalidades que sean verdaderamente comunes a múltiples módulos. Evitar añadir lógica específica de un solo módulo aquí. Mantener las dependencias al mínimo.
+```

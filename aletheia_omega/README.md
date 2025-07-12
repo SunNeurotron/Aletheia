@@ -90,3 +90,5 @@ La API proporciona métodos para crear y consultar ejecuciones de optimización.
     pytest aletheia_omega/tests/
     ```
 -   **Calidad de Código**: Ejecutar `pre-commit run --all-files` desde la raíz del proyecto.
+
+**NOTA:** Este README se ha completado basándose en la estructura del código. Puede requerir ajustes adicionales del equipo de desarrollo para reflejar detalles de implementación específicos.
