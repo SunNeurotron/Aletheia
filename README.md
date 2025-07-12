@@ -1,3 +1,5 @@
+De acuerdo, aquí tienes el texto transcrito de forma idéntica, conservando todo el formato, el contenido y los diagramas sin ninguna omisión ni modificación.
+
 <div align="center">
 <img width="1536" height="1024" alt="Aletheia Platform - AI-Guided Scientific Discovery" src="https://github.com/user-attachments/assets/3f19aa7e-6a92-420b-9935-9f2e22545c24" />
 <h1>ALETHEIA v4.0</h1>
@@ -48,7 +50,7 @@ Aletheia representa una plataforma computacional de vanguardia diseñada para ab
 
 El núcleo conceptual de Aletheia se basa en el paradigma MDU (Modelado, Descubrimiento, Comprensión), que establece tres dimensiones fundamentales para el proceso de investigación científica computacional:
 
-```mermaid
+Generated mermaid
 graph TB
     subgraph "CUBO MDU - Marco Epistemológico Tridimensional"
         subgraph "Eje X: MODELADO"
@@ -58,7 +60,7 @@ graph TB
             X4[Formalización Semántica]
             X1 --> X2 --> X3 --> X4
         end
-
+        
         subgraph "Eje Y: DESCUBRIMIENTO"
             Y1[Generación de Hipótesis]
             Y2[Optimización Bayesiana]
@@ -66,7 +68,7 @@ graph TB
             Y4[Unificación de Modelos]
             Y1 --> Y2 --> Y3 --> Y4
         end
-
+        
         subgraph "Eje Z: COMPRENSIÓN"
             Z1[Visualización Interactiva]
             Z2[Explicabilidad de IA]
@@ -75,15 +77,14 @@ graph TB
             Z1 --> Z2 --> Z3 --> Z4
         end
     end
-
+    
     X4 -.-> Y1
     Y4 -.-> Z1
     Z4 -.-> X1
-
+    
     style X1 fill:#ffcdd2
     style Y1 fill:#c8e6c9
     style Z1 fill:#bbdefb
-```
 
 1.3 Motivación Científica: La Conjetura ABC
 
@@ -152,7 +153,7 @@ Escalabilidad y Distribución: Diseñar una arquitectura que permita el procesam
 
 Aletheia implementa una arquitectura de microservicios basada en principios de Domain-Driven Design (DDD) y Clean Architecture:
 
-```mermaid
+Generated mermaid
 flowchart TB
     subgraph "Capa de Presentación"
         UI1[Dashboard ABC Conjecture<br/>Streamlit:8501]
@@ -160,28 +161,28 @@ flowchart TB
         UI3[Statistical Analysis UI<br/>Streamlit:8503]
         API1[REST API Gateway<br/>FastAPI:8000]
     end
-
+    
     subgraph "Capa de Servicios de Aplicación"
         SVC1[Aletheia_v3<br/>Core Engine]
         SVC2[aletheia_stats<br/>Statistical Service]
         SVC3[aletheia_omega<br/>Optimization Service]
         SVC4[Knowledge Synthesis<br/>Pipeline]
     end
-
+    
     subgraph "Capa de Infraestructura"
         DB[(PostgreSQL<br/>:5432)]
         CACHE[(Redis<br/>:6379)]
         MQ[Celery/RabbitMQ]
         MLF[MLflow Server<br/>:5000]
     end
-
+    
     subgraph "Capa de Cómputo Distribuido"
         K8S[Kubernetes Cluster]
         WORK1[Celery Worker Pool]
         WORK2[GPU Compute Nodes]
         WORK3[HPC Integration]
     end
-
+    
     UI1 & UI2 & UI3 --> API1
     API1 --> SVC1 & SVC2 & SVC3
     SVC1 --> SVC4
@@ -189,59 +190,69 @@ flowchart TB
     SVC1 --> MQ --> WORK1
     WORK1 --> MLF
     K8S --> WORK1 & WORK2 & WORK3
-
+    
     style DB fill:#e1f5fe
     style CACHE fill:#fff3e0
     style MLF fill:#f3e5f5
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Mermaid
+IGNORE_WHEN_COPYING_END
 2.2 Patrones Arquitectónicos Implementados
 
 Cada módulo sigue estrictamente el patrón de Arquitectura Hexagonal:
 
-```mermaid
+Generated mermaid
 graph TD
     subgraph "Arquitectura Hexagonal - Módulo Aletheia_v3"
         subgraph "Dominio Central"
             DOM[Domain Models<br/>ScientificConcept<br/>DirectedRelationship]
             DS[Domain Services<br/>TheoryBuilder<br/>MDLOptimizer]
         end
-
+        
         subgraph "Puertos de Aplicación"
             P1[IConceptRepository]
             P2[IRelationshipRepository]
             P3[IMLflowTracker]
             P4[IMessageQueue]
         end
-
+        
         subgraph "Adaptadores de Entrada"
             API[FastAPI Controllers]
             CLI[CLI Commands]
             EVT[Event Listeners]
         end
-
+        
         subgraph "Adaptadores de Salida"
             SQL[SQLAlchemy<br/>PostgreSQL Adapter]
             MLF2[MLflow Adapter]
             CEL[Celery Adapter]
             RED[Redis Adapter]
         end
-
+        
         API --> P1 & P2
         CLI --> P1 & P2
         EVT --> P3 & P4
-
+        
         P1 & P2 --> DOM & DS
         DOM & DS --> P3 & P4
-
+        
         SQL -.-> P1 & P2
         MLF2 -.-> P3
         CEL & RED -.-> P4
     end
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Mermaid
+IGNORE_WHEN_COPYING_END
 
 El sistema implementa un modelo de eventos para la comunicación asíncrona entre servicios:
 
-```python
+Generated python
 # Ejemplo de definición de eventos
 @dataclass
 class ConceptCreatedEvent(DomainEvent):
@@ -249,16 +260,21 @@ class ConceptCreatedEvent(DomainEvent):
     concept_type: ConceptType
     created_by: str
     timestamp: datetime
-
+    
 @dataclass
 class SynthesisCompletedEvent(DomainEvent):
     synthesis_id: UUID
     level: SynthesisLevel
     input_concepts: List[UUID]
     result_concept: UUID
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 2.3 Flujo de Datos del Sistema
-```mermaid
+Generated mermaid
 sequenceDiagram
     participant User as Usuario/Investigador
     participant API as API Gateway
@@ -269,40 +285,45 @@ sequenceDiagram
     participant ML as MLflow
     participant DB as PostgreSQL
     participant Cache as Redis
-
+    
     User->>+API: POST /eje-x/ingest-document
     API->>+Auth: Validate JWT Token
     Auth-->>-API: User Authorized
-
+    
     API->>+Core: IngestDocumentUseCase.execute()
     Core->>+DB: Store Document Concept
     DB-->>-Core: Document ID
-
+    
     Core->>+Queue: Enqueue UCM Extraction Task
     Queue-->>-Core: Task ID
     Core-->>-API: Response with Task ID
     API-->>-User: 202 Accepted
-
+    
     Queue->>+Worker: Process UCM Extraction
     Worker->>+Core: ExtractUCMsUseCase.execute()
     Core->>DB: Store UCMs & Relations
     Core->>+ML: Log Extraction Metrics
     ML-->>-Core: Run ID
-
+    
     Worker->>Cache: Update Progress
     Worker-->>-Queue: Task Complete
-
+    
     User->>API: GET /tasks/{task_id}/status
     API->>Cache: Check Progress
     Cache-->>API: Task Status
     API-->>User: Task Complete + Results
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Mermaid
+IGNORE_WHEN_COPYING_END
 3. Módulos del Ecosistema
 3.1 Aletheia_v3 - Motor Principal
 
 El módulo central que implementa la lógica de negocio principal y coordina todos los demás componentes.
 
-```
+Generated code
 Aletheia_v3/
 ├── api/                          # Capa de Presentación
 │   ├── routers/                  # Endpoints organizados por dominio
@@ -329,28 +350,32 @@ Aletheia_v3/
 └── dashboard/                   # Interfaces de usuario
     ├── dashboard.py             # Dashboard ABC
     └── mdu_dashboard.py         # Explorer de grafos
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
+Generated python
 # Ejemplo de caso de uso con documentación completa
 class IngestDocumentUseCase:
     """
     Caso de uso para la ingesta de documentos científicos.
-
+    
     Este caso de uso implementa el primer paso del Eje X (Modelado),
     procesando texto no estructurado y convirtiéndolo en conceptos
     formalizados dentro del grafo de conocimiento.
-
+    
     Proceso:
     1. Validación del documento de entrada
     2. Creación del concepto DOCUMENT_SOURCE
     3. Persistencia en el repositorio
     4. Disparar extracción asíncrona de UCMs
-
+    
     Referencias:
     - Baeza-Yates, R., & Ribeiro-Neto, B. (2011). Modern Information Retrieval.
     - Manning, C. D., Raghavan, P., & Schütze, H. (2008). Introduction to Information Retrieval.
     """
-
+    
     def __init__(
         self,
         concept_repository: IConceptRepository,
@@ -362,27 +387,32 @@ class IngestDocumentUseCase:
         self.relationship_repo = relationship_repository
         self.queue = message_queue
         self.user_id = current_user_id
-
+    
     async def execute(self, request: IngestDocumentRequest) -> IngestDocumentResponse:
         # Implementación detallada...
         pass
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 3.2 aletheia_stats - Servicio de Análisis Estadístico
 
 Módulo especializado en análisis estadístico riguroso con trazabilidad completa.
 
-```python
+Generated python
 class StatsService:
     """
     Servicio de dominio para análisis estadístico.
-
+    
     Implementa pruebas de hipótesis con validaciones rigurosas:
     - Prueba de normalidad Shapiro-Wilk
     - Prueba t de Welch para muestras independientes
     - Intervalos de confianza bootstrap
     - Corrección de comparaciones múltiples (Bonferroni, FDR)
     """
-
+    
     def perform_ttest_analysis(
         self,
         group_a: np.ndarray,
@@ -392,39 +422,49 @@ class StatsService:
     ) -> TTestResult:
         """
         Realiza prueba t con validaciones completas.
-
+        
         Matemáticamente:
         H₀: μ₁ = μ₂
         H₁: μ₁ ≠ μ₂ (two-sided)
-
+        
         Estadístico t de Welch:
         t = (x̄₁ - x̄₂) / √(s₁²/n₁ + s₂²/n₂)
-
+        
         Grados de libertad (Welch-Satterthwaite):
         df = (s₁²/n₁ + s₂²/n₂)² / ((s₁²/n₁)²/(n₁-1) + (s₂²/n₂)²/(n₂-1))
         """
         pass
-```
-```mermaid
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated mermaid
 graph LR
     subgraph "Pipeline de Análisis Estadístico"
         A[Datos de Entrada] --> B{Validación}
         B -->|Válido| C[Prueba Normalidad]
         B -->|Inválido| ERR[Error Response]
-
+        
         C --> D{¿Normal?}
         D -->|Sí| E[Prueba t Student]
         D -->|No| F[Prueba t Welch]
-
+        
         E --> G[Cálculo IC]
         F --> G
-
+        
         G --> H[Cálculo Tamaño Efecto]
         H --> I[Logging MLflow]
         I --> J[Persistencia BD]
         J --> K[Response]
     end
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Mermaid
+IGNORE_WHEN_COPYING_END
 3.3 aletheia_omega - Servicio de Optimización MDL
 
 Implementa optimización basada en el principio de Longitud Mínima de Descripción (MDL).
@@ -450,20 +490,20 @@ L(M) es la longitud de descripción del modelo
 
 L(D|M) es la longitud de descripción de los datos dado el modelo
 
-```python
+Generated python
 class OmegaCostService:
     """
     Servicio para cálculo de costo MDL.
-
+    
     Implementa la función objetivo:
     MDL(M, D) = λ·K(M) - L(D|M)
-
+    
     donde:
     - K(M) es la complejidad de Kolmogorov (aproximada)
     - L(D|M) es la log-verosimilitud
     - λ es el parámetro de regularización
     """
-
+    
     def calculate_mdl_cost(
         self,
         model: ModelRepresentation,
@@ -473,12 +513,17 @@ class OmegaCostService:
     ) -> float:
         complexity = self._approximate_kolmogorov_complexity(model)
         return lambda_param * complexity - likelihood
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 3.4 aletheia_common - Biblioteca Compartida
 
 Componentes reutilizables para todo el ecosistema:
 
-```
+Generated code
 aletheia_common/
 ├── auth/                    # Sistema de autenticación JWT
 │   ├── jwt_handler.py      # Manejo de tokens
@@ -489,19 +534,23 @@ aletheia_common/
 │   └── custom_types.py    # Tipos personalizados (UUID)
 ├── mlflow_utils/          # Helpers para MLflow
 └── schemas/               # Esquemas Pydantic comunes
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+IGNORE_WHEN_COPYING_END
 4. Fundamentos Matemáticos y Algorítmicos
 4.1 Motor de Búsqueda ABC
 
 El sistema implementa una función de adquisición personalizada que combina Expected Improvement (EI) con bonificaciones estructurales:
 
-```python
+Generated python
 def custom_acquisition_function(x: np.ndarray, gp: GaussianProcessRegressor) -> float:
     """
     Función de adquisición híbrida para búsqueda ABC.
-
+    
     A(x) = EI(x) + B(x)
-
+    
     donde B(x) es el bonus estructural que favorece números
     con propiedades aritméticas especiales.
     """
@@ -512,11 +561,16 @@ def custom_acquisition_function(x: np.ndarray, gp: GaussianProcessRegressor) -> 
         proximity_penalty_factor=0.5
     )
     return ei + structural_bonus
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 
 Para cálculos de alta precisión:
 
-```python
+Generated python
 from cypari2 import Pari
 
 pari = Pari()
@@ -524,58 +578,68 @@ pari = Pari()
 def _radical_pari(n: int) -> int:
     """
     Calcula el radical usando PARI/GP para eficiencia.
-
+    
     Complejidad: O(√n) para factorización
     """
     if n <= 1:
         return n
-
+    
     # Factorización rápida con PARI
     factors = pari.factor(n)
     primes = [int(p) for p in factors[0]]
-
+    
     # Producto de primos únicos
     return reduce(operator.mul, primes, 1)
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 4.2 Síntesis de Conocimiento Jerárquica
-```python
+Generated python
 class UCMExtractor:
     """
     Extractor de Unidades Conceptuales Mínimas.
-
+    
     Implementa técnicas de NLP para identificar conceptos atómicos:
     - Tokenización avanzada
     - Análisis morfológico
     - Detección de entidades nombradas
     - Desambiguación semántica
     """
-
+    
     def extract(self, text: str) -> List[UCM]:
         # Pipeline NLP
         tokens = self.tokenizer.tokenize(text)
         pos_tags = self.pos_tagger.tag(tokens)
         entities = self.ner.extract_entities(pos_tags)
-
+        
         # Filtrado y normalización
         ucms = []
         for entity in entities:
             if self._is_scientific_concept(entity):
                 ucm = self._normalize_concept(entity)
                 ucms.append(ucm)
-
+        
         return ucms
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 class MDLClusteringService:
     """
     Servicio de clustering basado en MDL.
-
+    
     Encuentra la partición óptima que minimiza:
     MDL(C) = L(C) + Σᵢ L(Dᵢ|Cᵢ)
-
+    
     donde C es el conjunto de clusters y Dᵢ los datos en el cluster i.
     """
-
+    
     def find_optimal_clustering(
         self,
         concepts: List[ScientificConcept],
@@ -583,41 +647,51 @@ class MDLClusteringService:
     ) -> ClusteringResult:
         best_mdl = float('inf')
         best_clustering = None
-
+        
         for k in range(2, max_clusters + 1):
             clustering = self._perform_clustering(concepts, k)
             mdl_cost = self._calculate_clustering_mdl(clustering)
-
+            
             if mdl_cost < best_mdl:
                 best_mdl = mdl_cost
                 best_clustering = clustering
-
+        
         return best_clustering
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 4.3 Métricas de Evaluación
-```python
+Generated python
 def abc_quality_metric(a: int, b: int, c: int) -> float:
     """
     Métrica de calidad para tripletas ABC.
-
+    
     Q(a,b,c) = log(c) / log(rad(abc))
-
+    
     Valores más altos indican tripletas más "interesantes"
     desde la perspectiva de la conjetura.
     """
     if a <= 0 or b <= 0 or gcd(a, b) != 1 or a + b != c:
         return 0.0
-
+    
     rad_abc = _radical(a) * _radical(b) * _radical(c)
     return math.log(c) / math.log(rad_abc)
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 5. Visualizaciones y Dashboards
 5.1 Dashboard de Exploración ABC
-```python
+Generated python
 def create_3d_scatter_plot(hits: List[ABCHit]) -> go.Figure:
     """
     Crea visualización 3D interactiva de tripletas ABC.
-
+    
     - Ejes: valores de a, b, c
     - Color: calidad de la tripleta
     - Tamaño: rad(abc)
@@ -634,11 +708,11 @@ def create_3d_scatter_plot(hits: List[ABCHit]) -> go.Figure:
             showscale=True,
             colorbar=dict(title="Calidad ABC")
         ),
-        text=[f"({h.a}, {h.b}, {h.c})<br>Q={h.quality:.3f}"
+        text=[f"({h.a}, {h.b}, {h.c})<br>Q={h.quality:.3f}" 
               for h in hits],
         hoverinfo='text'
     )])
-
+    
     fig.update_layout(
         title="Espacio de Búsqueda ABC - Visualización 3D",
         scene=dict(
@@ -648,12 +722,17 @@ def create_3d_scatter_plot(hits: List[ABCHit]) -> go.Figure:
         )
     )
     return fig
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 def plot_optimization_convergence(trajectory: List[OptimizationPoint]) -> go.Figure:
     """
     Visualiza la convergencia del algoritmo de optimización.
-
+    
     Muestra:
     - Mejor valor encontrado vs iteración
     - Región de confianza del GP
@@ -662,9 +741,9 @@ def plot_optimization_convergence(trajectory: List[OptimizationPoint]) -> go.Fig
     iterations = [p.iteration for p in trajectory]
     best_values = [p.best_value for p in trajectory]
     current_values = [p.current_value for p in trajectory]
-
+    
     fig = go.Figure()
-
+    
     # Mejor valor acumulado
     fig.add_trace(go.Scatter(
         x=iterations,
@@ -673,7 +752,7 @@ def plot_optimization_convergence(trajectory: List[OptimizationPoint]) -> go.Fig
         name='Mejor valor',
         line=dict(color='blue', width=3)
     ))
-
+    
     # Valores evaluados
     fig.add_trace(go.Scatter(
         x=iterations,
@@ -681,23 +760,28 @@ def plot_optimization_convergence(trajectory: List[OptimizationPoint]) -> go.Fig
         mode='markers',
         name='Evaluaciones',
         marker=dict(
-            color=['red' if p.is_exploration else 'green'
+            color=['red' if p.is_exploration else 'green' 
                    for p in trajectory],
             size=8
         )
     ))
-
+    
     return fig
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 5.2 Dashboard del Grafo de Conocimiento
-```python
+Generated python
 def create_knowledge_graph_visualization(
     concepts: List[ScientificConcept],
     relationships: List[DirectedRelationship]
 ) -> nx.DiGraph:
     """
     Crea visualización interactiva del grafo de conocimiento.
-
+    
     Características:
     - Layout jerárquico por niveles de síntesis
     - Colores por tipo de concepto
@@ -705,7 +789,7 @@ def create_knowledge_graph_visualization(
     - Tooltips con información detallada
     """
     G = nx.DiGraph()
-
+    
     # Añadir nodos con atributos
     for concept in concepts:
         G.add_node(
@@ -715,7 +799,7 @@ def create_knowledge_graph_visualization(
             level=_get_synthesis_level(concept),
             properties=concept.properties
         )
-
+    
     # Añadir aristas con pesos
     for rel in relationships:
         G.add_edge(
@@ -724,17 +808,22 @@ def create_knowledge_graph_visualization(
             type=rel.relationship_type,
             weight=rel.properties.get('strength', 1.0)
         )
-
+    
     # Layout jerárquico
     pos = nx.multipartite_layout(G, subset_key='level')
-
+    
     return G, pos
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 def analyze_graph_structure(G: nx.DiGraph) -> GraphAnalysisResult:
     """
     Análisis estructural del grafo de conocimiento.
-
+    
     Calcula:
     - Centralidad de intermediación (betweenness)
     - PageRank de conceptos
@@ -744,14 +833,14 @@ def analyze_graph_structure(G: nx.DiGraph) -> GraphAnalysisResult:
     # Centralidad
     betweenness = nx.betweenness_centrality(G)
     pagerank = nx.pagerank(G)
-
+    
     # Comunidades
     communities = community.louvain_communities(G.to_undirected())
-
+    
     # Métricas globales
     density = nx.density(G)
     avg_clustering = nx.average_clustering(G.to_undirected())
-
+    
     return GraphAnalysisResult(
         betweenness_centrality=betweenness,
         pagerank_scores=pagerank,
@@ -759,9 +848,14 @@ def analyze_graph_structure(G: nx.DiGraph) -> GraphAnalysisResult:
         density=density,
         clustering_coefficient=avg_clustering
     )
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 5.3 Dashboard de Análisis Estadístico
-```python
+Generated python
 def create_statistical_test_visualization(
    result: TTestResult,
    group_a_data: np.ndarray,
@@ -769,7 +863,7 @@ def create_statistical_test_visualization(
 ) -> go.Figure:
    """
    Visualización comprehensiva de resultados de prueba t.
-
+   
    Incluye:
    - Distribuciones de ambos grupos
    - Intervalos de confianza
@@ -785,17 +879,17 @@ def create_statistical_test_visualization(
            'Análisis de Potencia'
        )
    )
-
+   
    # 1. Distribuciones con KDE
    x_range = np.linspace(
        min(group_a_data.min(), group_b_data.min()),
        max(group_a_data.max(), group_b_data.max()),
        100
    )
-
+   
    kde_a = gaussian_kde(group_a_data)
    kde_b = gaussian_kde(group_b_data)
-
+   
    fig.add_trace(
        go.Scatter(
            x=x_range,
@@ -806,7 +900,7 @@ def create_statistical_test_visualization(
        ),
        row=1, col=1
    )
-
+   
    fig.add_trace(
        go.Scatter(
            x=x_range,
@@ -817,7 +911,7 @@ def create_statistical_test_visualization(
        ),
        row=1, col=1
    )
-
+   
    # 2. Intervalos de confianza
    fig.add_trace(
        go.Bar(
@@ -835,11 +929,11 @@ def create_statistical_test_visualization(
        ),
        row=1, col=2
    )
-
+   
    # 3. Q-Q plots para normalidad
    qq_a = stats.probplot(group_a_data, dist="norm")
    qq_b = stats.probplot(group_b_data, dist="norm")
-
+   
    fig.add_trace(
        go.Scatter(
            x=qq_a[0][0],
@@ -850,7 +944,7 @@ def create_statistical_test_visualization(
        ),
        row=2, col=1
    )
-
+   
    # 4. Curva de potencia
    effect_sizes = np.linspace(0, 2, 50)
    powers = [
@@ -862,7 +956,7 @@ def create_statistical_test_visualization(
        )
        for es in effect_sizes
    ]
-
+   
    fig.add_trace(
        go.Scatter(
            x=effect_sizes,
@@ -872,7 +966,7 @@ def create_statistical_test_visualization(
        ),
        row=2, col=2
    )
-
+   
    # Añadir línea vertical para el efecto observado
    fig.add_vline(
        x=result.cohens_d,
@@ -880,25 +974,30 @@ def create_statistical_test_visualization(
        line_dash="dash",
        annotation_text=f"d={result.cohens_d:.2f}"
    )
-
+   
    fig.update_layout(
        title=f"Análisis Estadístico Completo - p={result.p_value:.4f}",
        height=800
    )
-
+   
    return fig
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 5.4 Métricas de Rendimiento en Tiempo Real
-```python
+Generated python
 class SystemMetricsDashboard:
     """
     Dashboard de monitoreo en tiempo real usando Prometheus + Grafana.
     """
-
+    
     def __init__(self):
         self.metrics_collector = PrometheusMetricsCollector()
         self.alert_manager = AlertManager()
-
+    
     def create_performance_dashboard(self) -> Dict[str, Any]:
         """
         Crea dashboard con métricas clave del sistema.
@@ -947,18 +1046,23 @@ class SystemMetricsDashboard:
                 }
             ]
         }
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 6. Sistema de Benchmarking y Evaluación
 6.1 Framework de Benchmarking
-```python
+Generated python
 class ComputationalBenchmark:
     """
     Suite de benchmarks para evaluar rendimiento del sistema.
     """
-
+    
     def __init__(self):
         self.results = BenchmarkResults()
-
+    
     def run_all_benchmarks(self) -> BenchmarkResults:
         """
         Ejecuta suite completa de benchmarks.
@@ -970,14 +1074,14 @@ class ComputationalBenchmark:
             ("MDL Optimization", self.benchmark_mdl_optimization),
             ("Database Operations", self.benchmark_db_performance)
         ]
-
+        
         for name, benchmark_func in benchmarks:
             print(f"Ejecutando benchmark: {name}")
             result = benchmark_func()
             self.results.add_result(name, result)
-
+        
         return self.results
-
+    
     def benchmark_radical_computation(self) -> BenchmarkResult:
         """
         Benchmark para cálculo de radicales con PARI/GP.
@@ -987,31 +1091,36 @@ class ComputationalBenchmark:
             math.factorial(20),              # Números con muchos factores
             2**127 - 1,                     # Primo de Mersenne
         ]
-
+        
         results = []
         for n in test_numbers:
             start_time = time.perf_counter()
             rad = _radical(n)
             end_time = time.perf_counter()
-
+            
             results.append({
                 'input_size': n.bit_length(),
                 'execution_time': end_time - start_time,
                 'result': rad
             })
-
+        
         return BenchmarkResult(
             name="Radical Computation",
             results=results,
             summary_stats=self._calculate_summary_stats(results)
         )
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 class ScientificQualityBenchmark:
     """
     Evalúa la calidad científica de los resultados generados.
     """
-
+    
     def evaluate_synthesis_quality(
         self,
         synthesized_concepts: List[ScientificConcept],
@@ -1019,7 +1128,7 @@ class ScientificQualityBenchmark:
     ) -> QualityMetrics:
         """
         Evalúa la calidad de la síntesis de conocimiento.
-
+        
         Métricas:
         - Coherencia semántica
         - Completitud
@@ -1027,28 +1136,28 @@ class ScientificQualityBenchmark:
         - Validez lógica
         """
         metrics = QualityMetrics()
-
+        
         # Coherencia semántica
         coherence = self._calculate_semantic_coherence(synthesized_concepts)
         metrics.add_metric("semantic_coherence", coherence)
-
+        
         # Completitud (si hay ground truth)
         if ground_truth:
             completeness = self._calculate_completeness(
                 synthesized_concepts, ground_truth
             )
             metrics.add_metric("completeness", completeness)
-
+        
         # Novedad
         novelty = self._calculate_novelty_score(synthesized_concepts)
         metrics.add_metric("novelty", novelty)
-
+        
         # Validez lógica
         validity = self._check_logical_validity(synthesized_concepts)
         metrics.add_metric("logical_validity", validity)
-
+        
         return metrics
-
+    
     def _calculate_semantic_coherence(
         self,
         concepts: List[ScientificConcept]
@@ -1058,25 +1167,30 @@ class ScientificQualityBenchmark:
         """
         if len(concepts) < 2:
             return 1.0
-
+        
         embeddings = [self._get_embedding(c) for c in concepts]
-
+        
         # Matriz de similitud
         similarity_matrix = cosine_similarity(embeddings)
-
+        
         # Coherencia promedio (excluyendo diagonal)
         n = len(concepts)
         total_similarity = (similarity_matrix.sum() - n) / (n * (n - 1))
-
+        
         return total_similarity
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 6.2 Evaluación Comparativa
-```python
+Generated python
 class BaselineComparison:
     """
     Compara rendimiento contra métodos baseline.
     """
-
+    
     def compare_abc_search_methods(self) -> ComparisonResults:
         """
         Compara diferentes métodos de búsqueda ABC.
@@ -1088,34 +1202,39 @@ class BaselineComparison:
             "bayesian_optimization": BayesianABCSearch(),
             "aletheia_custom": AletheiaABCSearch()
         }
-
+        
         # Parámetros de evaluación
         search_space = ABCSearchSpace(
             a_range=(1, 10**6),
             b_range=(1, 10**6),
             time_limit=3600  # 1 hora
         )
-
+        
         results = {}
         for method_name, method in methods.items():
             print(f"Evaluando método: {method_name}")
-
+            
             start_time = time.time()
             best_triples = method.search(search_space)
             end_time = time.time()
-
+            
             results[method_name] = {
                 'best_quality': max(t.quality for t in best_triples),
                 'num_triples_found': len(best_triples),
                 'execution_time': end_time - start_time,
                 'efficiency': len(best_triples) / (end_time - start_time)
             }
-
+        
         return ComparisonResults(results)
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 7. Demostración Práctica Completa
 7.1 Escenario de Demostración End-to-End
-```bash
+Generated bash
 # 1. Clonar el repositorio
 git clone https://github.com/SunNeurotron/Aletheia.git
 cd Aletheia
@@ -1133,8 +1252,13 @@ docker-compose ps
 
 # 5. Aplicar migraciones de base de datos (automático con docker-compose)
 # Las migraciones se aplican automáticamente al iniciar
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
+Generated python
 # demo_abc_search.py
 import asyncio
 import httpx
@@ -1145,7 +1269,7 @@ async def demo_abc_search():
     Demostración completa de búsqueda ABC.
     """
     base_url = "http://localhost:8000"
-
+    
     async with httpx.AsyncClient() as client:
         # 1. Autenticación
         print("1. Autenticando usuario...")
@@ -1158,7 +1282,7 @@ async def demo_abc_search():
         )
         token = auth_response.json()["access_token"]
         headers = {"Authorization": f"Bearer {token}"}
-
+        
         # 2. Crear nuevo job de búsqueda
         print("\n2. Iniciando búsqueda ABC...")
         search_params = {
@@ -1175,14 +1299,14 @@ async def demo_abc_search():
             },
             "quality_threshold": 1.4
         }
-
+        
         job_response = await client.post(
             f"{base_url}/api/abc/search",
             json=search_params,
             headers=headers
         )
         job_id = job_response.json()["job_id"]
-
+        
         # 3. Monitorear progreso
         print(f"\n3. Monitoreando job {job_id}...")
         while True:
@@ -1191,16 +1315,16 @@ async def demo_abc_search():
                 headers=headers
             )
             status = status_response.json()
-
+            
             print(f"   Estado: {status['status']}, "
                   f"Progreso: {status['progress']}%, "
                   f"Mejores tripletas encontradas: {status['best_triples_count']}")
-
+            
             if status['status'] in ['completed', 'failed']:
                 break
-
+            
             await asyncio.sleep(5)
-
+        
         # 4. Obtener resultados
         print("\n4. Recuperando resultados...")
         results_response = await client.get(
@@ -1208,23 +1332,28 @@ async def demo_abc_search():
             headers=headers
         )
         results = results_response.json()
-
+        
         # 5. Mostrar mejores tripletas
         print("\n5. Mejores tripletas encontradas:")
         for i, triple in enumerate(results['best_triples'][:10]):
             print(f"   {i+1}. ({triple['a']}, {triple['b']}, {triple['c']}) "
                   f"- Calidad: {triple['quality']:.4f}")
-
+        
         # 6. Visualizar en dashboard
         print(f"\n6. Visualización disponible en: http://localhost:8501")
-
+        
         return results
 
 # Ejecutar demo
 if __name__ == "__main__":
     asyncio.run(demo_abc_search())
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 # demo_knowledge_synthesis.py
 async def demo_knowledge_synthesis():
     """
@@ -1238,7 +1367,7 @@ async def demo_knowledge_synthesis():
     Recent computational approaches have found interesting examples of ABC triples
     with high quality metrics, suggesting patterns in their distribution.
     """
-
+    
     ingest_response = await client.post(
         f"{base_url}/api/eje-x/ingest-document",
         json={
@@ -1253,11 +1382,11 @@ async def demo_knowledge_synthesis():
         headers=headers
     )
     document_id = ingest_response.json()["document_id"]
-
+    
     # 2. Esperar extracción de UCMs
     print("\n2. Esperando extracción de UCMs...")
     await asyncio.sleep(10)
-
+    
     # 3. Obtener UCMs extraídas
     ucms_response = await client.get(
         f"{base_url}/api/eje-x/concepts?concept_type=UCM&limit=50",
@@ -1265,7 +1394,7 @@ async def demo_knowledge_synthesis():
     )
     ucms = ucms_response.json()["concepts"]
     print(f"   UCMs extraídas: {len(ucms)}")
-
+    
     # 4. Formar clusters
     print("\n3. Formando clusters de conceptos...")
     cluster_response = await client.post(
@@ -1280,7 +1409,7 @@ async def demo_knowledge_synthesis():
         headers=headers
     )
     clusters = cluster_response.json()["clusters"]
-
+    
     # 5. Derivar proposiciones
     print("\n4. Derivando proposiciones...")
     propositions = []
@@ -1297,7 +1426,7 @@ async def demo_knowledge_synthesis():
             headers=headers
         )
         propositions.extend(prop_response.json()["propositions"])
-
+    
     # 6. Construir mini-teorías
     print("\n5. Construyendo mini-teorías...")
     theory_response = await client.post(
@@ -1312,17 +1441,17 @@ async def demo_knowledge_synthesis():
         headers=headers
     )
     mini_theories = theory_response.json()["mini_theories"]
-
+    
     # 7. Visualizar grafo de conocimiento
     print(f"\n6. Grafo de conocimiento disponible en: http://localhost:8502")
-
+    
     # 8. Mostrar jerarquía sintetizada
     print("\n7. Jerarquía de síntesis:")
     print(f"   Documento → {len(ucms)} UCMs")
     print(f"   UCMs → {len(clusters)} Clusters")
     print(f"   Clusters → {len(propositions)} Proposiciones")
     print(f"   Proposiciones → {len(mini_theories)} Mini-teorías")
-
+    
     return {
         "document_id": document_id,
         "synthesis_hierarchy": {
@@ -1332,8 +1461,13 @@ async def demo_knowledge_synthesis():
             "mini_theories": len(mini_theories)
         }
     }
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 # demo_statistical_analysis.py
 async def demo_statistical_analysis():
     """
@@ -1341,17 +1475,17 @@ async def demo_statistical_analysis():
     """
     # Conectar al servicio de estadísticas
     stats_url = "http://localhost:8001"  # Puerto de aletheia_stats
-
+    
     # 1. Generar datos sintéticos
     print("1. Generando datos experimentales...")
     np.random.seed(42)
-
+    
     # Grupo control: distribución normal
     control_group = np.random.normal(100, 15, 50)
-
+    
     # Grupo tratamiento: distribución normal con efecto
     treatment_group = np.random.normal(110, 15, 50)
-
+    
     # 2. Realizar análisis
     print("\n2. Ejecutando prueba t...")
     analysis_response = await client.post(
@@ -1371,21 +1505,21 @@ async def demo_statistical_analysis():
         },
         headers=headers
     )
-
+    
     results = analysis_response.json()
-
+    
     # 3. Mostrar resultados
     print("\n3. Resultados del análisis:")
     print(f"   Estadístico t: {results['t_statistic']:.4f}")
     print(f"   Valor p: {results['p_value']:.4f}")
     print(f"   Tamaño del efecto (d de Cohen): {results['cohens_d']:.4f}")
     print(f"   Intervalo de confianza: [{results['ci_lower']:.2f}, {results['ci_upper']:.2f}]")
-
+    
     # 4. Verificar registro en MLflow
     print(f"\n4. Experimento registrado en MLflow:")
     print(f"   Run ID: {results['mlflow_run_id']}")
     print(f"   Ver en: http://localhost:5000/#/experiments/{results['mlflow_experiment_id']}")
-
+    
     # 5. Análisis de potencia post-hoc
     print("\n5. Realizando análisis de potencia...")
     power_response = await client.post(
@@ -1398,75 +1532,95 @@ async def demo_statistical_analysis():
         },
         headers=headers
     )
-
+    
     power_results = power_response.json()
     print(f"   Potencia estadística: {power_results['power']:.2%}")
-
+    
     return results
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 7.2 Resultados Esperados de la Demostración
-```yaml
+Generated yaml
 Benchmarks de Rendimiento:
   Cálculo de Radicales:
     - Números < 10^6: < 1ms
     - Números < 10^12: < 10ms
     - Números < 10^18: < 100ms
-
+  
   Extracción de UCMs:
     - Throughput: > 1000 tokens/segundo
     - Precisión: > 85%
     - Recall: > 80%
-
+  
   Operaciones de Grafo:
     - Inserción de nodos: < 5ms
     - Búsqueda BFS/DFS: O(V+E)
     - Cálculo de centralidad: < 1s para grafos < 10k nodos
-
+  
   API Latency (p95):
     - Endpoints de lectura: < 100ms
     - Endpoints de escritura: < 200ms
     - Análisis complejos: < 5s
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated yaml
 Métricas de Calidad:
   Síntesis de Conocimiento:
     - Coherencia semántica: > 0.75
     - Completitud: > 0.70
     - Validez lógica: 100%
-
+  
   Búsqueda ABC:
     - Tripletas de calidad > 1.4: > 50 en 1 hora
     - Mejora vs búsqueda aleatoria: > 10x
     - Convergencia: < 500 evaluaciones
-
+  
   Análisis Estadístico:
     - Error Tipo I controlado: α = 0.05
     - Potencia para d=0.8: > 0.80
     - Cobertura de IC: 95% ± 1%
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
 8. Instalación y Configuración Detallada
 8.1 Requisitos del Sistema
-```yaml
+Generated yaml
 Hardware Mínimo:
   CPU: 4 cores @ 2.4GHz
   RAM: 16GB
   Almacenamiento: 50GB SSD
-
+  
 Hardware Recomendado (Producción):
   CPU: 16+ cores @ 3.0GHz
   RAM: 64GB+
   Almacenamiento: 500GB+ NVMe SSD
   GPU: NVIDIA GPU con CUDA 11.0+ (opcional, para aceleración)
-
+  
 Software:
   OS: Ubuntu 20.04+ / macOS 11+ / Windows 10+ con WSL2
   Docker: 24.0+
   Docker Compose: 2.20+
   Python: 3.9+ (para desarrollo local)
   Git: 2.30+
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
 8.2 Instalación Paso a Paso
-```bash
+Generated bash
 # 1. Instalar dependencias del sistema
 ## Ubuntu/Debian
 sudo apt update
@@ -1501,8 +1655,13 @@ source venv/bin/activate  # Linux/macOS
 pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements-dev.txt  # Para desarrollo
-```
-```bash
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
+Generated bash
 # 1. Configurar variables de entorno globales
 cp .env.example .env
 # Editar .env con editor preferido
@@ -1523,8 +1682,13 @@ DATABASE_URL=postgresql://aletheia:secure_password@postgres:5432/aletheia_db
 # 5. Configurar MLflow
 MLFLOW_TRACKING_URI=http://mlflow:5000
 MLFLOW_S3_ENDPOINT_URL=http://minio:9000  # Si se usa MinIO
-```
-```bash
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
+Generated bash
 # 1. Construir imágenes
 cd Aletheia_v3
 docker-compose build
@@ -1545,9 +1709,14 @@ docker-compose up -d
 # 5. Verificar estado
 docker-compose ps
 docker-compose logs -f api  # Ver logs de la API
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
 8.3 Configuración Avanzada
-```yaml
+Generated yaml
 # kubernetes/aletheia-namespace.yaml
 apiVersion: v1
 kind: Namespace
@@ -1556,8 +1725,13 @@ metadata:
   labels:
     name: aletheia
     environment: production
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated yaml
 # kubernetes/api-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -1609,8 +1783,13 @@ spec:
             port: 8000
           initialDelaySeconds: 5
           periodSeconds: 5
-```
-```bash
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated bash
 #!/bin/bash
 #SBATCH --job-name=aletheia-abc-search
 #SBATCH --partition=gpu
@@ -1641,9 +1820,14 @@ mpirun -np $SLURM_NTASKS python -m aletheia.hpc.distributed_abc_search \
    --total-partitions $SLURM_NTASKS \
    --checkpoint-dir /scratch/aletheia/checkpoints \
    --result-dir /scratch/aletheia/results
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
 8.4 Optimización de Rendimiento
-```sql
+Generated sql
 -- postgresql.conf optimizations
 -- Memoria
 shared_buffers = 8GB              # 25% de RAM disponible
@@ -1668,34 +1852,44 @@ random_page_cost = 1.1            # Para SSD
 
 -- Conexiones
 max_connections = 200
-```
-```sql
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+SQL
+IGNORE_WHEN_COPYING_END
+Generated sql
 -- Índices para búsquedas frecuentes
-CREATE INDEX CONCURRENTLY idx_concepts_type_created
+CREATE INDEX CONCURRENTLY idx_concepts_type_created 
 ON scientific_concepts(concept_type, created_at DESC);
 
-CREATE INDEX CONCURRENTLY idx_concepts_properties_gin
+CREATE INDEX CONCURRENTLY idx_concepts_properties_gin 
 ON scientific_concepts USING gin(properties);
 
-CREATE INDEX CONCURRENTLY idx_relationships_source_type
+CREATE INDEX CONCURRENTLY idx_relationships_source_type 
 ON directed_relationships(source_id, relationship_type);
 
-CREATE INDEX CONCURRENTLY idx_relationships_target_type
+CREATE INDEX CONCURRENTLY idx_relationships_target_type 
 ON directed_relationships(target_id, relationship_type);
 
 -- Índices para búsqueda de texto
-CREATE INDEX CONCURRENTLY idx_concepts_name_trgm
+CREATE INDEX CONCURRENTLY idx_concepts_name_trgm 
 ON scientific_concepts USING gin(name gin_trgm_ops);
 
 -- Índices para el módulo ABC
-CREATE INDEX CONCURRENTLY idx_abc_hits_quality
-ON abc_search_hits(quality DESC)
+CREATE INDEX CONCURRENTLY idx_abc_hits_quality 
+ON abc_search_hits(quality DESC) 
 WHERE quality > 1.4;
 
 -- Particionamiento para tablas grandes
 CREATE TABLE concept_metrics_2024 PARTITION OF concept_metrics
 FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+SQL
+IGNORE_WHEN_COPYING_END
 9. API y Endpoints
 9.1 Documentación OpenAPI
 
@@ -1708,7 +1902,7 @@ ReDoc: http://localhost:8000/redoc
 OpenAPI JSON: http://localhost:8000/openapi.json
 
 9.2 Autenticación y Autorización
-```http
+Generated http
 POST /token
 Content-Type: application/x-www-form-urlencoded
 
@@ -1720,13 +1914,23 @@ Response:
   "token_type": "bearer",
   "expires_in": 3600
 }
-```
-```http
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Http
+IGNORE_WHEN_COPYING_END
+Generated http
 GET /api/v1/protected-endpoint
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Http
+IGNORE_WHEN_COPYING_END
 9.3 Endpoints Principales por Módulo
-```yaml
+Generated yaml
 Ingesta de Documentos:
   POST /api/eje-x/ingest-document:
     description: Ingiere un documento y extrae UCMs
@@ -1778,8 +1982,13 @@ Relaciones:
       201:
         relationship: DirectedRelationship
     roles_required: [researcher]
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated yaml
 Formación de Clusters:
   POST /api/eje-y/cluster-formation:
     description: Forma clusters a partir de UCMs
@@ -1821,8 +2030,13 @@ Construcción de Teorías:
         job_id: uuid
         estimated_time: int
     roles_required: [analyst]
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated yaml
 Análisis Cúbico:
   POST /api/mdu/cubic-analysis:
     description: Ejecuta análisis MDU completo
@@ -1869,8 +2083,13 @@ Búsqueda ABC:
         optimization_trace: object
         mlflow_run_id: string
     roles_required: [researcher]
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
+Generated yaml
 Prueba T:
   POST /api/v1/analyze/ttest:
     description: Realiza prueba t con validaciones
@@ -1907,9 +2126,14 @@ ANOVA:
         eta_squared: float
         post_hoc_results: object
     roles_required: [analyst]
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
 9.4 WebSocket para Actualizaciones en Tiempo Real
-```python
+Generated python
 # Cliente WebSocket ejemplo
 import asyncio
 import websockets
@@ -1918,48 +2142,58 @@ import json
 async def monitor_job(job_id: str, token: str):
     uri = f"ws://localhost:8000/ws/jobs/{job_id}"
     headers = {"Authorization": f"Bearer {token}"}
-
+    
     async with websockets.connect(uri, extra_headers=headers) as websocket:
         while True:
             message = await websocket.recv()
             data = json.loads(message)
-
+            
             print(f"Estado: {data['status']}")
             print(f"Progreso: {data['progress']}%")
-
+            
             if data['status'] in ['completed', 'failed']:
                 break
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 10. Testing y Calidad del Código
 10.1 Estrategia de Testing
-```mermaid
+Generated mermaid
 graph TB
     subgraph "Pirámide de Testing"
         E2E[Tests E2E<br/>5%]
         INT[Tests de Integración<br/>20%]
         UNIT[Tests Unitarios<br/>75%]
-
+        
         E2E --> INT --> UNIT
     end
-
+    
     subgraph "Tipos de Tests"
         U1[Domain Logic]
         U2[Use Cases]
         U3[Utilities]
-
+        
         I1[API Endpoints]
         I2[Database]
         I3[External Services]
-
+        
         E1[User Workflows]
         E2[System Integration]
     end
-
+    
     UNIT --> U1 & U2 & U3
     INT --> I1 & I2 & I3
     E2E --> E1 & E2
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Mermaid
+IGNORE_WHEN_COPYING_END
+Generated python
 # tests/test_domain.py
 import pytest
 from hypothesis import given, strategies as st
@@ -1967,7 +2201,7 @@ from aletheia_v3.core.domain import _radical, abc_quality_metric
 
 class TestDomainLogic:
     """Tests para lógica de dominio central."""
-
+    
     @pytest.mark.parametrize("n,expected", [
         (1, 1),
         (6, 6),      # 2 * 3
@@ -1978,7 +2212,7 @@ class TestDomainLogic:
     def test_radical_calculation(self, n, expected):
         """Test cálculo de radical con casos conocidos."""
         assert _radical(n) == expected
-
+    
     @given(
         a=st.integers(min_value=1, max_value=10**6),
         b=st.integers(min_value=1, max_value=10**6)
@@ -1989,20 +2223,25 @@ class TestDomainLogic:
         rad_ab = _radical(a * b)
         rad_a_times_rad_b = _radical(a) * _radical(b)
         assert rad_ab <= rad_a_times_rad_b
-
+    
     def test_abc_quality_edge_cases(self):
         """Test casos límite para métrica de calidad ABC."""
         # Caso inválido: a + b != c
         assert abc_quality_metric(1, 2, 4) == 0.0
-
+        
         # Caso inválido: gcd(a,b) != 1
         assert abc_quality_metric(2, 4, 6) == 0.0
-
+        
         # Caso válido conocido
         quality = abc_quality_metric(1, 8, 9)
         assert 1.0 < quality < 1.5
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 # tests/test_api_integration.py
 import pytest
 from httpx import AsyncClient
@@ -2011,7 +2250,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 @pytest.mark.asyncio
 class TestAPIIntegration:
     """Tests de integración para endpoints API."""
-
+    
     async def test_knowledge_synthesis_pipeline(
         self,
         async_client: AsyncClient,
@@ -2030,10 +2269,10 @@ class TestAPIIntegration:
         )
         assert response.status_code == 202
         document_id = response.json()["document_id"]
-
+        
         # 2. Esperar procesamiento
         await asyncio.sleep(5)
-
+        
         # 3. Verificar UCMs extraídas
         response = await async_client.get(
             f"/api/eje-x/concepts?source_document={document_id}",
@@ -2042,7 +2281,7 @@ class TestAPIIntegration:
         assert response.status_code == 200
         ucms = response.json()["concepts"]
         assert len(ucms) > 0
-
+        
         # 4. Formar clusters
         response = await async_client.post(
             "/api/eje-y/cluster-formation",
@@ -2050,15 +2289,20 @@ class TestAPIIntegration:
             headers=auth_headers
         )
         assert response.status_code == 201
-
+        
         # 5. Verificar en base de datos
         result = await async_session.execute(
             "SELECT COUNT(*) FROM scientific_concepts WHERE concept_type = 'CLUSTER'"
         )
         cluster_count = result.scalar()
         assert cluster_count > 0
-```
-```python
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
+Generated python
 # tests/test_performance.py
 import pytest
 import time
@@ -2066,26 +2310,26 @@ from aletheia_v3.core.domain import _radical
 
 class TestPerformance:
     """Benchmarks de rendimiento."""
-
+    
     @pytest.mark.benchmark(group="radical")
     def test_radical_performance_small(self, benchmark):
         """Benchmark para números pequeños."""
         result = benchmark(_radical, 1000)
         assert result == 40  # 2³ × 5³
-
+    
     @pytest.mark.benchmark(group="radical")
     def test_radical_performance_large(self, benchmark):
         """Benchmark para números grandes."""
         large_number = 2**50 - 1
         result = benchmark(_radical, large_number)
         assert result > 0
-
+    
     @pytest.mark.slow
     def test_api_throughput(self, client, auth_headers):
         """Test de throughput de API."""
         start_time = time.time()
         requests_count = 0
-
+        
         while time.time() - start_time < 10:  # 10 segundos
             response = client.get(
                 "/api/health",
@@ -2093,16 +2337,21 @@ class TestPerformance:
             )
             assert response.status_code == 200
             requests_count += 1
-
+        
         rps = requests_count / 10
         assert rps > 100  # Mínimo 100 req/s
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Python
+IGNORE_WHEN_COPYING_END
 10.2 Cobertura de Código
-```ini
+Generated ini
 # .coveragerc
 [run]
 source = .
-omit =
+omit = 
     */tests/*
     */venv/*
     */__pycache__/*
@@ -2119,8 +2368,13 @@ directory = htmlcov
 
 [xml]
 output = coverage.xml
-```
-```bash
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Ini
+IGNORE_WHEN_COPYING_END
+Generated bash
 # Ejecutar tests con cobertura
 pytest --cov=aletheia_v3 --cov=aletheia_stats \
        --cov-report=term-missing \
@@ -2134,9 +2388,14 @@ pytest --cov=aletheia_v3 --cov=aletheia_stats \
 # aletheia_v3.api                   88%
 # aletheia_stats.domain             96%
 # Overall                           91%
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bash
+IGNORE_WHEN_COPYING_END
 10.3 Análisis Estático y Linting
-```ini
+Generated ini
 # mypy.ini
 [mypy]
 python_version = 3.9
@@ -2158,8 +2417,13 @@ ignore_errors = True
 
 [mypy-alembic.*]
 ignore_errors = True
-```
-```yaml
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Ini
+IGNORE_WHEN_COPYING_END
+Generated yaml
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -2199,9 +2463,14 @@ repos:
           - types-requests
           - types-redis
           - sqlalchemy[mypy]
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
 10.4 CI/CD Pipeline
-```yaml
+Generated yaml
 # .github/workflows/ci.yml
 name: CI Pipeline
 
@@ -2216,12 +2485,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
+      
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
 
@@ -2239,7 +2508,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-
+      
       redis:
         image: redis:7
         options: >-
@@ -2249,28 +2518,28 @@ jobs:
           --health-retries 5
         ports:
           - 6379:6379
-
+    
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-
+      
       - name: Run tests
         env:
           DATABASE_URL: postgresql://postgres:test_password@localhost/test_db
           REDIS_URL: redis://localhost:6379
         run: |
           pytest --cov=. --cov-report=xml --cov-report=term
-
+      
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
@@ -2281,26 +2550,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-
+      
       - name: Build Docker images
         run: |
           docker-compose -f Aletheia_v3/docker-compose.yml build
-
+      
       - name: Run security scan
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'aletheia/api:latest'
           format: 'sarif'
           output: 'trivy-results.sarif'
-
+      
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: 'trivy-results.sarif'
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Yaml
+IGNORE_WHEN_COPYING_END
 11. Publicaciones y Referencias Académicas
 11.1 Publicaciones del Proyecto
-```bibtex
+Generated bibtex
 @article{aletheia2024,
   title={Aletheia: A Computational Platform for AI-Guided Scientific Discovery},
   author={Alant Research Team},
@@ -2327,7 +2601,12 @@ jobs:
   institution={Alant Research},
   type={Technical Report}
 }
-```
+IGNORE_WHEN_COPYING_START
+content_copy
+download
+Use code with caution.
+Bibtex
+IGNORE_WHEN_COPYING_END
 11.2 Referencias Fundamentales
 
 Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." Comptes Rendus de l'Académie des Sciences.
