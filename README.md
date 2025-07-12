@@ -84,28 +84,7 @@ Seguridad Refinada (Diseño Conceptual): Estrategias para Control de Acceso Basa
 
 🏗️ Diagrama de Arquitectura del Sistema
 ```mermaid
-graph TD
-    User[<img src='https://img.icons8.com/ios-filled/50/000000/user.png' width='20'/> Usuario] -->|Interactúa vía Navegador| Dashboard[🔬 Dashboard Streamlit]
-
-    subgraph "Plataforma Aletheia (Servicios en Docker)"
-        Dashboard -- Petición HTTP --> API[🚀 Servidor API FastAPI]
-        API -- Almacena/Recupera Datos --> DB[(🐘 BD PostgreSQL)]
-        API -- Encola Tarea --> MQ[🏎️ Cola de Mensajes Redis]
-
-        Worker[⚙️ Worker Celery] -- Toma Tarea --> MQ
-        Worker -- Ejecuta --> AISearch[🧠 Caso de Uso de Búsqueda IA (core.use_cases)]
-        AISearch -- Utiliza --> DomainLogic[📚 Lógica de Dominio (core.domain)]
-        Worker -- Almacena Resultados --> DB
-        Worker -- Registra Experimento --> MLflowServer[📈 Servidor de Tracking MLflow]
-
-        MLflowServer -- Almacena Metadatos --> DB
-        MLflowServer -- Almacena Artefactos (Opcional) --> ArtifactStore[(📦 Almacén de Artefactos e.g. S3/MinIO)]
-    end
-
-    User -->|Visualiza Experimentos| MLflowUI[<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> UI de MLflow]
-    MLflowUI -- Lee Datos --> MLflowServer
-
-    flowchart TD
+flowchart TD
  subgraph subGraph0["Servicios Dockerizados de la plataforma Aletheia"]
         API["FastAPI API Server"]
         Dashboard["Streamlit Dashboard"]
@@ -145,7 +124,6 @@ graph TD
 
 
 
-```
 
 (GitHub y otros visores modernos renderizan este diagrama automáticamente. Si no lo ves, puedes copiar el código en un editor de Mermaid.)
 
