@@ -51,35 +51,37 @@ La plataforma está diseñada como un conjunto de servicios modulares y desacopl
 
 ```mermaid
 graph TD
-    subgraph "Interfaz de Usuario"
-        A["\nUsuario/Investigador\n\n🔬"]
-    end
-    subgraph "Capa de Presentación"
-        B("API FastAPI\n/api/v1")
-        C("Dashboard\nStreamlit")
-    end
-    subgraph "Capa de Aplicación"
-        D["Casos de Uso\nEje Y (Síntesis)\nEje X (Ingesta)\nBúsqueda ABC"]
-    end
-    subgraph "Núcleo de Dominio"
-        E["Entidades\nScientificConcept\nABCTriple"]
-        F["Servicios de Dominio\nMDL Engine\nStatsService"]
-    end
-    subgraph "Infraestructura"
-        G["\nPostgreSQL\n(SQLAlchemy)\n\n🐘"]
-        H["\nRedis\n(Celery Broker)\n\n🏎️"]
-        I["\nMLflow\n(Tracking)\n\n📈"]
+    User["<img src='https://img.icons8.com/ios-filled/50/000000/user.png' width='20'/> Usuario"] -->|Interactúa vía Navegador| Dashboard["🔬 Dashboard Streamlit"]
+
+    subgraph "Plataforma Aletheia (Servicios en Docker)"
+        Dashboard -- Petición HTTP --> API["🚀 Servidor API FastAPI"]
+        API -- Almacena/Recupera Datos --> DB["(🐘 BD PostgreSQL)"]
+        API -- Encola Tarea --> MQ["🏎️ Cola de Mensajes Redis"]
+
+        Worker["⚙️ Worker Celery"] -- Toma Tarea --> MQ
+        Worker -- Ejecuta --> AISearch["Caso de Uso IA: core.use_cases"]
+        AISearch -- Utiliza --> DomainLogic["📚 Lógica de Dominio (core.domain)"]
+        Worker -- Almacena Resultados --> DB
+        Worker -- Registra Experimento --> MLflowServer["📈 Servidor de Tracking MLflow"]
+
+        MLflowServer -- Almacena Metadatos --> DB
+        MLflowServer -- Almacena Artefactos (Opcional) --> ArtifactStore["(📦 Almacén de Artefactos e.g. S3/MinIO)"]
     end
 
-    A -- HTTP/HTTPS --> B
-    A -- Interacción Web --> C
-    C -- Peticiones API --> B
-    B -- Invoca --> D
-    D -- Usa --> F
-    F -- Opera sobre --> E
-    D -- Persiste/Lee vía Puerto --> G
-    D -- Encola Tareas vía Puerto --> H
-    D -- Registra Experimentos vía Puerto --> I
+    User -->|Visualiza Experimentos| MLflowUI["<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> UI de MLflow"]
+    MLflowUI -- Lee Datos --> MLflowServer
+
+    style User fill:#fff,stroke:#333,stroke-width:2px
+    style Dashboard fill:#FF4B4B,stroke:#333,stroke-width:2px,color:#fff
+    style API fill:#009688,stroke:#333,stroke-width:2px,color:#fff
+    style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
+    style MQ fill:#DC382D,stroke:#333,stroke-width:2px,color:#fff
+    style Worker fill:#fcf,stroke:#333,stroke-width:2px
+    style AISearch fill:#ddf,stroke:#333,stroke-width:2px
+    style DomainLogic fill:#eef,stroke:#333,stroke-width:2px
+    style MLflowServer fill:#00AEEC,stroke:#333,stroke-width:2px,color:#fff
+    style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
+    style ArtifactStore fill:#eee,stroke:#333,stroke-width:2px
 
 
 Módulo Principal (Aletheia_v3): Contiene el núcleo lógico, dividido en capas: api, application, core, infrastructure, y dashboard.
