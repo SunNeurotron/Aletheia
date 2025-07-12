@@ -1,31 +1,10 @@
-# Estrategia de Pruebas para Aletheia v3
+# Estrategia de Pruebas para `Aletheia_v3`
 
-Este directorio contiene el conjunto de pruebas automatizadas para el módulo `Aletheia_v3`. Nuestra filosofía de pruebas se centra en garantizar la corrección, robustez y mantenibilidad del sistema a través de múltiples niveles de verificación.
+Este directorio contiene el conjunto de pruebas automatizadas para el módulo `Aletheia_v3`, enfocadas en garantizar la corrección, robustez y mantenibilidad del sistema.
 
-## Niveles de Pruebas
+## Niveles de Pruebas y Cobertura
 
-Adoptamos una estrategia de pruebas piramidal, con énfasis en pruebas unitarias rápidas y un conjunto selectivo de pruebas de mayor nivel para validar interacciones complejas.
-
-1.  **Pruebas Unitarias (`unit/`)**:
-    -   **Objetivo**: Verificar la lógica de componentes individuales (clases, métodos) en aislamiento.
-    -   **Alcance**: Lógica de dominio (`core/domain_services.py`), funciones de utilidad, modelos de datos, heurísticas (`core/custom_acquisitions.py`).
-    -   **Características**: Rápidas, sin dependencias externas (se usan mocks/stubs).
-
-2.  **Pruebas de Integración (`integration/`)**:
-    -   **Objetivo**: Validar la interacción entre varios componentes internos o con servicios externos (ej. base de datos, colas de mensajes).
-    -   **Alcance**: Casos de uso (`application/use_cases.py`) con sus repositorios, interacciones API-Servicio, y flujos completos de conocimiento (`test_e2e_knowledge_flow.py`).
-
-3.  **Pruebas de Sistema/Plugins**:
-    -   **Objetivo**: Verificar la correcta integración y funcionamiento de sistemas transversales como el de plugins.
-    -   **Ejemplo**: `test_plugin_system.py`.
-
-4.  **Pruebas de API / End-to-End (E2E)**:
-    -   **Objetivo**: Simular el comportamiento de un cliente externo, verificando el flujo completo a través de los endpoints de la API.
-    -   **Ejemplo**: `test_api.py`.
-
-## Cobertura de Pruebas por Capa Arquitectónica
-
-El siguiente diagrama ilustra cómo nuestras pruebas cubren las distintas capas de la arquitectura del módulo:
+Adoptamos una estrategia de pruebas piramidal, donde la cobertura de cada capa de la arquitectura es fundamental.
 
 ```mermaid
 graph LR
@@ -55,40 +34,36 @@ graph LR
     style T_UNIT fill:#d5f4e6
 ```
 
+-   **Pruebas Unitarias (`unit/`)**: Verifican componentes en aislamiento (lógica de dominio, utilidades). Son rápidas y no tienen dependencias externas.
+-   **Pruebas de Integración (`integration/`)**: Validan la interacción entre componentes (ej. casos de uso con repositorios) y con servicios como la base de datos.
+-   **Pruebas de API / E2E**: Simulan el comportamiento de un cliente, verificando el flujo completo a través de los endpoints de la API.
+
 ## Ejecución de Pruebas
 
-Las pruebas están escritas usando el framework `pytest`.
+Las pruebas utilizan el framework `pytest`.
 
-### 1. Desde el Entorno Docker (Recomendado)
-Este método garantiza la consistencia con el entorno de CI/CD.
+### 1. Entorno Docker (Recomendado)
+Garantiza la consistencia con el entorno de CI/CD.
 ```bash
 # Desde el directorio que contiene docker-compose.yml (ej. Aletheia_v3/)
 docker-compose exec api pytest tests/
 ```
-*(La ruta `tests/` asume que el WORKDIR en el Dockerfile está configurado en el directorio raíz del módulo `Aletheia_v3`)*.
 
 ### 2. Localmente
-Requiere un entorno Python con todas las dependencias instaladas y los servicios necesarios (BD de prueba, Redis) en ejecución.
+Requiere un entorno Python con todas las dependencias y servicios necesarios (BD, Redis) en ejecución.
 ```bash
 # Desde el directorio Aletheia_v3/
 pytest tests/
-
-# Desde la raíz del proyecto
-pytest Aletheia_v3/tests/
 ```
 
-## Informe de Cobertura
-
+### Informe de Cobertura
 Para generar un informe de cobertura en formato HTML:
 ```bash
-# Ajustar --cov para que apunte al directorio del código fuente del módulo
 pytest --cov=Aletheia_v3 --cov-report=html Aletheia_v3/tests/
 ```
 El informe se generará en el directorio `htmlcov/`.
 
-## Directrices para Escribir Pruebas
-
--   Las nuevas características deben ir acompañadas de sus correspondientes pruebas.
--   Las correcciones de errores deben incluir pruebas de regresión.
--   Las pruebas deben ser claras, concisas y mantenibles. Utilice fixtures de `pytest` para la preparación y limpieza de datos.
--   Las pruebas deben ser independientes entre sí para permitir su ejecución en paralelo.
+## Directrices
+-   Nuevas características deben ir acompañadas de sus pruebas.
+-   Correcciones de errores deben incluir pruebas de regresión.
+-   Las pruebas deben ser claras, concisas y mantenibles.
