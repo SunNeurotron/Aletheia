@@ -249,258 +249,6 @@ class SynthesisCompletedEvent(DomainEvent):
 ```
 </details>
 
-## 12. Hoja de Ruta (Roadmap) y Futuras Investigaciones
-
-**Q4 2025:**
-
--   Implementación de un motor de inferencia lógica para la validación formal de proposiciones.
--   Integración de modelos de lenguaje (LLMs) para la generación de hipótesis textuales.
-
-**Q1 2026:**
-
--   Desarrollo de un sistema de meta-análisis para comparar resultados de múltiples experimentos.
--   Expansión del sistema de plugins para permitir arquitecturas de red neuronal personalizadas.
-
-**Investigación a Largo Plazo:**
-
--   Aplicabilidad del marco MDU a la biología de sistemas y la ciencia de materiales.
-
-## 13. Licencia y Contacto
-
-**Licencia:** Apache 2.0
-**Contacto:** aletheia-research@alant.com
-**GitHub:** https://github.com/SunNeurotron/Aletheia
-
-<div align="center">
-<p><strong>Aletheia v4.0 - Descubriendo la Verdad a través de la Computación</strong></p>
-<p><em>"Veritas in Silico"</em></p>
-<p>Copyright © 2025 Alant</p>
-</div>
-
-## 11. Publicaciones, Citación y Contribuciones
-### 11.1 Publicaciones del Proyecto
-```bibtex
-@article{aletheia2024,
-  title={Aletheia: A Computational Platform for AI-Guided Scientific Discovery},
-  author={Alant Research Team},
-  journal={Journal of Computational Science},
-  volume={TBD},
-  pages={TBD},
-  year={2024},
-  publisher={Elsevier}
-}
-```
-### 11.2 Citación del Software
-
-Para garantizar la reproducibilidad y dar crédito al trabajo de software, por favor cite este repositorio utilizando el siguiente formato. Se ha generado un DOI permanente para el proyecto a través de Zenodo.
-
-```bibtex
-@software{aletheia_v4_2025,
-  author       = {Equipo de Investigación Aletheia},
-  title        = {Aletheia: Plataforma Integral de Descubrimiento Científico Asistido por Inteligencia Artificial},
-  month        = jul,
-  year         = 2025,
-  publisher    = {Zenodo},
-  version      = {4.0.0},
-  doi          = {10.5281/zenodo.TU_DOI_ESPECIFICO},
-  url          = {https://doi.org/10.5281/zenodo.TU_DOI_ESPECIFICO}
-}
-```
-
-(Nota: Para obtener un DOI para tu propio proyecto, puedes conectar tu repositorio de GitHub a Zenodo).
-
-### 11.3 Referencias Fundamentales
-<details>
-<summary><b>Ver lista de referencias</b></summary>
-
--   Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." Comptes Rendus de l'Académie des Sciences.
--   Grünwald, P. D. (2007). The Minimum Description Length Principle. MIT Press.
--   Snoek, J., Larochelle, H., & Adams, R. P. (2012). "Practical Bayesian optimization of machine learning algorithms." Advances in Neural Information Processing Systems, 25.
-    (...lista completa de referencias del borrador original...)
-
-</details>
-
-### 11.4 Guía de Contribución
-
-Las contribuciones son bienvenidas. Por favor, consulte `CONTRIBUTING.md` para más detalles sobre cómo proponer cambios, informar de errores y seguir las guías de estilo y calidad del código.
-
-## 10. Calidad de Software, Testing y CI/CD
-<details>
-<summary><b>Ver estrategia de testing, configuraciones y pipeline</b></summary>
-
-### 10.1 Estrategia de Testing
-```mermaid
-graph TB
-    subgraph "Pirámide de Testing"
-        E2E[Tests E2E<br/>5%] --> INT[Tests de Integración<br/>20%] --> UNIT[Tests Unitarios<br/>75%]
-    end
-```
-```python
-# tests/test_domain.py
-class TestDomainLogic:
-    def test_radical_calculation(self, n, expected):
-        # ...
-    @given(a=st.integers(min_value=1), b=st.integers(min_value=1))
-    def test_radical_properties(self, a, b):
-        # ...
-```
-#### 10.2 Cobertura de Código
-Se busca una cobertura de código superior al 90% para la lógica de dominio y superior al 85% en total.
-
-**Gráfico 10.2.1:** Cobertura de Código por Módulo
-```mermaid
-gantt
-    title Cobertura de Tests por Módulo
-    dateFormat X
-    axisFormat %s
-
-    section Cobertura
-    Core Domain          : 0, 95
-    Application Layer    : 0, 92
-    API Layer            : 0, 88
-    Stats Domain         : 0, 96
-    Overall              : 0, 91
-```
-```bash
-# Ejecutar tests con cobertura
-pytest --cov=aletheia_v3 --cov-report=html
-```
-#### 10.3 Análisis Estático y Linting
-```yaml
-# .pre-commit-config.yaml
-repos:
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks: [id: black]
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.1.0
-    hooks: [id: flake8]
-# ... (configuración completa)
-```
-### 10.4 CI/CD Pipeline
-```yaml
-# .github/workflows/ci.yml
-name: CI Pipeline
-on: [push, pull_request]
-jobs:
-  lint:
-    # ...
-  test:
-    services:
-      postgres:
-        # ...
-    steps:
-      # ...
-  build:
-    # ...
-```
-</details>
-
-## 8. Guía Detallada de Instalación y Despliegue
-<details>
-<summary><b>Ver guías completas de instalación y despliegue</b></summary>
-
-### 8.1 Requisitos del Sistema
-```yaml
-Hardware Mínimo:
-  CPU: 4 cores @ 2.4GHz
-  RAM: 16GB
-  Almacenamiento: 50GB SSD
-Hardware Recomendado (Producción):
-  CPU: 16+ cores @ 3.0GHz
-  RAM: 64GB+
-  # ...
-```
-### 8.2 Instalación Local y Configuración de Entorno
-```bash
-# 1. Instalar dependencias del sistema (build-essential, python-dev, etc.)
-# ...
-# 2. Instalar Docker
-# ...
-# 3. Clonar repositorio
-# ...
-# 4. Configurar entorno Python (venv)
-# ...
-# 5. Configurar variables de entorno (.env)
-# ...
-```
-#### 8.3 Despliegue con Docker Compose
-```bash
-# 1. Construir imágenes
-cd Aletheia_v3 && docker-compose build
-# 2. Iniciar servicios en orden
-docker-compose up -d postgres redis mlflow
-# 3. Aplicar migraciones
-docker-compose run --rm alembic_migrate
-# 4. Iniciar todos los servicios
-docker-compose up -d
-```
-### 8.4 Configuración Avanzada: Kubernetes y HPC
-```yaml
-# kubernetes/api-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: aletheia-api
-# ... (configuración completa)
-```
-```bash
-#!/bin/bash
-#SBATCH --job-name=aletheia-abc-search
-#SBATCH --partition=gpu
-... (configuración completa)
-```
-#### 8.5 Optimización de Rendimiento de la Base de Datos
-```sql
--- postgresql.conf optimizations
-shared_buffers = 8GB
-effective_cache_size = 24GB
--- ... (configuración completa)
-
--- Índices optimizados
-CREATE INDEX CONCURRENTLY idx_concepts_type_created ON scientific_concepts(concept_type, created_at DESC);
--- ... (lista completa de índices)
-```
-</details>
-
-## 9. Referencia Completa de la API
-<details>
-<summary><b>Ver documentación de la API y endpoints</b></summary>
-
-### 9.1 Documentación OpenAPI
-
-La documentación completa de la API está disponible en formato OpenAPI/Swagger:
-
--   **Swagger UI:** http://localhost:8000/docs
--   **ReDoc:** http://localhost:8000/redoc
-
-### 9.2 Endpoints Principales por Módulo
-```yaml
-Ingesta de Documentos:
-  POST /api/eje-x/ingest-document:
-    description: Ingiere un documento y extrae UCMs
-# ... (endpoints completos)
-```
-##### 9.2.2 Eje Y - Síntesis de Conocimiento
-```yaml
-Formación de Clusters:
-  POST /api/eje-y/cluster-formation:
-    description: Forma clusters a partir de UCMs
-# ... (endpoints completos)
-```
-### 9.3 WebSocket para Actualizaciones en Tiempo Real
-```python
-# Cliente WebSocket ejemplo
-import asyncio
-import websockets
-import json
-
-async def monitor_job(job_id: str, token: str):
-    uri = f"ws://localhost:8000/ws/jobs/{job_id}"
-    # ... (código completo)
-```
-</details>
-
 ### 2.3 Flujo de Datos del Sistema
 ```mermaid
 sequenceDiagram
@@ -921,3 +669,255 @@ Métricas de Calidad:
     - Mejora vs búsqueda aleatoria: > 10x
 ```
 </details>
+
+## 8. Guía Detallada de Instalación y Despliegue
+<details>
+<summary><b>Ver guías completas de instalación y despliegue</b></summary>
+
+### 8.1 Requisitos del Sistema
+```yaml
+Hardware Mínimo:
+  CPU: 4 cores @ 2.4GHz
+  RAM: 16GB
+  Almacenamiento: 50GB SSD
+Hardware Recomendado (Producción):
+  CPU: 16+ cores @ 3.0GHz
+  RAM: 64GB+
+  # ...
+```
+### 8.2 Instalación Local y Configuración de Entorno
+```bash
+# 1. Instalar dependencias del sistema (build-essential, python-dev, etc.)
+# ...
+# 2. Instalar Docker
+# ...
+# 3. Clonar repositorio
+# ...
+# 4. Configurar entorno Python (venv)
+# ...
+# 5. Configurar variables de entorno (.env)
+# ...
+```
+#### 8.3 Despliegue con Docker Compose
+```bash
+# 1. Construir imágenes
+cd Aletheia_v3 && docker-compose build
+# 2. Iniciar servicios en orden
+docker-compose up -d postgres redis mlflow
+# 3. Aplicar migraciones
+docker-compose run --rm alembic_migrate
+# 4. Iniciar todos los servicios
+docker-compose up -d
+```
+### 8.4 Configuración Avanzada: Kubernetes y HPC
+```yaml
+# kubernetes/api-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aletheia-api
+# ... (configuración completa)
+```
+```bash
+#!/bin/bash
+#SBATCH --job-name=aletheia-abc-search
+#SBATCH --partition=gpu
+... (configuración completa)
+```
+#### 8.5 Optimización de Rendimiento de la Base de Datos
+```sql
+-- postgresql.conf optimizations
+shared_buffers = 8GB
+effective_cache_size = 24GB
+-- ... (configuración completa)
+
+-- Índices optimizados
+CREATE INDEX CONCURRENTLY idx_concepts_type_created ON scientific_concepts(concept_type, created_at DESC);
+-- ... (lista completa de índices)
+```
+</details>
+
+## 9. Referencia Completa de la API
+<details>
+<summary><b>Ver documentación de la API y endpoints</b></summary>
+
+### 9.1 Documentación OpenAPI
+
+La documentación completa de la API está disponible en formato OpenAPI/Swagger:
+
+-   **Swagger UI:** http://localhost:8000/docs
+-   **ReDoc:** http://localhost:8000/redoc
+
+### 9.2 Endpoints Principales por Módulo
+```yaml
+Ingesta de Documentos:
+  POST /api/eje-x/ingest-document:
+    description: Ingiere un documento y extrae UCMs
+# ... (endpoints completos)
+```
+##### 9.2.2 Eje Y - Síntesis de Conocimiento
+```yaml
+Formación de Clusters:
+  POST /api/eje-y/cluster-formation:
+    description: Forma clusters a partir de UCMs
+# ... (endpoints completos)
+```
+### 9.3 WebSocket para Actualizaciones en Tiempo Real
+```python
+# Cliente WebSocket ejemplo
+import asyncio
+import websockets
+import json
+
+async def monitor_job(job_id: str, token: str):
+    uri = f"ws://localhost:8000/ws/jobs/{job_id}"
+    # ... (código completo)
+```
+</details>
+
+## 10. Calidad de Software, Testing y CI/CD
+<details>
+<summary><b>Ver estrategia de testing, configuraciones y pipeline</b></summary>
+
+### 10.1 Estrategia de Testing
+```mermaid
+graph TB
+    subgraph "Pirámide de Testing"
+        E2E[Tests E2E<br/>5%] --> INT[Tests de Integración<br/>20%] --> UNIT[Tests Unitarios<br/>75%]
+    end
+```
+```python
+# tests/test_domain.py
+class TestDomainLogic:
+    def test_radical_calculation(self, n, expected):
+        # ...
+    @given(a=st.integers(min_value=1), b=st.integers(min_value=1))
+    def test_radical_properties(self, a, b):
+        # ...
+```
+#### 10.2 Cobertura de Código
+Se busca una cobertura de código superior al 90% para la lógica de dominio y superior al 85% en total.
+
+**Gráfico 10.2.1:** Cobertura de Código por Módulo
+```mermaid
+gantt
+    title Cobertura de Tests por Módulo
+    dateFormat X
+    axisFormat %s
+
+    section Cobertura
+    Core Domain          : 0, 95
+    Application Layer    : 0, 92
+    API Layer            : 0, 88
+    Stats Domain         : 0, 96
+    Overall              : 0, 91
+```
+```bash
+# Ejecutar tests con cobertura
+pytest --cov=aletheia_v3 --cov-report=html
+```
+#### 10.3 Análisis Estático y Linting
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks: [id: black]
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.0
+    hooks: [id: flake8]
+# ... (configuración completa)
+```
+### 10.4 CI/CD Pipeline
+```yaml
+# .github/workflows/ci.yml
+name: CI Pipeline
+on: [push, pull_request]
+jobs:
+  lint:
+    # ...
+  test:
+    services:
+      postgres:
+        # ...
+    steps:
+      # ...
+  build:
+    # ...
+```
+</details>
+
+## 11. Publicaciones, Citación y Contribuciones
+### 11.1 Publicaciones del Proyecto
+```bibtex
+@article{aletheia2024,
+  title={Aletheia: A Computational Platform for AI-Guided Scientific Discovery},
+  author={Alant Research Team},
+  journal={Journal of Computational Science},
+  volume={TBD},
+  pages={TBD},
+  year={2024},
+  publisher={Elsevier}
+}
+```
+### 11.2 Citación del Software
+
+Para garantizar la reproducibilidad y dar crédito al trabajo de software, por favor cite este repositorio utilizando el siguiente formato. Se ha generado un DOI permanente para el proyecto a través de Zenodo.
+
+```bibtex
+@software{aletheia_v4_2025,
+  author       = {Equipo de Investigación Aletheia},
+  title        = {Aletheia: Plataforma Integral de Descubrimiento Científico Asistido por Inteligencia Artificial},
+  month        = jul,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {4.0.0},
+  doi          = {10.5281/zenodo.TU_DOI_ESPECIFICO},
+  url          = {https://doi.org/10.5281/zenodo.TU_DOI_ESPECIFICO}
+}
+```
+
+(Nota: Para obtener un DOI para tu propio proyecto, puedes conectar tu repositorio de GitHub a Zenodo).
+
+### 11.3 Referencias Fundamentales
+<details>
+<summary><b>Ver lista de referencias</b></summary>
+
+-   Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." Comptes Rendus de l'Académie des Sciences.
+-   Grünwald, P. D. (2007). The Minimum Description Length Principle. MIT Press.
+-   Snoek, J., Larochelle, H., & Adams, R. P. (2012). "Practical Bayesian optimization of machine learning algorithms." Advances in Neural Information Processing Systems, 25.
+    (...lista completa de referencias del borrador original...)
+
+</details>
+
+### 11.4 Guía de Contribución
+
+Las contribuciones son bienvenidas. Por favor, consulte `CONTRIBUTING.md` para más detalles sobre cómo proponer cambios, informar de errores y seguir las guías de estilo y calidad del código.
+
+## 12. Hoja de Ruta (Roadmap) y Futuras Investigaciones
+
+**Q4 2025:**
+
+-   Implementación de un motor de inferencia lógica para la validación formal de proposiciones.
+-   Integración de modelos de lenguaje (LLMs) para la generación de hipótesis textuales.
+
+**Q1 2026:**
+
+-   Desarrollo de un sistema de meta-análisis para comparar resultados de múltiples experimentos.
+-   Expansión del sistema de plugins para permitir arquitecturas de red neuronal personalizadas.
+
+**Investigación a Largo Plazo:**
+
+-   Aplicabilidad del marco MDU a la biología de sistemas y la ciencia de materiales.
+
+## 13. Licencia y Contacto
+
+**Licencia:** Apache 2.0
+**Contacto:** aletheia-research@alant.com
+**GitHub:** https://github.com/SunNeurotron/Aletheia
+
+<div align="center">
+<p><strong>Aletheia v4.0 - Descubriendo la Verdad a través de la Computación</strong></p>
+<p><em>"Veritas in Silico"</em></p>
+<p>Copyright © 2025 Alant</p>
+</div>
