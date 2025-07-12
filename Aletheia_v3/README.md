@@ -58,7 +58,7 @@ graph TD
         API -- Almacena/Recupera Datos --> DB["(🐘 BD PostgreSQL)"]
         API -- Encola Tarea --> MQ["🏎️ Cola de Mensajes Redis"]
 
-        Worker["⚙️ Worker Celery"] -- Toma Tarea --> MQ
+        Worker["Worker Celery"] -- Toma Tarea --> MQ  // Emoji removed from Worker label
         Worker -- Ejecuta --> AISearch["Caso de Uso IA: core.use_cases"]
         AISearch -- Utiliza --> DomainLogic["📚 Lógica de Dominio (core.domain)"]
         Worker -- Almacena Resultados --> DB
