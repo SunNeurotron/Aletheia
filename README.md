@@ -105,17 +105,46 @@ graph TD
     User -->|Visualiza Experimentos| MLflowUI[<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> UI de MLflow]
     MLflowUI -- Lee Datos --> MLflowServer
 
+    flowchart TD
+ subgraph subGraph0["Servicios Dockerizados de la plataforma Aletheia"]
+        API["FastAPI API Server"]
+        Dashboard["Streamlit Dashboard"]
+        DB["PostgreSQL DB"]
+        MQ["Redis Message Queue"]
+        Worker["Celery Worker"]
+        AISearch["AI Search Use Case"]
+        DomainLogic["Domain Logic"]
+        MLflowServer["MLflow Tracking Server"]
+        ArtifactStore["Artifact Store e.g. S3/MinIO"]
+  end
+    User["User"] -- Interacts via Browser --> Dashboard
+    Dashboard -- HTTP Request --> API
+    API -- Stores/Retrieves Job Data --> DB
+    API -- Enqueues Task --> MQ
+    Worker -- Picks Task --> MQ
+    Worker -- Executes --> AISearch
+    AISearch -- Uses --> DomainLogic
+    Worker -- Stores Results --> DB
+    Worker -- Logs Experiment --> MLflowServer
+    MLflowServer -- Stores Metadata --> DB
+    MLflowServer -- Stores Artifacts Optional --> ArtifactStore
+    User -- Views Experiments --> MLflowUI["MLflow UI"]
+    MLflowUI -- Reads Data --> MLflowServer
+
     style User fill:#fff,stroke:#333,stroke-width:2px
-    style Dashboard fill:#FF4B4B,stroke:#333,stroke-width:2px,color:#fff
-    style API fill:#009688,stroke:#333,stroke-width:2px,color:#fff
-    style DB fill:#336791,stroke:#333,stroke-width:2px,color:#fff
-    style MQ fill:#DC382D,stroke:#333,stroke-width:2px,color:#fff
+    style Dashboard fill:#f9f,stroke:#333,stroke-width:2px
+    style API fill:#ccf,stroke:#333,stroke-width:2px
+    style DB fill:#cff,stroke:#333,stroke-width:2px
+    style MQ fill:#ffc,stroke:#333,stroke-width:2px
     style Worker fill:#fcf,stroke:#333,stroke-width:2px
     style AISearch fill:#ddf,stroke:#333,stroke-width:2px
     style DomainLogic fill:#eef,stroke:#333,stroke-width:2px
-    style MLflowServer fill:#00AEEC,stroke:#333,stroke-width:2px,color:#fff
-    style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
+    style MLflowServer fill:#cfc,stroke:#333,stroke-width:2px
     style ArtifactStore fill:#eee,stroke:#333,stroke-width:2px
+    style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
+
+
+
 ```
 
 (GitHub y otros visores modernos renderizan este diagrama automáticamente. Si no lo ves, puedes copiar el código en un editor de Mermaid.)
