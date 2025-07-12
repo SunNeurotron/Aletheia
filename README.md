@@ -3,7 +3,7 @@
 (https://github.com/SunNeurotron/Aletheia/issues/102)
 <h1>Aletheia v4.0</h1>
 <p><strong>Plataforma de Descubrimiento Científico Guiado por IA</strong></p>
-<p>Descubriendo las fronteras de la ciencia y las matemáticas con inteligencia artificial.</p>
+<p>Una infraestructura computacional para la epistemología y el descubrimiento en ciencias formales.</p>
 
 <p>
 <a href="Aletheia_v3/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Licencia"></a>
@@ -16,217 +16,149 @@
 </p>
 </div>
 
+## Introducción
 
 **Aletheia** es una plataforma de software diseñada para la investigación y el descubrimiento en ciencias formales, con un enfoque principal en la matemática pura y la física teórica. Su propósito es servir como un laboratorio computacional para la **epistemología asistida por IA**, donde las estructuras del conocimiento científico pueden ser representadas, sintetizadas y exploradas sistemáticamente.
 
-La plataforma implementa el paradigma de **Modelado, Descubrimiento y Comprensión (MDU)**, materializado a través de dos ejes operativos principales:
-1.  **Eje X (Análisis y Ontología):** La ingesta y estructuración del conocimiento existente a partir de fuentes no estructuradas (como textos académicos) en un grafo de conocimiento formal.
-2.  **Eje Y (Síntesis y Abstracción):** La generación de nuevo conocimiento mediante la abstracción jerárquica de conceptos, la formulación de proposiciones, la construcción de teorías y la unificación de modelos.
-
-Inicialmente concebida para investigar la **Conjetura ABC** en teoría de números, la arquitectura de Aletheia ha evolucionado para convertirse en un sistema generalizable para la investigación en cualquier dominio que pueda ser formalizado. Para detalles sobre la evolución del proyecto y versiones anteriores, consulta el archivo CHANGELOG.md.
+La plataforma implementa el paradigma de **Modelado, Descubrimiento y Comprensión (MDU)**, materializado a través de un ecosistema de servicios interconectados. Inicialmente concebida para investigar la **Conjetura ABC**, la arquitectura de Aletheia ha evolucionado para convertirse en un sistema generalizable para la investigación en cualquier dominio formalizable.
 
 ## Fundamentos Teóricos
 
-La plataforma integra conceptos de teoría de números, optimización, teoría de grafos y procesamiento de lenguaje natural.
+La plataforma integra conceptos de teoría de números, optimización, teoría de grafos, estadística y procesamiento de lenguaje natural.
 
-### La Conjetura ABC
+### Análisis Matemático y Teoría de Números
 
-El problema que inspiró el motor matemático de Aletheia es la Conjetura ABC, una de las conjeturas más profundas de la teoría de números. Relaciona los factores primos de dos números enteros con los de su suma.
+- **Conjetura ABC**: El problema que inspiró el motor matemático de Aletheia. Dada una tripleta de enteros positivos $(a, b, c)$ coprimos tales que $a + b = c$, la conjetura establece que para todo $\varepsilon > 0$, la desigualdad $c < K_\varepsilon \cdot (\text{rad}(abc))^{1+\varepsilon}$ se cumple salvo un número finito de excepciones, donde $\text{rad}(n) = \prod_{p|n} p$ es el radical de $n$.
 
-Dada una tripleta de enteros positivos $(a, b, c)$ que son coprimos, tales que $a + b = c$. El **radical** de un entero $n$, denotado como $\text{rad}(n)$, es el producto de sus factores primos distintos.
+- **Heurística de Optimización Estructural**: Para guiar la búsqueda de tripletas interesantes, se emplea un sesgo heurístico que favorece a enteros con estructura multiplicativa simple (potencias de primos). El bono ($B$) se calcula como:
 $$
-\text{rad}(n) = \prod_{p|n, p \in \text{Primos}} p
+B(v) = \begin{cases} S \cdot M & \text{si } v = p^k \\ S \cdot e^{-\lambda \cdot d_{\text{rel}}(v)} & \text{si } v \text{ es "cercano" a } p^k \end{cases}
 $$
-La conjetura establece que para todo $\varepsilon > 0$, existe una constante $K_\varepsilon$ tal que para todas las tripletas $(a, b, c)$ que cumplen las condiciones, se verifica la siguiente desigualdad:
+
+### Análisis Estadístico
+
+- **Prueba t de Welch**: Para comparar dos muestras independientes sin asumir igualdad de varianzas, el servicio `aletheia_stats` utiliza la prueba t de Welch. El estadístico $t$ se calcula como:
 $$
-c < K_\varepsilon \cdot (\text{rad}(abc))^{1+\varepsilon}
+t = \frac{\bar{X}_1 - \bar{X}_2}{\sqrt{\frac{s_1^2}{N_1} + \frac{s_2^2}{N_2}}}
 $$
-Aletheia busca tripletas "excepcionales" o "de alta calidad", aquellas donde $c$ es inusualmente grande en comparación con $\text{rad}(abc)$, poniendo a prueba los límites de la conjetura.
+Donde $\bar{X}$, $s^2$ y $N$ son la media, varianza y tamaño de la muestra de cada grupo.
 
-### Heurística de Optimización Estructural
+## Arquitectura y Ecosistema de Módulos
 
-Para guiar la búsqueda de tripletas ABC interesantes, Aletheia emplea una función de adquisición personalizada en su motor de optimización bayesiana. La función `get_structural_bonus` introduce un sesgo heurístico que favorece a los enteros con una estructura multiplicativa simple (potencias de primos pequeños), que se postula tienen más probabilidades de formar parte de tripletas de alta calidad.
-
-El bono ($B$) se calcula de la siguiente manera:
-$$
-B(v) =
-\begin{cases}
-S \cdot M & \text{si } v = p^k \text{ para } p \in P_{\text{pequeños}} \\
-S \cdot e^{-\lambda \cdot d_{\text{rel}}(v)} & \text{si } v \text{ está "cerca" de una potencia de primo}
-\end{cases}
-$$
-Donde:
-- $v$ es el valor entero evaluado.
-- $S$ es el factor de escala del bono (`bonus_scale_factor`).
-- $M$ es el multiplicador por coincidencia exacta (`exact_match_multiplier`).
-- $\lambda$ es el factor de penalización por proximidad (`proximity_penalty_factor`).
-- $d_{\text{rel}}(v) = \min_{p,k} \frac{|v - p^k|}{p^k}$ es la distancia relativa mínima a la potencia de un primo más cercana.
-
-## Flujo de Conocimiento: Ejes X-Y
-
-El núcleo de Aletheia opera a través de un flujo de trabajo dual que transforma datos no estructurados en modelos teóricos unificados.
+Aletheia está diseñada como un ecosistema de microservicios que colaboran para ofrecer una funcionalidad completa, desde la ingesta de datos hasta el análisis avanzado.
 
 ```mermaid
 graph TD
-    subgraph Eje X [Análisis y Estructuración]
-        A1(Documento de Origen) --> A2{ExtractUCMsUseCase};
-        A2 -- UCMs --> A3(Concepto: UCM);
-        A3 --> A4{LinkConceptsUseCase};
-        A4 -- Relación Manual --> A5(Grafo de Conocimiento Básico);
+    subgraph "Usuario"
+        U[Investigador]
     end
 
-    subgraph Eje Y [Síntesis y Abstracción]
-        B1(Conceptos Nivel k) --> B2{FormClusters};
-        B2 -- Clústeres --> B3(Concepto: CLUSTER);
-        B3 --> B4{DerivePropositions};
-        B4 -- Proposiciones --> B5(Concepto: PROPOSITION);
-        B5 --> B6{MiniTheoryConstruction};
-        B6 -- Mini-Teorías --> B7(Concepto: MINI_THEORY);
-        B7 --> B8(...);
+    subgraph "Interfaz de Usuario"
+        DASH[Dashboard (Streamlit)]
     end
 
-    A5 --> B1;
-    B8 --> B1;
-
-    style A1 fill:#cde4ff
-    style B7 fill:#d5e8d4
-```
-
-## El Cubo MDU (Modelado, Descubrimiento, Comprensión)
-
-El Cubo MDU es un modelo conceptual que enmarca el proceso de investigación de Aletheia. Cada eje representa una dimensión fundamental del descubrimiento.
-
-```mermaid
-graph TD
-    subgraph Cubo MDU
-        direction LR
-        subgraph Eje Z [Comprensión]
-            direction TB
-            Z1(Visualización)
-            Z2(Explicabilidad)
-            Z3(Validación)
-        end
-        subgraph Eje Y [Descubrimiento]
-            direction TB
-            Y1(Generación de Hipótesis)
-            Y2(Optimización)
-            Y3(Síntesis de Teorías)
-        end
-        subgraph Eje X [Modelado]
-            direction TB
-            X1(Ingesta de Datos)
-            X2(Extracción de Entidades)
-            X3(Construcción de Ontología)
-        end
+    subgraph "Núcleo de la Plataforma (Aletheia_v3)"
+        API[API Principal (FastAPI)]
+        WORKER[Worker (Celery)]
+        DB[(PostgreSQL)]
+        MQ[(Redis)]
+        MLFLOW[MLflow Tracking Server]
     end
 
-    style X1 fill:#ffcdd2
-    style Y1 fill:#c8e6c9
-    style Z1 fill:#bbdefb
-```
+    subgraph "Módulos Satélite"
+        STATS[aletheia_stats API]
+        OMEGA[aletheia_omega API]
+    end
 
-🚀 Características Principales
+    U -- Interacciona con --> DASH
+    DASH -- Peticiones HTTP --> API
 
-Esta versión integra funcionalidades desarrolladas a lo largo de varias fases, transformando las capacidades de la plataforma.
+    API -- Encola Tareas --> MQ
+    WORKER -- Consume Tareas --> MQ
+    WORKER -- Lógica de Dominio/Síntesis --> DB
+    WORKER -- Registra Experimentos --> MLFLOW
 
-🧠 Núcleo de Grafo de Conocimiento y Visualización
+    WORKER -- Petición de Análisis Estadístico --> STATS
+    STATS -- Realiza Prueba t --> STATS_DB[(DB Stats)]
 
-Entidades de Conocimiento: Modelos de dominio ScientificConcept y DirectedRelationship que forman la columna vertebral del grafo.
+    WORKER -- Petición de Optimización --> OMEGA
+    OMEGA -- Registra Trayectoria --> OMEGA_DB[(DB Omega)]
 
-Almacenamiento Persistente: Repositorios basados en SQLAlchemy para persistir conceptos y relaciones en una base de datos PostgreSQL, con esquema gestionado por migraciones de Alembic.
-
-Eje X - Ingesta y Ontología:
-
-IngestDocumentUseCase: Ingesta texto, crea conceptos DOCUMENT_SOURCE y dispara la extracción de UCMs.
-
-ExtractUCMsUseCase: Extrae Unidades Conceptuales Mínimas (UCM) usando regex y análisis de palabras clave.
-
-LinkConceptsUseCase: Permite la creación manual de relaciones entre conceptos.
-
-Eje Y - Síntesis de Conocimiento:
-
-Pipeline completo (FormClusters, DerivePropositions, MiniTheoryConstruction, etc.) que toma conceptos de un nivel y los sintetiza en un nivel superior de abstracción (CLUSTER, PROPOSICIÓN, MINI_THEORY).
-
-Dashboard de Conocimiento Interactivo (mdu_dashboard.py):
-
-Un nuevo dashboard en Streamlit para visualizar el grafo de conocimiento.
-
-Explorador de grafo completo con filtros, visor de jerarquías y estadísticas clave.
-
-🧮 Motor Matemático de Alto Rendimiento
-
-Integración con PARI/GP: El núcleo matemático (core/domain.py) utiliza cypari2 para aritmética de alta precisión y factorización de primos, aumentando drásticamente el rendimiento y la exactitud.
-
-Cálculos Optimizados: Caching (lru_cache) para reducir cálculos redundantes de radicales.
-
-🌐 Computación Distribuida y Escalabilidad
-
-Listo para Kubernetes: Configuraciones robustas en el directorio kubernetes/ para un despliegue orquestado y escalable.
-
-Gestión Avanzada de Celery: Enrutamiento de tareas a colas especializadas (ej. math_heavy) y diseños conceptuales para autoescalado con KEDA.
-
-Estrategias de Escalabilidad de BD: Ejemplos en infrastructure/db_optimizations.sql para particionamiento de tablas e indexación avanzada en PostgreSQL.
-
-Adaptación a HPC: Documentación en docs/HPC_ADAPTATION.md con ejemplos de scripts para SLURM y código mpi4py.
-
-🧩 IA Avanzada y Arquitectura de Plugins
-
-Heurísticas de Adquisición Personalizadas: La función get_structural_bonus en core/custom_acquisitions.py guía la optimización bayesiana hacia números con estructuras potencialmente más simples.
-
-Arquitectura de Plugins: Un sistema flexible para extender la plataforma con nuevas estrategias de búsqueda, evaluadores de calidad o post-procesadores de datos.
-
-Conceptos de Integración con Dask: Exploración en docs/DASK_INTEGRATION.md para usar Dask en el procesamiento de datos a gran escala.
-
-🎨 Experiencia de Usuario y Colaboración
-
-Visualizaciones Avanzadas: Gráficos de dispersión 3D en el dashboard (dashboard/dashboard.py) para una mejor exploración de los resultados.
-
-Modelo de Datos Colaborativo: Esquema de base de datos y API extendidos para soportar múltiples investigadores, atribuciones de descubrimiento y conjeturas derivadas.
-
-Seguridad Refinada (Diseño Conceptual): Estrategias para Control de Acceso Basado en Roles (RBAC) y autorización granular de API mediante scopes de OAuth2.
-
-🏗️ Diagrama de Arquitectura del Sistema
-```mermaid
-flowchart TD
- subgraph subGraph0["Servicios Dockerizados de la plataforma Aletheia"]
-        API["FastAPI API Server"]
-        Dashboard["Streamlit Dashboard"]
-        DB["PostgreSQL DB"]
-        MQ["Redis Message Queue"]
-        Worker["Celery Worker"]
-        AISearch["AI Search Use Case"]
-        DomainLogic["Domain Logic"]
-        MLflowServer["MLflow Tracking Server"]
-        ArtifactStore["Artifact Store e.g. S3/MinIO"]
-  end
-    User["User"] -- Interacts via Browser --> Dashboard
-    Dashboard -- HTTP Request --> API
-    API -- Stores/Retrieves Job Data --> DB
-    API -- Enqueues Task --> MQ
-    Worker -- Picks Task --> MQ
-    Worker -- Executes --> AISearch
-    AISearch -- Uses --> DomainLogic
-    Worker -- Stores Results --> DB
-    Worker -- Logs Experiment --> MLflowServer
-    MLflowServer -- Stores Metadata --> DB
-    MLflowServer -- Stores Artifacts Optional --> ArtifactStore
-    User -- Views Experiments --> MLflowUI["MLflow UI"]
-    MLflowUI -- Reads Data --> MLflowServer
-
-    style User fill:#fff,stroke:#333,stroke-width:2px
-    style Dashboard fill:#f9f,stroke:#333,stroke-width:2px
+    style U fill:#fff,stroke:#333,stroke-width:2px
+    style DASH fill:#f9f,stroke:#333,stroke-width:2px
     style API fill:#ccf,stroke:#333,stroke-width:2px
-    style DB fill:#cff,stroke:#333,stroke-width:2px
-    style MQ fill:#ffc,stroke:#333,stroke-width:2px
-    style Worker fill:#fcf,stroke:#333,stroke-width:2px
-    style AISearch fill:#ddf,stroke:#333,stroke-width:2px
-    style DomainLogic fill:#eef,stroke:#333,stroke-width:2px
-    style MLflowServer fill:#cfc,stroke:#333,stroke-width:2px
-    style ArtifactStore fill:#eee,stroke:#333,stroke-width:2px
-    style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
+    style WORKER fill:#fcf,stroke:#333,stroke-width:2px
+    style STATS fill:#c8e6c9,stroke:#333,stroke-width:2px
+    style OMEGA fill:#bbdefb,stroke:#333,stroke-width:2px
+
 ```
 
-(GitHub y otros visores modernos renderizan este diagrama automáticamente. Si no lo ves, puedes copiar el código en un editor de Mermaid.)
+### Componentes del Ecosistema
+
+-   **Núcleo de Grafo de Conocimiento y Visualización (`Aletheia_v3`)**:
+    -   **Eje X (Ingesta y Ontología)**: Ingiere documentos, extrae Unidades Conceptuales Mínimas (UCM) y construye un grafo de conocimiento.
+    -   **Eje Y (Síntesis de Conocimiento)**: Sintetiza conceptos de niveles superiores (clusters, proposiciones, teorías) a partir de los existentes.
+    -   **Motor Matemático**: Utiliza `cypari2` para aritmética de alta precisión.
+    -   **Dashboard Interactivo**: Permite la exploración visual del grafo de conocimiento.
+
+-   **Servicio de Análisis Estadístico (`aletheia_stats`)**:
+    -   Proporciona endpoints para realizar pruebas de hipótesis estadísticas (ej. Prueba t, ANOVA).
+    -   Cada análisis es registrado como un experimento trazable en su propia base de datos y en MLflow.
+
+-   **Servicio de Trayectorias de Optimización (`aletheia_omega`)**:
+    -   Gestiona y persiste los resultados de ejecuciones de optimización (ej. bayesiana, genéticos).
+    -   Almacena la "trayectoria" completa de cada ejecución para análisis post-hoc.
+
+-   **Biblioteca Común (`aletheia_common`)**: Un paquete interno con utilidades compartidas (autenticación, esquemas Pydantic) para garantizar la consistencia en todo el ecosistema.
+
+## Flujo de Demostración: De la Ingesta al Análisis
+
+Un caso de uso típico en Aletheia podría seguir estos pasos:
+1.  **Ingesta**: Un investigador sube un artículo científico en PDF sobre un nuevo material a través del **Dashboard**.
+2.  **Eje X**: La **API Principal** recibe el documento y encola una tarea. Un **Worker** procesa el PDF, extrae UCMs (ej. "dureza", "composición química") y las almacena como nodos en la base de datos **PostgreSQL**.
+3.  **Análisis Estadístico**: El investigador tiene datos de dos variantes del material y quiere comparar su dureza. Desde el Dashboard, envía los dos conjuntos de datos al endpoint de la **API Principal**, que a su vez llama al servicio **`aletheia_stats`**. Este último realiza una prueba t, almacena los resultados (p-valor, estadístico t) y los registra en **MLflow**.
+4.  **Optimización**: Basado en los resultados, el investigador quiere encontrar la composición química óptima. Inicia una ejecución de optimización a través del Dashboard. El **Worker** llama al servicio **`aletheia_omega`** para registrar la nueva ejecución. Durante la optimización, cada nuevo punto evaluado se envía a `aletheia_omega` para ser añadido a la trayectoria.
+5.  **Visualización**: El investigador explora el grafo de conocimiento actualizado, visualiza los resultados del test estadístico y monitoriza el progreso de la optimización, todo desde el **Dashboard**.
+
+## Rendimiento y Benchmarks
+
+La plataforma está diseñada para la eficiencia. Los benchmarks de los tests automatizados proporcionan una visión del rendimiento de los componentes clave.
+
+*(Nota: Los siguientes datos son ilustrativos y sirven como plantilla)*.
+```mermaid
+graph TD
+    title Tiempos de Ejecución de Suites de Pruebas (CI)
+
+    subgraph Módulo
+        A[Aletheia_v3]
+        B[aletheia_stats]
+        C[aletheia_omega]
+    end
+
+    subgraph "Tiempo (segundos)"
+        direction LR
+        P1[Unitarias: 15s]
+        P2[Integración: 45s]
+        P3[E2E: 90s]
+
+        S1[Unitarias: 5s]
+        S2[Integración: 12s]
+
+        O1[Unitarias: 4s]
+        O2[Integración: 10s]
+    end
+
+    A -- "Tests Unitarios" --> P1
+    A -- "Tests de Integración" --> P2
+    A -- "Tests End-to-End" --> P3
+
+    B -- " " --> S1 & S2
+    C -- " " --> O1 & O2
+```
+
+## Cómo Ejecutar la Plataforma
+
+(La sección de "Cómo Ejecutar la Plataforma", "Migraciones de Base de Datos", "Documentación Avanzada" y "Licencia" se mantiene igual que en la versión anterior).
 
 🛠️ Cómo Ejecutar la Plataforma
 📋 Prerrequisitos
@@ -239,76 +171,52 @@ Docker Compose (última versión recomendada)
 
 1️⃣ Clona el Repositorio:
 ```bash
-git clone https://github.com/alanturingai/aletheia-v4.git # Reemplaza con la URL real del repositorio
-cd aletheia-v4 # O el nombre del directorio raíz del proyecto
+git clone https://github.com/SunNeurotron/Aletheia.git
+cd Aletheia
 ```
 
 2️⃣ Revisa la Documentación (Recomendado):
 Antes de lanzar la plataforma, te sugerimos leer la [Guía de Uso End-to-End](Aletheia_v3/docs/END_TO_END_USE_CASE.md) para entender el flujo de trabajo completo.
 
 3️⃣ Construye e Inicia los Servicios:
-Desde el directorio que contiene `docker-compose.yml` (ej. `Aletheia_v3/`), ejecuta:
+Desde el directorio `Aletheia_v3/`, que contiene el `docker-compose.yml`, ejecute:
 ```bash
 docker-compose up --build
 ```
 La primera vez puede tardar varios minutos. Los inicios posteriores serán mucho más rápidos.
 
 4️⃣ Accede a los Servicios:
-Una vez que los contenedores estén en ejecución, accede a las interfaces desde tu navegador:
-
-🔬 Dashboard (Conjetura ABC): http://localhost:8501
-
-💡 Dashboard (Grafo de Conocimiento): http://localhost:8502
-
-📄 Documentación de la API (Swagger): http://localhost:8000/docs
-
-📈 UI de Experimentos (MLflow): http://localhost:5000
+-   **Dashboard (Conjetura ABC):** `http://localhost:8501`
+-   **Dashboard (Grafo de Conocimiento):** `http://localhost:8502`
+-   **API (Swagger UI):** `http://localhost:8000/docs`
+-   **MLflow UI:** `http://localhost:5000`
 
 5️⃣ Ejecuta las Pruebas (Opcional):
-Abre una nueva terminal y ejecuta las pruebas dentro del contenedor de la API:
 ```bash
 docker-compose exec api pytest tests/
 ```
 
 6️⃣ Detén la Plataforma:
-Para detener todos los servicios, presiona Ctrl+C en la terminal donde se ejecuta docker-compose y luego:
+Presione `Ctrl+C` y luego:
 ```bash
 docker-compose down
 ```
-Los datos de PostgreSQL persistirán gracias a los volúmenes de Docker.
 
-🗃️ Migraciones de Base de Datos (Alembic)
+## 🗃️ Migraciones de Base de Datos (Alembic)
 
-Este proyecto utiliza Alembic para gestionar las migraciones del esquema de la base de datos.
-
-Aplicación Automática: Al iniciar con docker-compose up, el servicio alembic_migrate aplicará automáticamente las migraciones pendientes antes de que la API y los workers arranquen.
-
-Generación de Nuevas Migraciones: Si modificas los modelos en infrastructure/models.py, debes generar un nuevo script de migración. Ejecuta el siguiente comando dentro del entorno de desarrollo apropiado:
+Este proyecto utiliza Alembic para gestionar las migraciones del esquema de la base de datos. Al iniciar con `docker-compose up`, las migraciones se aplican automáticamente. Para generar una nueva migración, ejecute:
 ```bash
 # Navega al directorio que contiene alembic.ini (ej. Aletheia_v3/)
 alembic revision -m "descripcion_corta_de_los_cambios" --autogenerate
 ```
-Importante: Revisa siempre los scripts autogenerados antes de confirmarlos en el repositorio.
 
-📚 Documentación Avanzada y Conceptos de Diseño
+## 📚 Documentación Avanzada y Conceptos de Diseño
 
-Para un entendimiento más profundo de la plataforma, consulta los siguientes documentos en el directorio `Aletheia_v3/docs/` (a menos que se indique lo contrario):
+Para un entendimiento más profundo, consulte la documentación específica en los directorios de cada módulo y en `Aletheia_v3/docs/`.
 
-*   [Guía de Uso End-to-End](Aletheia_v3/docs/END_TO_END_USE_CASE.md)
-*   Arquitectura de Plugins y Extensibilidad (`Aletheia_v3/plugins/README.md` y `Aletheia_v3/plugins/plugin_interfaces.py`)
-*   [Adaptación a Entornos HPC](Aletheia_v3/docs/HPC_ADAPTATION.md)
-*   [Integración con Dask para Procesamiento Distribuido](Aletheia_v3/docs/DASK_INTEGRATION.md)
-*   [Escalado de Celery Workers y Optimización Bayesiana Paralela](Aletheia_v3/docs/celery_scaling_and_parallel_bayes_opt.md)
-*   Configuraciones de Kubernetes (`Aletheia_v3/kubernetes/README.md`)
-*   Optimizaciones de Base de Datos (`Aletheia_v3/infrastructure/db_optimizations.sql`)
-*   [Control de Acceso (RBAC) para MLflow](Aletheia_v3/docs/RBAC_MLFLOW.md)
-*   [Scopes de API para Autorización Granular](Aletheia_v3/docs/API_SCOPES.md)
+## ⚖️ Licencia y Descargo de Responsabilidad
 
-⚖️ Licencia y Descargo de Responsabilidad
-
-Este proyecto está licenciado bajo la Licencia Apache 2.0. Copyright © 2025 Alant.
-Consulta los archivos `Aletheia_v3/LICENSE` y `NOTICE` (en la raíz del proyecto) para más detalles.
-Por favor, revisa también el archivo `Aletheia_v3/DISCLAIMER.md` para conocer las limitaciones y responsabilidades importantes asociadas con el uso de este software.
+Distribuido bajo la Licencia Apache 2.0. Vea `LICENSE` y `NOTICE`. Consulte `Aletheia_v3/DISCLAIMER.md` para entender las limitaciones del software.
 
 <div align="center">
 <p>Autor: Alant | Año: 2025</p>
