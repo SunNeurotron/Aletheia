@@ -121,9 +121,7 @@ flowchart TD
     style MLflowServer fill:#cfc,stroke:#333,stroke-width:2px
     style ArtifactStore fill:#eee,stroke:#333,stroke-width:2px
     style MLflowUI fill:#fff,stroke:#333,stroke-width:2px
-
-
-
+```
 
 (GitHub y otros visores modernos renderizan este diagrama automáticamente. Si no lo ves, puedes copiar el código en un editor de Mermaid.)
 
