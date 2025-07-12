@@ -1,4 +1,5 @@
 <div align="center">
+<img width="1536" height="1024" alt="Image" src="https://github.com/user-attachments/assets/3f19aa7e-6a92-420b-9935-9f2e22545c24" />
 (https://github.com/SunNeurotron/Aletheia/issues/102)
 <h1>Aletheia v4.0</h1>
 <p><strong>Plataforma de Descubrimiento Científico Guiado por IA</strong></p>
