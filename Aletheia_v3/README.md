@@ -51,25 +51,23 @@ La plataforma está diseñada como un conjunto de servicios modulares y desacopl
 
 ```mermaid
 graph TD
-    User["<img src='https://img.icons8.com/ios-filled/50/000000/user.png' width='20'/> Usuario"] -->|Interactúa vía Navegador| Dashboard["🔬 Dashboard Streamlit"]
+    User["Usuario con imagen"] -->|Interactúa vía Navegador| Dashboard["Dashboard Streamlit con emoji"]
 
-    subgraph "Plataforma Aletheia (Servicios en Docker)"
-        Dashboard -- Petición HTTP --> API["🚀 Servidor API FastAPI"]
-        API -- Almacena/Recupera Datos --> DB["(🐘 BD PostgreSQL)"]
-        API -- Encola Tarea --> MQ["🏎️ Cola de Mensajes Redis"]
-
-        Worker["Worker Celery"] -- Toma Tarea --> MQ  // Emoji removed from Worker label
-        Worker -- Ejecuta --> AISearch["Caso de Uso IA: core.use_cases"]
-        AISearch -- Utiliza --> DomainLogic["📚 Lógica de Dominio (core.domain)"]
-        Worker -- Almacena Resultados --> DB
-        Worker -- Registra Experimento --> MLflowServer["📈 Servidor de Tracking MLflow"]
-
-        MLflowServer -- Almacena Metadatos --> DB
-        MLflowServer -- Almacena Artefactos (Opcional) --> ArtifactStore["(📦 Almacén de Artefactos e.g. S3/MinIO)"]
+    subgraph "Plataforma Aletheia Servicios en Docker"
+        Dashboard --> API["Servidor API FastAPI con emoji"]
+        API --> DB["BD PostgreSQL con emoji y parentesis"]
+        API --> MQ["Cola de Mensajes Redis con emoji"]
+        Worker["Worker Celery sin emoji"] --> MQ
+        Worker --> AISearch["Caso de Uso IA core use cases"]
+        AISearch --> DomainLogic["Logica de Dominio con emoji"]
+        Worker --> DB
+        Worker --> MLflowServer["Tracking Experimentos MLflow con emoji y parentesis"]
+        MLflowServer --> DB
+        MLflowServer --> ArtifactStore["Artefactos S3 MinIO con emoji y parentesis"]
     end
 
-    User -->|Visualiza Experimentos| MLflowUI["<img src='https://www.mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='60'/> UI de MLflow"]
-    MLflowUI -- Lee Datos --> MLflowServer
+    User --> MLflowUI["MLflow UI con imagen"]
+    MLflowUI --> MLflowServer
 
     style User fill:#fff,stroke:#333,stroke-width:2px
     style Dashboard fill:#FF4B4B,stroke:#333,stroke-width:2px,color:#fff
