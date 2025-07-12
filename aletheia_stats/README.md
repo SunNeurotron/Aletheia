@@ -12,6 +12,41 @@ Aletheia-Stats proporciona una API para realizar pruebas de hipótesis estadíst
 - **Despliegue Sencillo**: Contenerización con Docker y Docker Compose para un fácil despliegue local y en otros entornos.
 - **Arquitectura Hexagonal-Científica**: Separación clara de conceptos entre dominio, aplicación e infraestructura.
 
+## Flujo de Análisis Estadístico
+
+El siguiente diagrama ilustra el flujo de procesamiento para una solicitud de análisis de prueba t:
+
+```mermaid
+sequenceDiagram
+    participant Client as Cliente API
+    participant API as aletheia_stats API (FastAPI)
+    participant AppService as ApplicationService
+    participant StatsService as DomainService (Lógica Estadística)
+    participant Repo as Repository (SQLAlchemy)
+    participant DB as PostgreSQL DB
+    participant MLflow as MLflow Tracking
+
+    Client->>+API: POST /api/v1/analyze/ttest (TTestRequest)
+    API->>+AppService: execute_ttest_analysis(data)
+    AppService->>+StatsService: perform_ttest_analysis(group_a, group_b, alpha)
+    Note over StatsService: 1. Prueba de Normalidad (Shapiro-Wilk)
+    Note over StatsService: 2. Prueba t de Welch
+    StatsService-->>-AppService: TTestResult
+    AppService->>+Repo: save_experiment(experiment_data, results)
+    Repo->>+DB: INSERT INTO experiments
+    DB-->>-Repo: ExperimentRecord
+    Repo-->>-AppService: SavedExperiment
+    AppService->>+MLflow: log_experiment(SavedExperiment)
+    Note over MLflow: Registra params, metrics, tags
+    MLflow-->>-AppService: MLflowRunID
+    AppService->>+Repo: update_experiment_with_mlflow_id(id, mlflow_run_id)
+    Repo->>+DB: UPDATE experiments
+    DB-->>-Repo: UpdatedExperimentRecord
+    Repo-->>-AppService: FinalExperiment
+    AppService-->>-API: ExperimentResponse
+    API-->>-Client: ExperimentResponse (con ID, resultados, mlflow_id)
+```
+
 ## Estructura del Módulo
 
 ```

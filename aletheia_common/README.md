@@ -6,6 +6,45 @@ El módulo `aletheia_common` sirve como una biblioteca compartida de utilidades 
 
 Este módulo **no** está diseñado para ser un servicio independiente, sino una colección de herramientas y bloques de construcción importables.
 
+## Rol en el Ecosistema Aletheia
+
+Este módulo sirve como la base sobre la cual se construyen otros servicios, proporcionando funcionalidades reutilizables en dominios como la autenticación, el acceso a la base de datos y la interacción con MLflow.
+
+```mermaid
+graph TD
+    subgraph "Ecosistema Aletheia"
+        A[Aletheia_v3 (Servicio Principal)]
+        O[aletheia_omega (Servicio de Optimización)]
+        S[aletheia_stats (Servicio de Estadísticas)]
+    end
+
+    subgraph "Biblioteca Central"
+        C(aletheia_common)
+    end
+
+    subgraph "Funcionalidades Comunes"
+        direction LR
+        AUTH[Auth (JWT)]
+        DB[DB (Tipos, Base)]
+        ML[MLflow Utils]
+        SCH[Schemas (Pydantic)]
+    end
+
+    A -- Importa --> C
+    O -- Importa --> C
+    S -- Importa --> C
+
+    C -- Provee --> AUTH
+    C -- Provee --> DB
+    C -- Provee --> ML
+    C -- Provee --> SCH
+
+    style C fill:#d5e8d4,stroke:#333,stroke-width:2px
+    style A fill:#d2eaff
+    style O fill:#e8dff5
+    style S fill:#fcf6bd
+```
+
 ## Cumplimiento del MDU
 
 Este módulo se adhiere a los principios del **Marco de Desarrollo Unificado (MDU)**, especialmente en lo referente a:

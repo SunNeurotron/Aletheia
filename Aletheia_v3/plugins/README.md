@@ -10,6 +10,37 @@ El objetivo es proporcionar un mecanismo flexible para que los desarrolladores o
 -   Añadir pasos de post-procesamiento de datos.
 -   Integrar otras herramientas o algoritmos de forma modular.
 
+## Arquitectura y Flujo de Trabajo
+
+El sistema se basa en tres componentes principales:
+1.  **Interfaces de Plugin (`plugin_interfaces.py`)**: Contratos abstractos (clases base abstractas) que definen cómo deben comportarse los plugins.
+2.  **Plugins Concretos (`available/`)**: Módulos Python individuales que implementan una o más de estas interfaces.
+3.  **Gestor de Plugins (`manager.py`)**: Responsable de descubrir, cargar, registrar y proporcionar acceso a los plugins.
+
+El siguiente diagrama de secuencia ilustra la interacción típica durante la carga y uso de un plugin:
+
+```mermaid
+sequenceDiagram
+    participant App as Aplicación (Core Aletheia)
+    participant PM as PluginManager
+    participant PluginModule as Módulo de Plugin (en `available/`)
+    participant PluginInterface as Interfaz (en `plugin_interfaces.py`)
+
+    Note over PM: Inicialización del PluginManager.
+    PM->>PluginModule: Escanea e importa dinámicamente (ej. `mi_evaluador.py`)
+    PluginModule-->>PM: Código del plugin cargado
+    PM->>PluginModule: Inspecciona clases que implementan PluginInterface
+    PM->>PluginInterface: (Referencia)
+    PM-->>App: PluginManager listo con plugins registrados
+
+    Note over App: La aplicación necesita un evaluador de calidad.
+    App->>PM: get_plugin_by_name("mi_evaluador_custom", QualityEvaluatorInterface)
+    PM-->>App: Devuelve instancia de MiNuevoEvaluador
+
+    App->>PluginModule: Llama a metodo (ej. `evaluate_quality(discovery)`)
+    PluginModule-->>App: Retorna resultado (ej. `score`)
+```
+
 ## Estructura del Directorio
 
 -   **`plugin_interfaces.py`**:

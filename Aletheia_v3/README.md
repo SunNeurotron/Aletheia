@@ -4,6 +4,56 @@ Este es el módulo principal de la plataforma Aletheia, donde reside la implemen
 
 Para la documentación completa del proyecto Aletheia, incluyendo la arquitectura general, la configuración para ejecutar la plataforma, detalles de migración de base de datos, y más, por favor consulte el **[README principal del proyecto](../../README.md)**.
 
+## Arquitectura del Módulo: Puertos y Adaptadores
+
+El módulo `Aletheia_v3` está diseñado siguiendo una variación de la **Arquitectura Limpia (Clean Architecture)**, utilizando un patrón de Puertos y Adaptadores para desacoplar la lógica de negocio de los detalles de la infraestructura.
+
+-   **Dominio (`core/`)**: Contiene la lógica y las entidades de negocio más puras. Es el centro del sistema.
+-   **Aplicación (`application/`)**: Orquesta los flujos de datos. Define los **Puertos** (interfaces) que el dominio necesita para comunicarse con el exterior (ej. `ConceptRepositoryPort`).
+-   **Infraestructura (`infrastructure/`)**: Proporciona las implementaciones concretas (**Adaptadores**) de los puertos. Por ejemplo, `SQLAlchemyConceptRepository` implementa `ConceptRepositoryPort` para una base de datos PostgreSQL.
+-   **API (`api/`)**: Actúa como un adaptador de entrada, exponiendo los casos de uso de la capa de aplicación a través de una interfaz RESTful.
+
+El siguiente diagrama ilustra esta interacción:
+
+```mermaid
+graph TD
+    subgraph "Capa de API (FastAPI)"
+        R[Router]
+    end
+
+    subgraph "Capa de Aplicación"
+        UC[Caso de Uso: IngestDocumentUseCase]
+        P[Puerto: IConceptRepository]
+    end
+
+    subgraph "Capa de Infraestructura"
+        Impl[Adaptador: SQLAlchemyConceptRepository]
+    end
+
+    subgraph "Capa de Dominio"
+        E[Entidad: ScientificConcept]
+    end
+
+    R -- Llama a --> UC
+    UC -- Depende de --> P
+    UC -- Opera sobre --> E
+    Impl -- Implementa --> P
+
+    %% Inyección de Dependencias
+    subgraph "Contenedor de Inyección de Dependencias (en la API)"
+        direction LR
+        Dep1(P) -.-> Dep2(Impl)
+    end
+
+    UC -- Es inyectado con --> Impl
+
+    style R fill:#d2eaff
+    style UC fill:#d5e8d4
+    style P fill:#ffe6cc
+    style Impl fill:#f8cecc
+    style E fill:#fff2cc
+```
+
 ## Estructura y Componentes del Módulo `Aletheia_v3`
 
 Este directorio (`Aletheia_v3`) contiene los componentes centrales de la aplicación, organizados de la siguiente manera:

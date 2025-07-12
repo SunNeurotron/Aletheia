@@ -1,4 +1,75 @@
-# Kubernetes Configuration for Aletheia v3 Module
+# Despliegue de Aletheia en Kubernetes
+
+Este directorio contiene los manifiestos de Kubernetes (`.yaml`) para desplegar la plataforma Aletheia en un clúster. Esta configuración está diseñada para entornos de producción o *staging*, proporcionando escalabilidad, resiliencia y gestión declarativa.
+
+## Arquitectura del Despliegue
+
+El siguiente diagrama ilustra la topología de los componentes de Aletheia dentro de un clúster de Kubernetes. Muestra cómo los servicios se comunican entre sí y cómo se exponen al exterior a través de un Ingress Controller.
+
+```mermaid
+graph TD
+    subgraph "Cluster de Kubernetes"
+        direction LR
+
+        subgraph "Aletheia Namespace"
+            direction TB
+
+            Ingress[Ingress Controller]
+
+            subgraph "Stateful Services"
+                DB[(PostgreSQL DB)] --- PVC_DB[PersistentVolume]
+                MQ[(Redis)] --- PVC_MQ[PersistentVolume]
+            end
+
+            subgraph "Stateless Services"
+                API(API Deployment)
+                Worker(Worker Deployment)
+                Dashboard(Dashboard Deployment)
+                MLflow(MLflow Deployment)
+            end
+
+            ServiceAPI[Service API]
+            ServiceDash[Service Dashboard]
+            ServiceMLflow[Service MLflow]
+
+            Ingress -- Routes Traffic to --> ServiceAPI
+            Ingress -- Routes Traffic to --> ServiceDash
+            Ingress -- Routes Traffic to --> ServiceMLflow
+
+            API -- Communicates via Service --> DB
+            API -- Enqueues tasks --> MQ
+            Worker -- Consumes tasks --> MQ
+            Worker -- Communicates via Service --> DB
+            Worker -- Logs to --> MLflow
+
+            Dashboard -- Calls --> API
+        end
+    end
+
+    User[Usuario Externo] -- HTTPS --> Ingress
+
+    style User fill:#fff,stroke:#333,stroke-width:2px
+    style Ingress fill:#bde0fe
+    style DB fill:#cddafd
+    style MQ fill:#fecdd3
+    style API fill:#d5e8d4
+    style Worker fill:#fcf6bd
+    style Dashboard fill:#d2eaff
+    style MLflow fill:#e9d8fd
+```
+
+### Componentes Clave:
+-   **Ingress Controller**: Punto de entrada único que enruta el tráfico HTTP/S a los servicios internos correspondientes (`API`, `Dashboard`, `MLflow`).
+-   **Deployments (Stateless)**:
+    -   `api-deployment.yaml`: El servidor FastAPI. Puede ser escalado horizontalmente.
+    -   `worker-deployment.yaml`: Los workers de Celery que procesan tareas en segundo plano. Escalar este componente aumenta la capacidad de procesamiento.
+    -   `dashboard-deployment.yaml`: La interfaz de usuario de Streamlit.
+    -   `mlflow-deployment.yaml`: El servidor de MLflow para el seguimiento de experimentos.
+-   **StatefulSets (Stateful)**:
+    -   `db-statefulset.yaml`: La base de datos PostgreSQL. Utiliza un `PersistentVolume` para garantizar que los datos sobrevivan a los reinicios de los pods.
+    -   `redis-statefulset.yaml`: El broker de mensajes Redis. También utiliza un `PersistentVolume`.
+-   **Services**: Proporcionan un endpoint de red estable para que los pods se comuniquen entre sí (ej. `ServiceAPI` permite a `Dashboard` encontrar siempre los pods de la `API`).
+-   **PersistentVolumes (PV)**: Abstracciones del almacenamiento físico (ej. un disco en la nube) que se montan en los pods de los `StatefulSets`.
 
 ## Propósito
 

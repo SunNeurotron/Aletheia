@@ -1,103 +1,94 @@
-# Aletheia-Omega Module
+# Módulo `aletheia_omega`: Servicio de Trayectorias de Optimización
 
-## Propósito
+`aletheia_omega` es un microservicio especializado dentro del ecosistema Aletheia, diseñado para gestionar y persistir los resultados de **ejecuciones de optimización y sus trayectorias**. Su función principal es registrar las series de parámetros y resultados generados por algoritmos de búsqueda, como la optimización bayesiana, permitiendo el análisis post-hoc y la reproducibilidad.
 
-El módulo `aletheia_omega` es un componente del ecosistema Aletheia. (Su propósito específico necesita ser definido aquí. Por ejemplo: "Gestiona la optimización de hiperparámetros para los modelos de búsqueda científica" o "Proporciona un servicio avanzado de análisis de trayectorias de descubrimiento").
+## Modelo de Datos
 
-Este README sirve como una guía inicial. **Se requiere información adicional del equipo de desarrollo para completar las secciones con detalles precisos sobre la funcionalidad, API y lógica científica de Aletheia-Omega.**
+El núcleo de `aletheia_omega` se centra en dos entidades principales: `OptimizationRun` y `TrajectoryPoint`. Una "ejecución" (`Run`) representa un proceso de optimización completo, y cada "punto de trayectoria" (`TrajectoryPoint`) es un paso dentro de esa ejecución.
 
-## Cumplimiento del MDU
+```mermaid
+erDiagram
+    OptimizationRun {
+        int id PK
+        string name
+        json config
+        datetime created_at
+    }
 
-Este módulo aspira a adherirse a los principios del **Marco de Desarrollo Unificado (MDU)**. (Detalles específicos de cumplimiento deben ser añadidos aquí).
+    TrajectoryPoint {
+        int id PK
+        int run_id FK
+        json parameters
+        float value
+        datetime timestamp
+    }
 
-## Estructura del Módulo
-
+    OptimizationRun ||--o{ TrajectoryPoint : "contiene"
 ```
-aletheia_omega/
-├── alembic/                    # Migraciones de base de datos (Alembic)
-│   ├── versions/
-│   └── env.py
-├── application/                # Casos de uso y lógica de aplicación
-│   └── use_cases.py
-├── domain/                     # Lógica de negocio central y entidades del dominio
-│   ├── entities.py
-│   └── services.py
-├── infrastructure/             # Implementaciones de persistencia, modelos de BD
-│   ├── models.py
-│   └── repository.py
-├── presentation/               # API (FastAPI), esquemas y dependencias
-│   ├── api.py
-│   ├── dependencies.py
-│   └── schemas.py
-├── tests/                      # Pruebas (unitarias, integración)
-│   ├── integration/
-│   └── unit/
-├── Dockerfile                  # Definición del contenedor Docker para el servicio
-├── alembic.ini                 # Configuración de Alembic
-├── requirements.txt            # Dependencias Python
-└── README.md                   # Este archivo
-```
-*(Nota: Podría faltar un `docker-compose.yml` si se gestiona centralmente o se espera que se añada. También podría faltar un `.env.example`)*
+
+-   **OptimizationRun**: Almacena metadatos sobre una ejecución de optimización, incluyendo su configuración (hiperparámetros del optimizador, espacio de búsqueda, etc.).
+-   **TrajectoryPoint**: Registra un punto de datos individual evaluado durante la ejecución, incluyendo los parámetros de entrada y el valor de la función objetivo resultante.
+
+## Arquitectura
+
+El servicio sigue una arquitectura limpia (Dominio, Aplicación, Infraestructura, Presentación) y expone sus funcionalidades a través de una API RESTful construida con FastAPI.
+
+-   **`domain/`**: Contiene las entidades (`OptimizationRun`, `TrajectoryPoint`) y la lógica de negocio.
+-   **`application/`**: Orquesta los casos de uso, como `CreateOptimizationRun` o `AddTrajectoryPoint`.
+-   **`infrastructure/`**: Implementa la persistencia de datos usando SQLAlchemy y gestiona las migraciones con Alembic.
+-   **`presentation/`**: Define los endpoints de la API, los esquemas Pydantic y las dependencias.
+
+## API Endpoints Principales
+
+La API proporciona métodos para crear y consultar ejecuciones de optimización.
+
+-   `POST /runs`: Crea una nueva ejecución de optimización.
+    -   **Request Body**: `{ "name": "string", "config": {} }`
+    -   **Response**: `{ "id": int, "name": "string", ... }`
+-   `GET /runs/{run_id}`: Obtiene los detalles de una ejecución específica, incluyendo todos sus puntos de trayectoria.
+    -   **Response**: `{ "id": int, ..., "trajectories": [...] }`
+-   `POST /runs/{run_id}/trajectories`: Añade un nuevo punto de trayectoria a una ejecución existente.
+    -   **Request Body**: `{ "parameters": {}, "value": float }`
+    -   **Response**: `{ "id": int, ... }`
 
 ## Configuración y Ejecución
 
-1.  **Variables de Entorno**:
-    (Se necesita un archivo `.env.example` para listar las variables requeridas, como `DATABASE_URL`, `JWT_SECRET_KEY`, URLs de otros servicios, etc.)
+1.  **Variables de Entorno**: Cree un archivo `.env` basado en `.env.example` y configure las siguientes variables:
+    -   `DATABASE_URL`: Cadena de conexión a la base de datos PostgreSQL.
+    -   `JWT_SECRET_KEY`: Clave secreta para la validación de tokens (si se requiere autenticación).
 
-2.  **Construir y Levantar Contenedores (si aplica)**:
-    Si existe un `docker-compose.yml` para este módulo:
+2.  **Base de Datos**:
+    Este servicio requiere su propia base de datos. Las migraciones se gestionan con Alembic. Para aplicar la última migración:
     ```bash
-    # Desde el directorio aletheia_omega/
-    # docker-compose up --build -d
-    ```
-    Si se ejecuta directamente con Docker:
-    ```bash
-    # docker build -t aletheia_omega_image .
-    # docker run -p <host_port>:<container_port> --env-file .env aletheia_omega_image
+    # Asegúrese de que alembic.ini esté configurado y DATABASE_URL sea accesible
+    alembic upgrade head
     ```
 
-3.  **Base de Datos**:
-    Asegúrese de que la base de datos esté configurada y accesible.
-    Las migraciones de Alembic deben aplicarse:
+3.  **Ejecución (Docker)**:
+    La forma más sencilla de ejecutar el servicio es a través de Docker.
     ```bash
-    # Desde el directorio aletheia_omega/
-    # (Asegurar que alembic.ini esté configurado y DATABASE_URL apunte correctamente)
-    # alembic upgrade head
+    # Construir la imagen
+    docker build -t aletheia-omega .
+
+    # Ejecutar el contenedor
+    docker run -p 8001:8000 --env-file .env aletheia-omega
     ```
-    (Un servicio de migración automática en `docker-compose.yml` sería ideal, similar a `aletheia_stats`).
-
-4.  **Acceder a la API (si es un servicio)**:
-    La documentación interactiva de la API (Swagger/ReDoc) debería estar disponible en una ruta como `http://localhost:PORT/docs`.
-
-## API (si aplica)
-
-(Se necesita una descripción de los principales endpoints, modelos de solicitud/respuesta y cualquier mecanismo de autenticación/autorización).
-
-## Lógica Científica (si aplica)
-
-(Resumen de los métodos científicos, algoritmos o lógica de negocio compleja implementada en este módulo).
+    La API estará disponible en `http://localhost:8001` y la documentación de Swagger en `http://localhost:8001/docs`.
 
 ## Desarrollo y Pruebas
 
--   **Instalar Dependencias (para desarrollo local fuera de Docker)**:
+-   **Instalación Local**:
     ```bash
-    # Desde aletheia_omega/
-    # python -m venv venv_omega
-    # source venv_omega/bin/activate
-    # pip install -r requirements.txt
+    python -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
     ```
--   **Linters/Formateadores**: Ejecutar `pre-commit run --all-files` desde la raíz del repositorio Aletheia.
 -   **Pruebas**:
+    Las pruebas de integración requieren una base de datos de prueba.
     ```bash
-    # Desde la raíz del repositorio Aletheia
-    # pytest aletheia_omega/tests/
-    # O desde el directorio del módulo si pytest está configurado para ello:
-    # cd aletheia_omega && pytest
+    # Desde la raíz del proyecto
+    pytest aletheia_omega/tests/
     ```
+-   **Calidad de Código**: Ejecutar `pre-commit run --all-files` desde la raíz del proyecto.
 
-## Contribuciones
-
-Las contribuciones deben seguir las guías del MDU y mantener los estándares de calidad del proyecto.
-
-**NOTA:** Este README es una plantilla y necesita ser completado con información específica sobre el módulo Aletheia-Omega.
-```
+**NOTA:** Este README se ha completado basándose en la estructura del código. Puede requerir ajustes adicionales del equipo de desarrollo para reflejar detalles de implementación específicos.
