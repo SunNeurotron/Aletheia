@@ -29,12 +29,12 @@
 - [10. Testing y Calidad del Código](#10-testing-y-calidad-del-código)
 - [11. Publicaciones y Referencias Académicas](#11-publicaciones-y-referencias-académicas)
 
-1. Introducción y Fundamentos Teóricos
-1.1 Visión General
+## 1. Introducción y Fundamentos Teóricos
+### 1.1 Visión General
 
 Aletheia representa una plataforma computacional de vanguardia diseñada para abordar los desafíos fundamentales en la investigación científica moderna: la síntesis automatizada de conocimiento, el descubrimiento asistido por inteligencia artificial, y la construcción de modelos teóricos unificados. El sistema implementa un paradigma epistemológico computacional que fusiona técnicas de inteligencia artificial con métodos formais de las ciencias matemáticas.
 
-1.2 Marco Epistemológico: El Paradigma MDU
+### 1.2 Marco Epistemológico: El Paradigma MDU
 
 El núcleo conceptual de Aletheia se basa en el paradigma MDU (Modelado, Descubrimiento, Comprensión), que establece tres dimensiones fundamentales para el proceso de investigación científica computacional:
 
@@ -75,70 +75,28 @@ graph TB
     style Z1 fill:#bbdefb
 ```
 
-1.3 Motivación Científica: La Conjetura ABC
+### 1.3 Motivación Científica: La Conjetura ABC
 
 La plataforma fue inicialmente concebida para abordar uno de los problemas más profundos en teoría de números: la Conjetura ABC, formulada por Joseph Oesterlé y David Masser en 1985. Esta conjetura establece una relación fundamental entre la estructura multiplicativa y aditiva de los números enteros.
 
-Formulación Matemática:
+**Formulación Matemática:**
 Para cualquier ε > 0, existe una constante K(ε) tal que para toda tripleta de enteros coprimos positivos (a, b, c) con a + b = c, se cumple:
 
-𝑐
-<
-𝐾
-(
-𝜀
-)
-⋅
-rad
-(
-𝑎
-𝑏
-𝑐
-)
-1
-+
-𝜀
-c<K(ε)⋅rad(abc)
-1+ε
+c < K(ε) ⋅ rad(abc)^(1+ε)
 
 donde el radical de un entero n se define como:
 
-rad
-(
-𝑛
-)
-=
-∏
-𝑝
-∣
-𝑛
+rad(n) = Π_{p|n, p primo} p
 
+### 1.4 Objetivos del Sistema
 
-𝑝
- primo
-𝑝
-rad(n)=
-p∣n
-p primo
-	​
+-   **Automatización del Descubrimiento Matemático:** Implementar algoritmos de búsqueda inteligente para identificar patrones y estructuras en espacios matemáticos complejos.
+-   **Síntesis de Conocimiento Jerárquica:** Desarrollar un sistema capaz de abstraer conceptos desde unidades mínimas hasta teorías comprehensivas.
+-   **Reproducibilidad Computacional:** Garantizar que todos los experimentos y descubrimientos sean completamente reproducibles mediante tracking exhaustivo.
+-   **Escalabilidad y Distribución:** Diseñar una arquitectura que permita el procesamiento distribuido de cálculos computacionalmente intensivos.
 
-∏
-	​
-
-p
-
-1.4 Objetivos del Sistema
-
-Automatización del Descubrimiento Matemático: Implementar algoritmos de búsqueda inteligente para identificar patrones y estructuras en espacios matemáticos complejos.
-
-Síntesis de Conocimiento Jerárquica: Desarrollar un sistema capaz de abstraer conceptos desde unidades mínimas hasta teorías comprehensivas.
-
-Reproducibilidad Computacional: Garantizar que todos los experimentos y descubrimientos sean completamente reproducibles mediante tracking exhaustivo.
-
-Escalabilidad y Distribución: Diseñar una arquitectura que permita el procesamiento distribuido de cálculos computacionalmente intensivos.
-
-2. Arquitectura del Sistema
-2.1 Arquitectura de Microservicios
+## 2. Arquitectura del Sistema
+### 2.1 Arquitectura de Microservicios
 
 Aletheia implementa una arquitectura de microservicios basada en principios de Domain-Driven Design (DDD) y Clean Architecture:
 
@@ -184,7 +142,8 @@ flowchart TB
     style CACHE fill:#fff3e0
     style MLF fill:#f3e5f5
 ```
-2.2 Patrones Arquitectónicos Implementados
+
+### 2.2 Patrones Arquitectónicos Implementados
 
 Cada módulo sigue estrictamente el patrón de Arquitectura Hexagonal:
 
@@ -247,7 +206,8 @@ class SynthesisCompletedEvent(DomainEvent):
     input_concepts: List[UUID]
     result_concept: UUID
 ```
-2.3 Flujo de Datos del Sistema
+
+### 2.3 Flujo de Datos del Sistema
 ```mermaid
 sequenceDiagram
     participant User as Usuario/Investigador
@@ -287,8 +247,9 @@ sequenceDiagram
     Cache-->>API: Task Status
     API-->>User: Task Complete + Results
 ```
-3. Módulos del Ecosistema
-3.1 Aletheia_v3 - Motor Principal
+
+## 3. Módulos del Ecosistema
+### 3.1 Aletheia_v3 - Motor Principal
 
 El módulo central que implementa la lógica de negocio principal y coordina todos los demás componentes.
 
@@ -320,6 +281,7 @@ Aletheia_v3/
     ├── dashboard.py             # Dashboard ABC
     └── mdu_dashboard.py         # Explorer de grafos
 ```
+
 ```python
 # Ejemplo de caso de uso con documentación completa
 class IngestDocumentUseCase:
@@ -357,7 +319,8 @@ class IngestDocumentUseCase:
         # Implementación detallada...
         pass
 ```
-3.2 aletheia_stats - Servicio de Análisis Estadístico
+
+### 3.2 aletheia_stats - Servicio de Análisis Estadístico
 
 Módulo especializado en análisis estadístico riguroso con trazabilidad completa.
 
@@ -395,6 +358,7 @@ class StatsService:
         """
         pass
 ```
+
 ```mermaid
 graph LR
     subgraph "Pipeline de Análisis Estadístico"
@@ -415,30 +379,19 @@ graph LR
         J --> K[Response]
     end
 ```
-3.3 aletheia_omega - Servicio de Optimización MDL
+
+### 3.3 aletheia_omega - Servicio de Optimización MDL
 
 Implementa optimización basada en el principio de Longitud Mínima de Descripción (MDL).
 
 El principio MDL establece que el mejor modelo M para unos datos D es aquel que minimiza:
 
-𝐿
-(
-𝑀
-)
-+
-𝐿
-(
-𝐷
-∣
-𝑀
-)
-L(M)+L(D∣M)
+L(M) + L(D|M)
 
 donde:
 
-L(M) es la longitud de descripción del modelo
-
-L(D|M) es la longitud de descripción de los datos dado el modelo
+-   **L(M)** es la longitud de descripción del modelo
+-   **L(D|M)** es la longitud de descripción de los datos dado el modelo
 
 ```python
 class OmegaCostService:
@@ -464,7 +417,8 @@ class OmegaCostService:
         complexity = self._approximate_kolmogorov_complexity(model)
         return lambda_param * complexity - likelihood
 ```
-3.4 aletheia_common - Biblioteca Compartida
+
+### 3.4 aletheia_common - Biblioteca Compartida
 
 Componentes reutilizables para todo el ecosistema:
 
@@ -480,8 +434,9 @@ aletheia_common/
 ├── mlflow_utils/          # Helpers para MLflow
 └── schemas/               # Esquemas Pydantic comunes
 ```
-4. Fundamentos Matemáticos y Algorítmicos
-4.1 Motor de Búsqueda ABC
+
+## 4. Fundamentos Matemáticos y Algorítmicos
+### 4.1 Motor de Búsqueda ABC
 
 El sistema implementa una función de adquisición personalizada que combina Expected Improvement (EI) con bonificaciones estructurales:
 
@@ -527,7 +482,8 @@ def _radical_pari(n: int) -> int:
     # Producto de primos únicos
     return reduce(operator.mul, primes, 1)
 ```
-4.2 Síntesis de Conocimiento Jerárquica
+
+### 4.2 Síntesis de Conocimiento Jerárquica
 ```python
 class UCMExtractor:
     """
@@ -555,6 +511,7 @@ class UCMExtractor:
 
         return ucms
 ```
+
 ```python
 class MDLClusteringService:
     """
@@ -584,7 +541,8 @@ class MDLClusteringService:
 
         return best_clustering
 ```
-4.3 Métricas de Evaluación
+
+### 4.3 Métricas de Evaluación
 ```python
 def abc_quality_metric(a: int, b: int, c: int) -> float:
     """
@@ -601,16 +559,20 @@ def abc_quality_metric(a: int, b: int, c: int) -> float:
     rad_abc = _radical(a) * _radical(b) * _radical(c)
     return math.log(c) / math.log(rad_abc)
 ```
-5. Visualizaciones y Dashboards
-5.1 Dashboard de Exploración ABC
+
+## 5. Visualizaciones y Dashboards
+### 5.1 Dashboard de Exploración ABC
 <img width="800" alt="3D Scatter Plot of ABC Hits" src="https://github.com/user-attachments/assets/e673a356-3474-4b86-8298-1e4a35c59368" />
 <img width="800" alt="Optimization Convergence Plot" src="https://github.com/user-attachments/assets/75d3a5a3-5b8a-4c2f-8a5a-487b1e43f1f3" />
-5.2 Dashboard del Grafo de Conocimiento
+
+### 5.2 Dashboard del Grafo de Conocimiento
 <img width="800" alt="Knowledge Graph Visualization" src="https://github.com/user-attachments/assets/b0f0e0a5-3a86-48e3-a4e9-3d3f2b1b3e4a" />
 <img width="800" alt="Graph Structure Analysis" src="https://github.com/user-attachments/assets/c4c6e1e6-2e9a-4e6f-8f8e-8a2e5e1e2e1a" />
-5.3 Dashboard de Análisis Estadístico
+
+### 5.3 Dashboard de Análisis Estadístico
 <img width="800" alt="Statistical Test Visualization" src="https://github.com/user-attachments/assets/8a2b1a3e-3e4a-4b0c-8a9e-3a2e3e4a5b6c" />
-5.4 Métricas de Rendimiento en Tiempo Real
+
+### 5.4 Métricas de Rendimiento en Tiempo Real
 ```python
 class SystemMetricsDashboard:
     """
@@ -670,8 +632,9 @@ class SystemMetricsDashboard:
             ]
         }
 ```
-6. Sistema de Benchmarking y Evaluación
-6.1 Framework de Benchmarking
+
+## 6. Sistema de Benchmarking y Evaluación
+### 6.1 Framework de Benchmarking
 ```python
 class ComputationalBenchmark:
     """
@@ -728,6 +691,7 @@ class ComputationalBenchmark:
             summary_stats=self._calculate_summary_stats(results)
         )
 ```
+
 ```python
 class ScientificQualityBenchmark:
     """
@@ -792,7 +756,8 @@ class ScientificQualityBenchmark:
 
         return total_similarity
 ```
-6.2 Evaluación Comparativa
+
+### 6.2 Evaluación Comparativa
 ```python
 class BaselineComparison:
     """
@@ -835,8 +800,9 @@ class BaselineComparison:
 
         return ComparisonResults(results)
 ```
-7. Demostración Práctica Completa
-7.1 Escenario de Demostración End-to-End
+
+## 7. Demostración Práctica Completa
+### 7.1 Escenario de Demostración End-to-End
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/SunNeurotron/Aletheia.git
@@ -856,6 +822,7 @@ docker-compose ps
 # 5. Aplicar migraciones de base de datos (automático con docker-compose)
 # Las migraciones se aplican automáticamente al iniciar
 ```
+
 ```python
 # demo_abc_search.py
 import asyncio
@@ -946,6 +913,7 @@ async def demo_abc_search():
 if __name__ == "__main__":
     asyncio.run(demo_abc_search())
 ```
+
 ```python
 # demo_knowledge_synthesis.py
 async def demo_knowledge_synthesis():
@@ -1055,6 +1023,7 @@ async def demo_knowledge_synthesis():
         }
     }
 ```
+
 ```python
 # demo_statistical_analysis.py
 async def demo_statistical_analysis():
@@ -1126,7 +1095,8 @@ async def demo_statistical_analysis():
 
     return results
 ```
-7.2 Resultados Esperados de la Demostración
+
+### 7.2 Resultados Esperados de la Demostración
 ```yaml
 Benchmarks de Rendimiento:
   Cálculo de Radicales:
@@ -1149,6 +1119,7 @@ Benchmarks de Rendimiento:
     - Endpoints de escritura: < 200ms
     - Análisis complejos: < 5s
 ```
+
 ```yaml
 Métricas de Calidad:
   Síntesis de Conocimiento:
@@ -1166,8 +1137,9 @@ Métricas de Calidad:
     - Potencia para d=0.8: > 0.80
     - Cobertura de IC: 95% ± 1%
 ```
-8. Instalación y Configuración Detallada
-8.1 Requisitos del Sistema
+
+## 8. Instalación y Configuración Detallada
+### 8.1 Requisitos del Sistema
 ```yaml
 Hardware Mínimo:
   CPU: 4 cores @ 2.4GHz
@@ -1187,7 +1159,8 @@ Software:
   Python: 3.9+ (para desarrollo local)
   Git: 2.30+
 ```
-8.2 Instalación Paso a Paso
+
+### 8.2 Instalación Paso a Paso
 ```bash
 # 1. Instalar dependencias del sistema
 ## Ubuntu/Debian
@@ -1224,6 +1197,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements-dev.txt  # Para desarrollo
 ```
+
 ```bash
 # 1. Configurar variables de entorno globales
 cp .env.example .env
@@ -1246,6 +1220,7 @@ DATABASE_URL=postgresql://aletheia:secure_password@postgres:5432/aletheia_db
 MLFLOW_TRACKING_URI=http://mlflow:5000
 MLFLOW_S3_ENDPOINT_URL=http://minio:9000  # Si se usa MinIO
 ```
+
 ```bash
 # 1. Construir imágenes
 cd Aletheia_v3
@@ -1268,7 +1243,8 @@ docker-compose up -d
 docker-compose ps
 docker-compose logs -f api  # Ver logs de la API
 ```
-8.3 Configuración Avanzada
+
+### 8.3 Configuración Avanzada
 ```yaml
 # kubernetes/aletheia-namespace.yaml
 apiVersion: v1
@@ -1279,6 +1255,7 @@ metadata:
     name: aletheia
     environment: production
 ```
+
 ```yaml
 # kubernetes/api-deployment.yaml
 apiVersion: apps/v1
@@ -1332,6 +1309,7 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
 ```
+
 ```bash
 #!/bin/bash
 #SBATCH --job-name=aletheia-abc-search
@@ -1364,7 +1342,8 @@ mpirun -np $SLURM_NTASKS python -m aletheia.hpc.distributed_abc_search \
    --checkpoint-dir /scratch/aletheia/checkpoints \
    --result-dir /scratch/aletheia/results
 ```
-8.4 Optimización de Rendimiento
+
+### 8.4 Optimización de Rendimiento
 ```sql
 -- postgresql.conf optimizations
 -- Memoria
@@ -1391,6 +1370,7 @@ random_page_cost = 1.1            # Para SSD
 -- Conexiones
 max_connections = 200
 ```
+
 ```sql
 -- Índices para búsquedas frecuentes
 CREATE INDEX CONCURRENTLY idx_concepts_type_created
@@ -1418,18 +1398,17 @@ WHERE quality > 1.4;
 CREATE TABLE concept_metrics_2024 PARTITION OF concept_metrics
 FOR VALUES FROM ('2024-01-01') TO ('2025-01-01');
 ```
-9. API y Endpoints
-9.1 Documentación OpenAPI
+
+## 9. API y Endpoints
+### 9.1 Documentación OpenAPI
 
 La documentación completa de la API está disponible en formato OpenAPI/Swagger:
 
-Swagger UI: http://localhost:8000/docs
+-   **Swagger UI**: http://localhost:8000/docs
+-   **ReDoc**: http://localhost:8000/redoc
+-   **OpenAPI JSON**: http://localhost:8000/openapi.json
 
-ReDoc: http://localhost:8000/redoc
-
-OpenAPI JSON: http://localhost:8000/openapi.json
-
-9.2 Autenticación y Autorización
+### 9.2 Autenticación y Autorización
 ```http
 POST /token
 Content-Type: application/x-www-form-urlencoded
@@ -1443,11 +1422,13 @@ Response:
   "expires_in": 3600
 }
 ```
+
 ```http
 GET /api/v1/protected-endpoint
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
-9.3 Endpoints Principales por Módulo
+
+### 9.3 Endpoints Principales por Módulo
 ```yaml
 Ingesta de Documentos:
   POST /api/eje-x/ingest-document:
@@ -1501,6 +1482,7 @@ Relaciones:
         relationship: DirectedRelationship
     roles_required: [researcher]
 ```
+
 ```yaml
 Formación de Clusters:
   POST /api/eje-y/cluster-formation:
@@ -1544,6 +1526,7 @@ Construcción de Teorías:
         estimated_time: int
     roles_required: [analyst]
 ```
+
 ```yaml
 Análisis Cúbico:
   POST /api/mdu/cubic-analysis:
@@ -1592,6 +1575,7 @@ Búsqueda ABC:
         mlflow_run_id: string
     roles_required: [researcher]
 ```
+
 ```yaml
 Prueba T:
   POST /api/v1/analyze/ttest:
@@ -1630,7 +1614,8 @@ ANOVA:
         post_hoc_results: object
     roles_required: [analyst]
 ```
-9.4 WebSocket para Actualizaciones en Tiempo Real
+
+### 9.4 WebSocket para Actualizaciones en Tiempo Real
 ```python
 # Cliente WebSocket ejemplo
 import asyncio
@@ -1652,8 +1637,9 @@ async def monitor_job(job_id: str, token: str):
             if data['status'] in ['completed', 'failed']:
                 break
 ```
-10. Testing y Calidad del Código
-10.1 Estrategia de Testing
+
+## 10. Testing y Calidad del Código
+### 10.1 Estrategia de Testing
 ```mermaid
 graph TB
     subgraph "Pirámide de Testing"
@@ -1681,6 +1667,7 @@ graph TB
     INT --> I1 & I2 & I3
     E2E --> E1 & E2
 ```
+
 ```python
 # tests/test_domain.py
 import pytest
@@ -1724,6 +1711,7 @@ class TestDomainLogic:
         quality = abc_quality_metric(1, 8, 9)
         assert 1.0 < quality < 1.5
 ```
+
 ```python
 # tests/test_api_integration.py
 import pytest
@@ -1780,6 +1768,7 @@ class TestAPIIntegration:
         cluster_count = result.scalar()
         assert cluster_count > 0
 ```
+
 ```python
 # tests/test_performance.py
 import pytest
@@ -1819,7 +1808,8 @@ class TestPerformance:
         rps = requests_count / 10
         assert rps > 100  # Mínimo 100 req/s
 ```
-10.2 Cobertura de Código
+
+### 10.2 Cobertura de Código
 ```ini
 # .coveragerc
 [run]
@@ -1842,6 +1832,7 @@ directory = htmlcov
 [xml]
 output = coverage.xml
 ```
+
 ```bash
 # Ejecutar tests con cobertura
 pytest --cov=aletheia_v3 --cov=aletheia_stats \
@@ -1857,7 +1848,8 @@ pytest --cov=aletheia_v3 --cov=aletheia_stats \
 # aletheia_stats.domain             96%
 # Overall                           91%
 ```
-10.3 Análisis Estático y Linting
+
+### 10.3 Análisis Estático y Linting
 ```ini
 # mypy.ini
 [mypy]
@@ -1881,6 +1873,7 @@ ignore_errors = True
 [mypy-alembic.*]
 ignore_errors = True
 ```
+
 ```yaml
 # .pre-commit-config.yaml
 repos:
@@ -1922,7 +1915,8 @@ repos:
           - types-redis
           - sqlalchemy[mypy]
 ```
-10.4 CI/CD Pipeline
+
+### 10.4 CI/CD Pipeline
 ```yaml
 # .github/workflows/ci.yml
 name: CI Pipeline
@@ -2020,8 +2014,9 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 ```
-11. Publicaciones y Referencias Académicas
-11.1 Publicaciones del Proyecto
+
+## 11. Publicaciones y Referencias Académicas
+### 11.1 Publicaciones del Proyecto
 ```bibtex
 @article{aletheia2024,
   title={Aletheia: A Computational Platform for AI-Guided Scientific Discovery},
@@ -2050,50 +2045,33 @@ jobs:
   type={Technical Report}
 }
 ```
-11.2 Referencias Fundamentales
 
-Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." Comptes Rendus de l'Académie des Sciences.
+### 11.2 Referencias Fundamentales
+-   Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." Comptes Rendus de l'Académie des Sciences.
+-   Granville, A., & Stark, H. (2000). "ABC implies no Siegel zeros for L-functions of characters with negative discriminant." Inventiones Mathematicae, 139(3), 509-523.
+-   Stewart, C. L., & Yu, K. (2001). "On the abc conjecture II." Duke Mathematical Journal, 108(1), 169-181.
+-   Snoek, J., Larochelle, H., & Adams, R. P. (2012). "Practical Bayesian optimization of machine learning algorithms." Advances in Neural Information Processing Systems, 25.
+-   Shahriari, B., Swersky, K., Wang, Z., Adams, R. P., & De Freitas, N. (2015). "Taking the human out of the loop: A review of Bayesian optimization." Proceedings of the IEEE, 104(1), 148-175.
+-   Rissanen, J. (1978). "Modeling by shortest data description." Automatica, 14(5), 465-471.
+-   Grünwald, P. D. (2007). The Minimum Description Length Principle. MIT Press.
+-   Vitányi, P. M., & Li, M. (2000). "Minimum description length induction, Bayesianism, and Kolmogorov complexity." IEEE Transactions on Information Theory, 46(2), 446-464.
+-   Manning, C. D., & Schütze, H. (1999). Foundations of Statistical Natural Language Processing. MIT Press.
+-   Jurafsky, D., & Martin, J. H. (2020). Speech and Language Processing (3rd ed.). Pearson.
 
-Granville, A., & Stark, H. (2000). "ABC implies no Siegel zeros for L-functions of characters with negative discriminant." Inventiones Mathematicae, 139(3), 509-523.
-
-Stewart, C. L., & Yu, K. (2001). "On the abc conjecture II." Duke Mathematical Journal, 108(1), 169-181.
-
-Snoek, J., Larochelle, H., & Adams, R. P. (2012). "Practical Bayesian optimization of machine learning algorithms." Advances in Neural Information Processing Systems, 25.
-
-Shahriari, B., Swersky, K., Wang, Z., Adams, R. P., & De Freitas, N. (2015). "Taking the human out of the loop: A review of Bayesian optimization." Proceedings of the IEEE, 104(1), 148-175.
-
-Rissanen, J. (1978). "Modeling by shortest data description." Automatica, 14(5), 465-471.
-
-Grünwald, P. D. (2007). The Minimum Description Length Principle. MIT Press.
-
-Vitányi, P. M., & Li, M. (2000). "Minimum description length induction, Bayesianism, and Kolmogorov complexity." IEEE Transactions on Information Theory, 46(2), 446-464.
-
-Manning, C. D., & Schütze, H. (1999). Foundations of Statistical Natural Language Processing. MIT Press.
-
-Jurafsky, D., & Martin, J. H. (2020). Speech and Language Processing (3rd ed.). Pearson.
-
-11.3 Contacto y Colaboración
-
+### 11.3 Contacto y Colaboración
 Equipo de Investigación Aletheia
-
 Alant Research
-
 Email: aletheia-research@alant.com
-
 GitHub: https://github.com/SunNeurotron/Aletheia
 
 Para colaboraciones académicas:
+-   Propuestas de investigación conjunta
+-   Acceso a datasets de investigación
+-   Participación en benchmarks
+-   Contribuciones al código abierto
 
-Propuestas de investigación conjunta
-
-Acceso a datasets de investigación
-
-Participación en benchmarks
-
-Contribuciones al código abierto
-
-Licencia: Apache 2.0
-Copyright: © 2025 Alant
+**Licencia:** Apache 2.0
+**Copyright:** © 2025 Alant
 
 <div align="center">
 <p><strong>Aletheia v4.0 - Descubriendo la Verdad a través de la Computación</strong></p>
