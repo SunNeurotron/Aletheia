@@ -4,7 +4,7 @@
 <h3>Plataforma Integral de Descubrimiento Científico Asistido por Inteligencia Artificial</h3>
 <h4>Un Marco Computacional para la Epistemología Formal y la Síntesis de Conocimiento</h4>
 <p>
-<a href="Aletheia_v3/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-AUEPL-red.svg" alt="AUEPL License"></a>
 <a href="#"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python" alt="Python 3.9+"></a>
 <a href="#"><img src="https://img.shields.io/badge/FastAPI-0.103+-009688?logo=fastapi" alt="FastAPI"></a>
 <a href="#"><img src="https://img.shields.io/badge/Streamlit-1.27+-FF4B4B?logo=streamlit" alt="Streamlit"></a>
@@ -601,7 +601,17 @@ def abc_quality_metric(a: int, b: int, c: int) -> float:
     rad_abc = _radical(a) * _radical(b) * _radical(c)
     return math.log(c) / math.log(rad_abc)
 ```
-5. Visualizaciones y Dashboards
+5. Gobernanza y Licencia
+
+El proyecto Aletheia se rige por un marco de gobernanza que busca equilibrar la apertura de la investigación con el uso ético de la tecnología.
+
+**Licencia Dual Híbrida (AUEPL):** El software se distribuye bajo la **Aletheia Unificada Ethical Public License (AUEPL)**. Esta es una licencia dual que combina la permisividad de la licencia **Apache 2.0** para la investigación y el uso no comercial, con un **Addendum de Uso Ético** que restringe explícitamente su uso en aplicaciones perjudiciales (militares, desinformación, etc.).
+
+**No Responsabilidad:** El software se proporciona "TAL CUAL", sin garantías de ningún tipo. Los contribuidores y autores no asumen ninguna responsabilidad por los resultados o el uso del software.
+
+Para obtener detalles completos, consulte el archivo [LICENSE](LICENSE) en la raíz del repositorio.
+
+6. Visualizaciones y Dashboards
 5.1 Dashboard de Exploración ABC
 <img width="800" alt="3D Scatter Plot of ABC Hits" src="https://github.com/user-attachments/assets/e673a356-3474-4b86-8298-1e4a35c59368" />
 <img width="800" alt="Optimization Convergence Plot" src="https://github.com/user-attachments/assets/75d3a5a3-5b8a-4c2f-8a5a-487b1e43f1f3" />
