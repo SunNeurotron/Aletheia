@@ -32,7 +32,7 @@ from sqlalchemy.sql import func  # For server-side default timestamps if preferr
 from aletheia_common.db.base import Base
 # Import custom UUID type from common db module
 from aletheia_common.db.custom_types import UUID as CommonUUID # Alias to avoid conflict if local UUID is still temp present
-
+from aletheia_common.auth.models import ResearcherDB
 
 import enum # Import Python's enum module
 
@@ -68,44 +68,6 @@ conjecture_hits_association = Table(
 )
 
 
-class ResearcherDB(Base):
-    __tablename__ = "researchers"
-
-    id: Mapped[uuid_pkg.UUID] = mapped_column(CommonUUID(as_uuid=True), primary_key=True, default=uuid_pkg.uuid4)
-    username: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    full_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    orcid: Mapped[Optional[str]] = mapped_column(
-        String(50), unique=True, nullable=True, index=True
-    )  # ORCID iDs are typically 19 chars like 0000-0002-1825-0097
-    hashed_password: Mapped[str] = mapped_column(
-        String, nullable=False
-    )  # Store hashed passwords only
-    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False) # server_default=sa.false() could be added if needed
-    disabled: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, server_default=sa.false()
-    )  # Ensures field exists with Mapped syntax
-
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    # Relationships
-    submitted_jobs = relationship("JobDB", back_populates="submitter")
-    attributions = relationship(
-        "DiscoveryAttributionDB", back_populates="researcher"
-    )
-    proposed_conjectures = relationship(
-        "DerivedConjectureDB", back_populates="proposer"
-    )
-
-    def __repr__(self):
-        return (
-            f"<ResearcherDB(username='{self.username}', email='{self.email}')>"
-        )
-
-
 class JobDB(Base):
     """
     SQLAlchemy model representing a discovery job.
@@ -132,7 +94,7 @@ class JobDB(Base):
         nullable=True,
         index=True,
     )
-    submitter: Mapped[Optional["ResearcherDB"]] = relationship(back_populates="submitted_jobs")
+    submitter: Mapped[Optional["ResearcherDB"]] = relationship()
 
     def __repr__(self):
         return f"<JobDB(id='{self.id}', status='{self.status}', n_calls={self.n_calls})>"
@@ -187,7 +149,7 @@ class DiscoveryAttributionDB(Base):
     attributed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     hit: Mapped["HitDB"] = relationship(back_populates="attributions")
-    researcher: Mapped["ResearcherDB"] = relationship(back_populates="attributions")
+    researcher: Mapped["ResearcherDB"] = relationship()
 
     def __repr__(self):
         return f"<DiscoveryAttributionDB(hit_id={self.hit_id}, researcher_id='{self.researcher_id}', type='{self.contribution_type}')>"
@@ -211,7 +173,7 @@ class DerivedConjectureDB(Base):
         nullable=False,
         index=True,
     )
-    proposer: Mapped["ResearcherDB"] = relationship(back_populates="proposed_conjectures")
+    proposer: Mapped["ResearcherDB"] = relationship()
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

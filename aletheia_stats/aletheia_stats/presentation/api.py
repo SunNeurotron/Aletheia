@@ -27,13 +27,16 @@ from .schemas import (
     PaginatedExperimentResponse,
     TTestRequest,
     TTestResultSchema,
-    UserSchema,
 )
+from aletheia_common.auth.jwt_handler import (
+    UserAuth,
+    get_current_active_user,
+    require_roles,
+)
+from aletheia_common.auth.schemas import UserSchema
 
 # Logger
 logger = logging.getLogger(__name__)
-
-oauth2_scheme_mock = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
 MLFLOW_TRACKING_URI_ENV = "STATS_MLFLOW_TRACKING_URI"
 DEFAULT_MLFLOW_TRACKING_URI = "http://localhost:5001"
@@ -42,67 +45,6 @@ MLFLOW_TRACKING_URI = os.getenv(
 )
 
 router = APIRouter(tags=["Aletheia-Stats"])
-
-
-class MockUserAuth:
-    def __init__(self, username: str, roles: List[str]):
-        self.username = username
-        self.roles = roles
-
-
-async def get_current_active_user_mock(
-    token: Optional[str] = Depends(oauth2_scheme_mock),
-) -> MockUserAuth:
-    logger.debug(
-        f"Mock Auth: Token recibido: {'Presente' if token else 'Ausente'}"
-    )
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated (mock)",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    logger.info(
-        f"Mock Auth: Usuario 'testuser_stats_mock' autenticado con roles ['analyst', 'viewer']"
-    )
-    return MockUserAuth(
-        username="testuser_stats_mock", roles=["analyst", "viewer"]
-    )
-
-
-def require_roles_mock(required_roles: set):
-    async def role_checker(
-        current_user: MockUserAuth = Depends(get_current_active_user_mock),
-    ) -> MockUserAuth:
-        logger.warning(
-            f"Auth Mock: Acceso permitido por require_roles_mock. "
-            f"Usuario: {current_user.username}, Roles Requeridos: {required_roles}, Roles del Usuario: {current_user.roles}"
-        )
-        return current_user
-
-    return role_checker
-
-
-try:
-    from aletheia_common.auth.jwt_handler import UserAuth as CommonUserAuthType
-    from aletheia_common.auth.jwt_handler import (
-        get_current_active_user as common_get_current_active_user,
-    )
-    from aletheia_common.auth.jwt_handler import require_roles as common_require_roles
-
-    logger.info(
-        "aletheia_common.auth importado exitosamente para aletheia_stats.api."
-    )
-    get_current_user_dependency = common_get_current_active_user
-    require_user_roles_dependency = common_require_roles
-    UserAuthClassForTypeHint = CommonUserAuthType
-except ImportError as e:
-    logger.warning(
-        f"ADVERTENCIA: aletheia_common.auth no encontrado ({e}). Usando autenticación MOCK para aletheia_stats.api. Esto NO es para producción."
-    )
-    get_current_user_dependency = get_current_active_user_mock
-    require_user_roles_dependency = require_roles_mock
-    UserAuthClassForTypeHint = MockUserAuth
 
 
 def get_stats_service() -> StatsService:
@@ -158,7 +100,7 @@ def get_perform_ttest_use_case(
 
 
 @router.get("/users/me", response_model=UserSchema, tags=["Users"])
-async def read_users_me_stats(current_user: UserAuthClassForTypeHint = Depends(get_current_user_dependency)):  # type: ignore
+async def read_users_me_stats(current_user: UserAuth = Depends(get_current_active_user)):
     return UserSchema(username=current_user.username, roles=current_user.roles)
 
 
@@ -171,7 +113,7 @@ async def read_users_me_stats(current_user: UserAuthClassForTypeHint = Depends(g
 async def perform_ttest_analysis_endpoint(
     request_data: TTestRequest,
     use_case: PerformTTestUseCase = Depends(get_perform_ttest_use_case),
-    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"analyst"})),  # type: ignore
+    current_user: UserAuth = Depends(require_roles({"analyst"})),
 ):
     try:
         experiment_uuid = uuid.uuid4()
@@ -257,7 +199,7 @@ async def get_experiment_endpoint(
     stats_repository: SQLAlchemyStatsRepository = Depends(
         get_stats_repository
     ),
-    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"viewer", "analyst"})),  # type: ignore
+    current_user: UserAuth = Depends(require_roles({"viewer", "analyst"})),
 ):
     logger.info(
         f"Endpoint /experiments/{experiment_id} llamado por usuario '{current_user.username if current_user else 'anonymous'}'"
@@ -315,7 +257,7 @@ async def list_experiments_endpoint(
     stats_repository: SQLAlchemyStatsRepository = Depends(
         get_stats_repository
     ),
-    current_user: UserAuthClassForTypeHint = Depends(require_user_roles_dependency({"viewer", "analyst"})),  # type: ignore
+    current_user: UserAuth = Depends(require_roles({"viewer", "analyst"})),
 ):
     logger.info(
         f"Endpoint /experiments llamado por usuario '{current_user.username if current_user else 'anonymous'}' con skip={skip}, limit={limit}"
