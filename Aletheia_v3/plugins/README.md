@@ -19,6 +19,9 @@ El sistema se basa en tres componentes principales:
 
 El siguiente diagrama de secuencia ilustra la interacción típica durante la carga y uso de un plugin:
 
+<details>
+<summary>Arquitectura y Flujo de Trabajo</summary>
+
 ```mermaid
 sequenceDiagram
     participant App as Aplicación (Core Aletheia)
@@ -40,6 +43,7 @@ sequenceDiagram
     App->>PluginModule: Llama a metodo (ej. `evaluate_quality(discovery)`)
     PluginModule-->>App: Retorna resultado (ej. `score`)
 ```
+</details>
 
 ## Estructura del Directorio
 

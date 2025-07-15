@@ -72,6 +72,9 @@ El objetivo no es crear una "IA que responde preguntas", sino un **agente epist�
 
 Aletheia Unificada está diseñada como una jerarquía de sistemas cognitivos interdependientes, donde Aletheia Core actúa como el orquestador ejecutivo.
 
+<details>
+<summary>Arquitectura Cognitiva General</summary>
+
 ```mermaid
 graph TD
     subgraph "Aletheia Unificada: Organismo Científico Digital"
@@ -108,6 +111,7 @@ graph TD
     style AGIHD fill:#d5f4e6
     style Plaskitcs fill:#fcf6bd
 ```
+</details>
 ## 3. La Hoja de Ruta de Unificación (Roadmap v5.0+)
 
 La construcción de Aletheia Unificada es un proceso iterativo y metódico. La siguiente hoja de ruta describe las fases principales del desarrollo.
@@ -785,6 +789,9 @@ if __name__ == "__main__":
 
 ### 9.1. Estrategia de Testing
 
+<details>
+<summary>Pirámide de Testing</summary>
+
 ```mermaid
 graph TB
     subgraph "Pirámide de Testing"
@@ -812,6 +819,7 @@ graph TB
     INT --> I1 & I2 & I3
     E2E --> E1 & E2
 ```
+</details>
 
 ```python
 # tests/test_domain.py

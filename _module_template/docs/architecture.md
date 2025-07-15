@@ -11,6 +11,9 @@ Este documento describe la arquitectura interna del módulo `[Module Name]`.
 
 ## Diagrama de Componentes (Ejemplo)
 
+<details>
+<summary>Diagrama de Componentes (Ejemplo)</summary>
+
 ```mermaid
 graph TD
     A["Componente Externo (ej. API Gateway)"] --> B{API del Módulo};
@@ -22,6 +25,7 @@ graph TD
     F --> G;
     E --> H{Cliente API Externa};
 ```
+</details>
 
 ## Capas
 

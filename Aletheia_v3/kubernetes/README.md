@@ -6,6 +6,9 @@ Este directorio contiene los manifiestos de Kubernetes (`.yaml`) para desplegar 
 
 El siguiente diagrama ilustra la topología de los componentes de Aletheia dentro de un clúster de Kubernetes. Muestra cómo los servicios se comunican entre sí y cómo se exponen al exterior a través de un Ingress Controller.
 
+<details>
+<summary>Arquitectura del Despliegue</summary>
+
 ```mermaid
 graph TD
     subgraph "Cluster de Kubernetes"
@@ -57,6 +60,7 @@ graph TD
     style Dashboard fill:#d2eaff
     style MLflow fill:#e9d8fd
 ```
+</details>
 
 ### Componentes Clave:
 -   **Ingress Controller**: Punto de entrada único que enruta el tráfico HTTP/S a los servicios internos correspondientes (`API`, `Dashboard`, `MLflow`).
