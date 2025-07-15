@@ -47,6 +47,7 @@ graph TD
     style O fill:#e8dff5
     style S fill:#fcf6bd
 ```
+</details>
 
 ## Cumplimiento del MDU
 
