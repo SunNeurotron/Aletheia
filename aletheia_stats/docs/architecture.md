@@ -4,6 +4,9 @@ El módulo Aletheia-Stats está diseñado siguiendo los principios de la **Arqui
 
 ## Diagrama Conceptual de la Arquitectura Hexagonal
 
+<details>
+<summary>Diagrama Conceptual de la Arquitectura Hexagonal</summary>
+
 ```mermaid
 graph TD
     subgraph "Presentation Layer (FastAPI)"
@@ -50,6 +53,7 @@ graph TD
     style ExtAPI fill:#90ee90,stroke:#333,stroke-width:2px
 
 ```
+</details>
 *(Para ver el diagrama, copie el código MermaidJS en un renderizador compatible como Mermaid Live Editor o plugins de IDE).*
 
 ## Descripción de las Capas

@@ -6,6 +6,9 @@
 
 El núcleo de `aletheia_omega` se centra en dos entidades principales: `OptimizationRun` y `TrajectoryPoint`. Una "ejecución" (`Run`) representa un proceso de optimización completo, y cada "punto de trayectoria" (`TrajectoryPoint`) es un paso dentro de esa ejecución.
 
+<details>
+<summary>Modelo de Datos</summary>
+
 ```mermaid
 erDiagram
     OptimizationRun {
@@ -25,6 +28,7 @@ erDiagram
 
     OptimizationRun ||--o{ TrajectoryPoint : "contiene"
 ```
+</details>
 
 -   **OptimizationRun**: Almacena metadatos sobre una ejecución de optimización, incluyendo su configuración (hiperparámetros del optimizador, espacio de búsqueda, etc.).
 -   **TrajectoryPoint**: Registra un punto de datos individual evaluado durante la ejecución, incluyendo los parámetros de entrada y el valor de la función objetivo resultante.

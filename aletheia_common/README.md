@@ -10,6 +10,9 @@ Este módulo **no** está diseñado para ser un servicio independiente, sino una
 
 Este módulo sirve como la base sobre la cual se construyen otros servicios, proporcionando funcionalidades reutilizables en dominios como la autenticación, el acceso a la base de datos y la interacción con MLflow.
 
+<details>
+<summary>Diagrama de Dependencias</summary>
+
 ```mermaid
 graph TD
     subgraph "Ecosistema Aletheia"

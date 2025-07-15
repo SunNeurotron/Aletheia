@@ -27,6 +27,9 @@ Adoptamos una estrategia de pruebas piramidal, con énfasis en pruebas unitarias
 
 El siguiente diagrama ilustra cómo nuestras pruebas cubren las distintas capas de la arquitectura del módulo:
 
+<details>
+<summary>Cobertura de Pruebas por Capa Arquitectónica</summary>
+
 ```mermaid
 graph LR
     subgraph "Pruebas"
@@ -54,6 +57,7 @@ graph LR
     style T_INT fill:#e8dff5
     style T_UNIT fill:#d5f4e6
 ```
+</details>
 
 ## Ejecución de Pruebas
 

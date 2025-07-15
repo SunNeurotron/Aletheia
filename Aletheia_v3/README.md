@@ -15,6 +15,9 @@ El módulo `Aletheia_v3` está diseñado siguiendo una variación de la **Arquit
 
 El siguiente diagrama ilustra esta interacción:
 
+<details>
+<summary>Arquitectura del Módulo: Puertos y Adaptadores</summary>
+
 ```mermaid
 graph TD
     subgraph "Capa de API (FastAPI)"
@@ -53,6 +56,7 @@ graph TD
     style Impl fill:#f8cecc
     style E fill:#fff2cc
 ```
+</details>
 
 ## Estructura y Componentes del Módulo `Aletheia_v3`
 

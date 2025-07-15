@@ -16,6 +16,9 @@ Aletheia-Stats proporciona una API para realizar pruebas de hipótesis estadíst
 
 El siguiente diagrama ilustra el flujo de procesamiento para una solicitud de análisis de prueba t:
 
+<details>
+<summary>Flujo de Análisis Estadístico</summary>
+
 ```mermaid
 sequenceDiagram
     participant Client as Cliente API
@@ -46,6 +49,7 @@ sequenceDiagram
     AppService-->>-API: ExperimentResponse
     API-->>-Client: ExperimentResponse (con ID, resultados, mlflow_id)
 ```
+</details>
 
 ## Estructura del Módulo
 
