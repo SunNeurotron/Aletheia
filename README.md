@@ -78,19 +78,19 @@ graph TD
         direction LR
 
         subgraph "Capa de Ejecución e Interfaz (Neocórtex)"
-            ALETHEIA[Aletheia Core Engine<br/>API Gateway & Orquestación]
+            ALETHEIA["Aletheia Core Engine<br/>API Gateway & Orquestación"]
         end
 
         subgraph "Capa de Crítica y Meta-Cognición (Córtex Prefrontal)"
-            CARLOTA[Motor Dialéctico & Validador ASC<br/>(MDL, Estabilidad Conceptual, Sesgos)]
+            CARLOTA["Motor Dialéctico & Validador ASC<br/>(MDL, Estabilidad Conceptual, Sesgos)"]
         end
 
         subgraph "Capa de Aprendizaje y Descubrimiento (Sistema Límbico)"
-            AGIHD[Agente Adaptativo<br/>(Plasticidad, Meta-Plasticidad)]
+            AGIHD["Agente Adaptativo<br/>(Plasticidad, Meta-Plasticidad)"]
         end
 
         subgraph "Capa de Cómputo Alternativo (Computación Emergente)"
-            PLASKITCS[Núcleo de Autómata Celular<br/>(Inhibición, Satisfacción de Restricciones)]
+            PLASKITCS["Núcleo de Autómata Celular<br/>(Inhibición, Satisfacción de Restricciones)"]
         end
     end
 
