@@ -1,4 +1,4 @@
-from typing import List, Set, Dict, Optional
+from typing import Any, List, Set, Dict, Optional
 from dataclasses import dataclass, field
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity # For ConceptualUnit.similarity_to
@@ -120,10 +120,10 @@ class ConceptType(str, Enum):
 
 @dataclass
 class ScientificConcept:
-    id: str = field(default_factory=lambda: f"concept_{uuid.uuid4().hex}")
     name: str # Título o nombre corto del concepto
-    description: Optional[str] = None # Descripción más detallada
     concept_type: ConceptType # Tipo de concepto usando el Enum
+    id: str = field(default_factory=lambda: f"concept_{uuid.uuid4().hex}")
+    description: Optional[str] = None # Descripción más detallada
     properties: Dict[str, Any] = field(default_factory=dict) # Metadatos, atributos específicos
     # embeddings: Optional[np.ndarray] = None # Podría ser un campo opcional, requiere numpy
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))

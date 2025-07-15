@@ -1,4 +1,48 @@
-Apache License
+Aletheia Unificada Project
+Copyright 2025 Alant and The Aletheia Unificada Contributors
+
+========================================================================
+AVISO FUNDAMENTAL: LICENCIA, USO Y RESPONSABILIDAD
+========================================================================
+
+Este software ("el Software") se distribuye bajo un modelo de Licencia Dual
+Híbrida, denominado "Aletheia Unificada Ethical Public License" (AUEPL).
+
+Su uso, modificación y distribución están sujetos a TRES CONDICIONES
+FUNDAMENTALES Y NO NEGOCIABLES:
+
+1.  LICENCIA BASE PERMISIVA: Usted recibe los derechos de la licencia
+    Apache 2.0, que garantizan su libertad para usar, estudiar, modificar
+    y compartir el Software con fines no comerciales y de investigación.
+    (Ver Parte 1).
+
+2.  RESTRICCIONES DE USO ÉTICO: Ciertos usos (militares, desinformación,
+    violación de la privacidad, discriminación, etc.) están explícitamente
+    PROHIBIDOS. La violación de estas restricciones anula de forma
+    automática e inmediata todos sus derechos de licencia. (Ver Parte 2,
+    Cláusula A).
+
+3.  NO RESPONSABILIDAD ABSOLUTA: El Software se proporciona "TAL CUAL",
+    sin garantías de ningún tipo. Usted es el ÚNICO responsable de su
+    uso, de la validación de sus resultados y de todas las consecuencias
+    derivadas. Los autores y contribuidores no ofrecen NINGUNA GARANTÍA
+    y no asumen NINGUNA RESPONSABILIDAD por ningún daño. (Ver Parte 1,
+    Cláusulas 7 y 8).
+
+En caso de conflicto o ambigüedad entre la Parte 1 (Apache 2.0) y la
+Parte 2 (Addendum), los términos de la Parte 2 prevalecerán en todo
+momento.
+
+Al descargar, acceder, usar o modificar este Software, usted acepta
+inequívocamente estas tres condiciones en su totalidad. Si no está de
+acuerdo con alguno de estos términos, no utilice, copie, modifique ni
+distribuya el Software.
+
+========================================================================
+Part 1: Apache License, Version 2.0
+========================================================================
+
+                           Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
 
@@ -175,27 +219,61 @@ Apache License
 
    END OF TERMS AND CONDITIONS
 
-   APPENDIX: How to apply the Apache License to your work.
+========================================================================
+Part 2: Ethical Use and Commercial Rights Addendum (AUEPL Addendum)
+========================================================================
 
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
+Notwithstanding any term in the Apache License, Version 2.0, the
+following clauses are an integral and overriding part of the license
+agreement for this Software.
 
-   Copyright 2025 Alant
+1.  **Clause A: Ethical Use Restrictions (The Governance Clause)**
+    This Software may NOT be used, directly or indirectly, for any of the
+    following purposes:
+    a. Military applications, including but not limited to: development,
+       testing, or deployment of weapons systems (kinetic, non-kinetic,
+       autonomous, or otherwise); systems for military surveillance,
+       intelligence, or reconnaissance; combat planning or operations;
+       or cyber-warfare.
+    b. The generation and dissemination of misinformation or disinformation
+       intended to deceive the public or incite violence.
+    c. The creation or operation of systems for unlawful mass surveillance
+       or the infringement of fundamental, internationally recognized
+       human rights to privacy.
+    d. The creation or perpetuation of systems that result in unfair
+       or unlawful discrimination or harmful bias against individuals or
+       groups based on protected characteristics.
+    e. Any activity primarily designed to cause intentional physical,
+       psychological, or severe financial harm.
 
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
+2.  **Clause B: Humanitarian & Ecological Exception**
+    The restrictions in Clause A(a) are waived ONLY when the Software is
+    used in direct, verifiable support of, and under the operational
+    guidance of, internationally recognized humanitarian or ecological
+    organizations (such as the United Nations, the Red Cross/Red Crescent
+    Movement, Doctors Without Borders, or similar) for the primary and
+    explicit purpose of disaster relief, environmental preservation, or
+    safeguarding human and animal life in response to natural or
+    human-made cataclysmic events. Any such use must be documented and
+    made transparent to the Licensor upon request.
 
-       http://www.apache.org/licenses/LICENSE-2.0
+3.  **Clause C: Reservation of Commercial Rights**
+    All rights to sell, offer for sale, license for profit, or otherwise
+    commercialize the Software or any Derivative Works thereof are
+    reserved exclusively to the entity "Alant". "Commercialize" is
+    defined as any activity where the primary value offered to a customer
+    or client is access to or use of the Software's capabilities, whether
+    as a standalone product, a hosted service (SaaS), or a core component
+    of another commercial offering. No other party is granted any right
+    to commercialize the Software for monetary gain without an explicit,
+    prior, written agreement from "Alant". This clause does not restrict
+    using the Software internally within a commercial entity for research
+    and development purposes that result in products (e.g., a new drug,
+    a new material) that are not the Software itself.
 
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
+4.  **Clause D: Termination for Breach**
+    Any breach of Clauses A, B, or C of this Addendum constitutes a material
+    breach of the entire license grant. Upon such a breach, all rights
+    granted to You under both the Apache License, Version 2.0, and this
+    Addendum shall terminate immediately, automatically, and irrevocably,
+    without notice.

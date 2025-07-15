@@ -1,626 +1,1242 @@
 <div align="center">
-<img width="1536" height="1024" alt="Aletheia Platform - AI-Guided Scientific Discovery" src="https://github.com/user-attachments/assets/3f19aa7e-6a92-420b-9935-9f2e22545c24" />
-<h1>ALETHEIA v4.0</h1>
-<h3>Plataforma Integral de Descubrimiento Científico Asistido por Inteligencia Artificial</h3>
-<h4>Un Marco Computacional para la Epistemología Formal y la Síntesis de Conocimiento</h4>
+<img width="1536" height="1024" alt="Aletheia Unificada - Un Organismo Científico Digital" src="https://github.com/user-attachments/assets/3f19aa7e-6a92-420b-9935-9f2e22545c24" />
+<h1>ALETHEIA UNIFICADA v5.0</h1>
+<h3>Un Organismo Científico Digital Auto-Reflexivo</h3>
+<h4>Un Marco Computacional para la Gnoseología Aplicada y el Descubrimiento Científico Autónomo</h4>
 <p>
-<a href="Aletheia_v3/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="Apache 2.0 License"></a>
-<a href="https://github.com/SunNeurotron/Aletheia/actions/workflows/ci.yml"><img src="https://github.com/SunNeurotron/Aletheia/actions/workflows/ci.yml/badge.svg" alt="CI Pipeline"></a>
-<a href="https://codecov.io/gh/SunNeurotron/Aletheia"><img src="https://img.shields.io/codecov/c/github/SunNeurotron/Aletheia" alt="Code Coverage"></a>
-<a href="#"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?logo=python" alt="Python 3.9+"></a>
-<a href="#"><img src="https://img.shields.io/badge/FastAPI-0.103+-009688?logo=fastapi" alt="FastAPI"></a>
-<a href="#"><img src="https://img.shields.io/badge/Streamlit-1.27+-FF4B4B?logo=streamlit" alt="Streamlit"></a>
-<a href="#"><img src="https://img.shields.io/badge/Docker-24.0+-2496ED?logo=docker" alt="Docker"></a>
-<a href="#"><img src="https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql" alt="PostgreSQL"></a>
-<a href="#"><img src="https://img.shields.io/badge/MLflow-2.7.1+-0194E2?logo=mlflow" alt="MLflow"></a>
-<a href="#"><img src="https://img.shields.io/badge/Research-Active-brightgreen" alt="Active Research"></a>
-<a href="#"><img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit" alt="pre-commit"></a>
-<a href="#"><img src="https://img.shields.io/badge/mypy-checked-blue.svg" alt="Mypy Checked"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-AUEPL-red.svg" alt="AUEPL License"></a>
+<img src="https://img.shields.io/badge/Python-3.11+-3776AB?logo=python" alt="Python 3.11+">
+<img src="https://img.shields.io/badge/Status-Hoja%20de%20Ruta%20Activa-blueviolet" alt="Active Roadmap">
+<img src="https://img.shields.io/badge/Paradigm-Cognitive%20Architecture-9cf" alt="Cognitive Architecture">
+<img src="https://img.shields.io/badge/Docker-24.0+-2496ED?logo=docker" alt="Docker">
+<img src="https://img.shields.io/badge/PostgreSQL-15+-336791?logo=postgresql" alt="PostgreSQL">
+<img src="https://img.shields.io/badge/PyTorch-2.2+-EE4C2C?logo=pytorch" alt="PyTorch">
+<img src="https://img.shields.io/badge/MLflow-2.7+-0194E2?logo=mlflow" alt="MLflow">
 </p>
 </div>
 
-### **Tabla de Contenidos**
-<details>
-<summary>Expandir para ver la tabla de contenidos completa</summary>
+**Tabla de Contenidos**
 
-1.  [Introducción y Fundamentos Teóricos](#1-introducción-y-fundamentos-teóricos)
-    *   [1.1 Visión General](#11-visión-general)
-    *   [1.2 Marco Epistemológico: El Paradigma MDU](#12-marco-epistemológico-el-paradigma-mdu)
-    *   [1.3 Motivación Científica: La Conjetura ABC](#13-motivación-científica-la-conjetura-abc)
-    *   [1.4 Objetivos del Sistema](#14-objetivos-del-sistema)
-2.  [Arquitectura del Sistema](#2-arquitectura-del-sistema)
-    *   [2.1 Arquitectura de Microservicios](#21-arquitectura-de-microservicios)
-    *   [2.2 Patrones Arquitectónicos Implementados](#22-patrones-arquitectónicos-implementados)
-    *   [2.3 Flujo de Datos del Sistema](#23-flujo-de-datos-del-sistema)
-3.  [Módulos del Ecosistema](#3-módulos-del-ecosistema)
-4.  [Fundamentos Matemáticos y Algorítmicos](#4-fundamentos-matemáticos-y-algorítmicos)
-5.  [Visualizaciones y Dashboards](#5-visualizaciones-y-dashboards)
-    *   [5.1 Dashboard de Exploración ABC](#51-dashboard-de-exploración-abc)
-    *   [5.2 Dashboard del Grafo de Conocimiento](#52-dashboard-del-grafo-de-conocimiento)
-    *   [5.3 Dashboard de Análisis Estadístico](#53-dashboard-de-análisis-estadístico)
-6.  [Sistema de Benchmarking y Evaluación](#6-sistema-de-benchmarking-y-evaluación)
-    *   [6.1 Resultados de Benchmarks Computacionales](#61-resultados-de-benchmarks-computacionales)
-    *   [6.2 Evaluación Comparativa de Métodos de Búsqueda](#62-evaluación-comparativa-de-métodos-de-búsqueda)
+1.  [Visión y Fundamento Filosófico: El Organismo Científico Digital](#1-visión-y-fundamento-filosófico-el-organismo-científico-digital)
+    1.1. [Los Cuatro Pilares Cognitivos](#11-los-cuatro-pilares-cognitivos)
+    1.2. [Objetivo Final del Sistema](#12-objetivo-final-del-sistema)
+2.  [Arquitectura Cognitiva General](#2-arquitectura-cognitiva-general)
+3.  [La Hoja de Ruta de Unificación (Roadmap v5.0+)](#3-la-hoja-de-ruta-de-unificación-roadmap-v50)
+4.  [Componentes Clave del Ecosistema Unificado](#4-componentes-clave-del-ecosistema-unificado)
+5.  [Gobernanza: Principios del MDU y Licenciamiento Ético](#5-gobernanza-principios-del-mdu-y-licenciamiento-ético)
+6.  [Instalación y Estado Actual](#6-instalación-y-estado-actual)
 7.  [Demostración Práctica Completa](#7-demostración-práctica-completa)
-8.  [Instalación y Configuración Detallada](#8-instalación-y-configuración-detallada)
-9.  [API y Endpoints](#9-api-y-endpoints)
-10. [Testing y Calidad del Código](#10-testing-y-calidad-del-código)
-11. [Publicaciones y Referencias Académicas](#11-publicaciones-y-referencias-académicas)
-12. [Contribuciones y Licencia](#12-contribuciones-y-licencia)
-
-</details>
+    7.1. [Escenario de Demostración End-to-End](#71-escenario-de-demostración-end-to-end)
+    7.2. [Resultados Esperados de la Demostración](#72-resultados-esperados-de-la-demostración)
+8.  [API y Endpoints](#8-api-y-endpoints)
+    8.1. [Documentación OpenAPI](#81-documentación-openapi)
+    8.2. [Autenticación y Autorización](#82-autenticación-y-autorización)
+    8.3. [Endpoints Principales por Módulo](#83-endpoints-principales-por-módulo)
+    8.4. [WebSocket para Actualizaciones en Tiempo Real](#84-websocket-para-actualizaciones-en-tiempo-real)
+9.  [Testing y Calidad del Código](#9-testing-y-calidad-del-código)
+    9.1. [Estrategia de Testing](#91-estrategia-de-testing)
+    9.2. [Cobertura de Código](#92-cobertura-de-código)
+    9.3. [Análisis Estático y Linting](#93-análisis-estático-y-linting)
+    9.4. [CI/CD Pipeline](#94-cicd-pipeline)
+10. [Publicaciones y Referencias Fundamentales](#10-publicaciones-y-referencias-fundamentales)
+    10.1. [Publicaciones del Proyecto](#101-publicaciones-del-proyecto)
+    10.2. [Referencias Fundamentales](#102-referencias-fundamentales)
+    10.3. [Contacto y Colaboración](#103-contacto-y-colaboración)
 
 ---
 
-## **1. Introducción y Fundamentos Teóricos**
+## 1. Visión y Fundamento Filosófico: El Organismo Científico Digital
 
-### **1.1 Visión General**
-Aletheia representa una plataforma computacional de vanguardia diseñada para abordar los desafíos fundamentales en la investigación científica moderna: la síntesis automatizada de conocimiento, el descubrimiento asistido por inteligencia artificial, y la construcción de modelos teóricos unificados. El sistema implementa un paradigma epistemológico computacional que fusiona técnicas de inteligencia artificial con métodos formales de las ciencias matemáticas.
+Aletheia Unificada representa la siguiente etapa evolutiva del proyecto Aletheia. Trascendemos el concepto de una "plataforma" para construir un **Organismo Científico Digital (OCD)**: un sistema computacional unificado capaz de un ciclo de investigación autónomo, desde la formulación de hipótesis hasta la síntesis de teorías, la autocrítica metodológica y la evolución de sus propios procesos de descubrimiento.
 
-### **1.2 Marco Epistemológico: El Paradigma MDU**
-El núcleo conceptual de Aletheia se basa en el paradigma MDU (Modelado, Descubrimiento, Comprensión), que establece tres dimensiones fundamentales para el proceso de investigación científica computacional:
+Nuestro marco filosófico se basa en la **Gnoseología Aplicada**, donde la computación no es solo una herramienta para la ciencia, sino un laboratorio para modelar y entender la naturaleza misma del conocimiento.
 
-```mermaid
-graph TB
-    subgraph "CUBO MDU - Marco Epistemológico Tridimensional"
-        subgraph "Eje X: MODELADO (La estructura del conocimiento)"
-            X1[Ingesta de Conocimiento<br><i>(Textos, Datos)</i>]
-            X2[Extracción de Entidades<br><i>(Conceptos, UCMs)</i>]
-            X3[Construcción Ontológica<br><i>(Relaciones, Grafos)</i>]
-            X4[Formalización Semántica<br><i>(Axiomas, Reglas)</i>]
-            X1 --> X2 --> X3 --> X4
-        end
+### 1.1. Los Cuatro Pilares Cognitivos
 
-        subgraph "Eje Y: DESCUBRIMIENTO (La generación de nuevo conocimiento)"
-            Y1[Generación de Hipótesis<br><i>(A partir de patrones)</i>]
-            Y2[Optimización Bayesiana<br><i>(Búsqueda eficiente)</i>]
-            Y3[Síntesis Teórica<br><i>(Clustering MDL)</i>]
-            Y4[Unificación de Modelos<br><i>(Teorías Coherentes)</i>]
-            Y1 --> Y2 --> Y3 --> Y4
-        end
+El sistema integra cuatro paradigmas conceptuales en una arquitectura sinérgica:
 
-        subgraph "Eje Z: COMPRENSIÓN (La validación e interpretación)"
-            Z1[Visualización Interactiva<br><i>(Dashboards, Grafos 3D)</i>]
-            Z2[Explicabilidad de IA<br><i>(SHAP, LIME, Atención)</i>]
-            Z3[Validación Formal<br><i>(Consistencia, Pruebas)</i>]
-            Z4[Interpretación Científica<br><i>(Publicaciones, Insights)</i>]
-            Z1 --> Z2 --> Z3 --> Z4
-        end
-    end
+*   **Aletheia (Neocórtex):** El motor de síntesis de conocimiento a gran escala, responsable de la ingesta de datos, la construcción de grafos de conocimiento y la orquestación de la infraestructura.
+*   **Carlota (Córtex Prefrontal):** El motor de meta-cognición y crítica. Utiliza el Principio de Mínima Descripción (MDL) y la computación de paisajes de atractores (ASC) para evaluar la robustez, coherencia y los sesgos de las trayectorias de investigación del propio sistema.
+*   **AGIHD (Sistema Límbico/Hipocampo):** El motor de aprendizaje y adaptación. Implementa agentes con plasticidad sináptica y meta-plasticidad, permitiendo que el sistema no solo aprenda sobre el mundo, sino que *aprenda a aprender mejor*.
+*   **Plaskitcs (Cerebelo/Computación Emergente):** Un paradigma de cómputo no neuronal basado en autómatas celulares sobre grafos. Proporciona un modo de razonamiento alternativo para problemas de satisfacción de restricciones y reconocimiento de patrones complejos.
 
-    X4 -.-> Y1
-    Y4 -.-> Z1
-    Z4 -.-> X1
+### 1.2. Objetivo Final del Sistema
 
-    style X1 fill:#ffcdd2,stroke:#b71c1c
-    style Y1 fill:#c8e6c9,stroke:#1b5e20
-    style Z1 fill:#bbdefb,stroke:#0d47a1
-```
-### 1.3 Motivación Científica: La Conjetura ABC
+El objetivo no es crear una "IA que responde preguntas", sino un **agente epistémico autónomo** capaz de:
 
-La plataforma fue inicialmente concebida para abordar uno de los problemas más profundos en teoría de números: la Conjetura ABC, formulada por Joseph Oesterlé y David Masser en 1985. Esta conjetura establece una relación fundamental entre la estructura multiplicativa y aditiva de los números enteros.
+1.  **Generar Conocimiento Nuevo y Verificable:** Producir hipótesis, teorías y modelos que sean matemáticamente válidos y empíricamente falsables.
+2.  **Auto-Mejora Metodológica:** Analizar su propio rendimiento y evolucionar sus estrategias de descubrimiento para ser más eficiente y robusto.
+3.  **Operar dentro de un Marco Ético Computacional:** Integrar la gobernanza ética como un mecanismo funcional intrínseco.
 
-**Formulación Matemática:**
-Para cualquier 𝜀 > 0, existe una constante 𝐾(𝜀) tal que para toda tripleta de enteros coprimos positivos (𝑎,𝑏,𝑐) con 𝑎 + 𝑏 = 𝑐, se cumple:
+## 2. Arquitectura Cognitiva General
 
-𝑐 < 𝐾(𝜀) ⋅ rad(𝑎𝑏𝑐)^(1+𝜀)
-
-donde el radical de un entero 𝑛 se define como el producto de sus factores primos distintos:
-
-rad(𝑛) = ∏_{𝑝∣𝑛, 𝑝 \text{ primo}} 𝑝
-
-### 1.4 Objetivos del Sistema
-
-*   **Automatización del Descubrimiento Matemático:** Implementar algoritmos de búsqueda inteligente para identificar patrones y estructuras en espacios matemáticos complejos.
-*   **Síntesis de Conocimiento Jerárquica:** Desarrollar un sistema capaz de abstraer conceptos desde unidades mínimas hasta teorías comprehensivas.
-*   **Reproducibilidad Computacional:** Garantizar que todos los experimentos y descubrimientos sean completamente reproducibles mediante tracking exhaustivo con MLflow.
-*   **Escalabilidad y Distribución:** Diseñar una arquitectura que permita el procesamiento distribuido de cálculos computacionalmente intensivos en clusters Kubernetes y HPC.
-
-## **2. Arquitectura del Sistema**
-### 2.1 Arquitectura de Microservicios
-
-Aletheia implementa una arquitectura de microservicios basada en principios de Domain-Driven Design (DDD) y Clean Architecture, garantizando la separación de responsabilidades y la escalabilidad independiente de cada componente.
-
-```mermaid
-flowchart TB
-    subgraph "Capa de Presentación (Interfaces de Usuario y API)"
-        UI1["<img src='https://raw.githubusercontent.com/streamlit/streamlit/develop/docs/streamlit-logo-primary-colormark-darktext.svg' width='80' /><br/>Dashboard ABC<br/>(Streamlit :8501)"]
-        UI2["<img src='https://raw.githubusercontent.com/streamlit/streamlit/develop/docs/streamlit-logo-primary-colormark-darktext.svg' width='80' /><br/>Knowledge Explorer<br/>(Streamlit :8502)"]
-        UI3["<img src='https://raw.githubusercontent.com/streamlit/streamlit/develop/docs/streamlit-logo-primary-colormark-darktext.svg' width='80' /><br/>Análisis Estadístico<br/>(Streamlit :8503)"]
-        API1["<img src='https://fastapi.tiangolo.com/img/logo-margin/logo-teal.png' width='80' /><br/>API Gateway<br/>(FastAPI :8000)"]
-    end
-
-    subgraph "Capa de Servicios de Aplicación (Lógica de Negocio)"
-        SVC1[Aletheia Core Engine<br/><i>(DDD, Hexagonal)</i>]
-        SVC2[Aletheia Stats<br/><i>(Análisis Estadístico)</i>]
-        SVC3[Aletheia Omega<br/><i>(Optimización MDL)</i>]
-        SVC4[Knowledge Synthesis<br/><i>(Pipeline Asíncrono)</i>]
-    end
-
-    subgraph "Capa de Infraestructura y Persistencia"
-        DB[("<img src='https://upload.wikimedia.org/wikipedia/commons/2/29/Postgresql_elephant.svg' width='30' /><br/>PostgreSQL<br/>:5432")]
-        CACHE[("<img src='https://raw.githubusercontent.com/redis/redis-io/Swayam/images/redis-icon-rgb.svg' width='30' /><br/>Redis<br/>:6379")]
-        MQ[("<img src='https://www.rabbitmq.com/img/RabbitMQ-logo.svg' width='30' /><br/>RabbitMQ/Celery")]
-        MLF[("<img src='https://mlflow.org/docs/latest/_static/MLflow-logo-final-black.png' width='50' /><br/>MLflow Tracking<br/>:5000")]
-    end
-
-    subgraph "Capa de Cómputo Distribuido y Orquestación"
-        K8S[("<img src='https://kubernetes.io/images/nav_logo.svg' width='50' /><br/>Kubernetes Cluster")]
-        WORK1[Celery Worker Pool]
-        WORK2[GPU Compute Nodes<br><i>(CUDA/PARI-GP)</i>]
-        WORK3[HPC Integration<br><i>(SLURM)</i>]
-    end
-
-    UI1 & UI2 & UI3 --> API1
-    API1 -- REST/JSON --> SVC1 & SVC2 & SVC3
-    SVC1 --> SVC4
-    SVC1 & SVC2 & SVC3 -- "SQLAlchemy" --> DB
-    SVC1 & SVC2 & SVC3 -- "Cache" --> CACHE
-    SVC1 -- "Eventos (pika)" --> MQ --> WORK1
-    WORK1 -- "Experimentos" --> MLF
-    K8S -- "Orquesta" --> WORK1 & WORK2 & WORK3
-
-    style DB fill:#e1f5fe,stroke:#0277bd
-    style CACHE fill:#fff3e0,stroke:#e65100
-    style MLF fill:#f3e5f5,stroke:#4a148c
-```
-
-### 2.2 Patrones Arquitectónicos Implementados
-<details>
-<summary><b>2.2.1 Arquitectura Hexagonal (Ports & Adapters)</b></summary>
-<br>
-Cada módulo sigue estrictamente el patrón de Arquitectura Hexagonal, aislando el núcleo de dominio de las dependencias externas (UI, base de datos, etc.). Esto permite una alta testeabilidad y flexibilidad tecnológica.
+Aletheia Unificada está diseñada como una jerarquía de sistemas cognitivos interdependientes, donde Aletheia Core actúa como el orquestador ejecutivo.
 
 ```mermaid
 graph TD
-    subgraph "Arquitectura Hexagonal - Módulo Aletheia Core"
-        subgraph "Dominio Central (Independiente de Frameworks)"
-            DOM[<b>Modelos de Dominio</b><br/>ScientificConcept<br/>DirectedRelationship<br/>ABCTriple]
-            DS[<b>Servicios de Dominio</b><br/>TheoryBuilder<br/>MDLOptimizer<br/>ABCSearcher]
+    subgraph "Aletheia Unificada: Organismo Científico Digital"
+        direction LR
+
+        subgraph "Capa de Ejecución e Interfaz (Neocórtex)"
+            ALETHEIA[Aletheia Core Engine<br/>API Gateway & Orquestación]
         end
 
-        subgraph "Puertos de Aplicación (Interfaces)"
-            P1[IConceptRepository]
-            P2[IRelationshipRepository]
-            P3[IMLflowTracker]
-            P4[IMessageQueue]
+        subgraph "Capa de Crítica y Meta-Cognición (Córtex Prefrontal)"
+            CARLOTA[Motor Dialéctico & Validador ASC<br/>(MDL, Estabilidad Conceptual, Sesgos)]
         end
 
-        subgraph "Adaptadores de Entrada (Driving Adapters)"
-            API[Controladores FastAPI]
-            CLI[Comandos Typer]
-            EVT[Listeners de Eventos]
+        subgraph "Capa de Aprendizaje y Descubrimiento (Sistema Límbico)"
+            AGIHD[Agente Adaptativo<br/>(Plasticidad, Meta-Plasticidad)]
         end
 
-        subgraph "Adaptadores de Salida (Driven Adapters)"
-            SQL[Adaptador SQLAlchemy<br/><i>(PostgreSQL)</i>]
-            MLF2[Adaptador MLflow]
-            CEL[Adaptador Celery<br/><i>(RabbitMQ)</i>]
-            RED[Adaptador Redis]
+        subgraph "Capa de Cómputo Alternativo (Computación Emergente)"
+            PLASKITCS[Núcleo de Autómata Celular<br/>(Inhibición, Satisfacción de Restricciones)]
         end
-
-        API --> P1 & P2
-        CLI --> P1 & P2
-        EVT --> P3 & P4
-
-        P1 & P2 --> DOM & DS
-        DOM & DS --> P3 & P4
-
-        SQL -.-> P1 & P2
-        MLF2 -.-> P3
-        CEL & RED -.-> P4
     end
+
+    ALETHEIA -- "1. Delega Tarea de Descubrimiento" --> AGIHD
+    ALETHEIA -- "5. Delega Problema de Patrones" --> PLASKITCS
+
+    AGIHD -- "2. Produce Trayectoria de Hipótesis" --> CARLOTA
+    CARLOTA -- "3. Analiza Sesgos y Estabilidad" --> AGIHD
+    AGIHD -- "4. Adapta Mecanismos de Aprendizaje" --> AGIHD
+
+    CARLOTA -- "6. Modula 'Física' del Cómputo" --> PLASKITCS
+
+    style Aletheia fill:#d2eaff
+    style Carlota fill:#e8dff5
+    style AGIHD fill:#d5f4e6
+    style Plaskitcs fill:#fcf6bd
 ```
-</details>
+## 3. La Hoja de Ruta de Unificación (Roadmap v5.0+)
 
-<details>
-<summary><b>2.2.2 Arquitectura Orientada a Eventos (EDA)</b></summary>
-<br>
-El sistema implementa un modelo de eventos para la comunicación asíncrona entre servicios, lo que desacopla los componentes y mejora la resiliencia y escalabilidad.
+La construcción de Aletheia Unificada es un proceso iterativo y metódico. La siguiente hoja de ruta describe las fases principales del desarrollo.
 
-```python
-# Ejemplo de definición de eventos de dominio
-from dataclasses import dataclass
-from datetime import datetime
-from typing import List
-from uuid import UUID
+### Fase 0: Consolidación Arquitectónica (Completada)
 
-class DomainEvent:
-    pass
+*   **Unificación de la Base Común (`aletheia_common`):** Centralización de la autenticación (`jwt_handler.py`, `schemas.py`), modelos de base de datos (`ResearcherDB` en `auth/models.py`), y tipos de base de datos (`db/base.py`, `db/custom_types.py`).
+*   **Refactorización de Módulos:** Adaptación de `Aletheia_v3` y `aletheia_stats` para consumir la nueva base común, eliminando código redundante.
+*   **Estabilización de la Suite de Pruebas:** Corrección de todos los errores de integración (`OperationalError`, `AttributeError`), sintaxis y dependencias (`ImportError`, `NameError`) hasta que `pytest` se ejecute sin fallos en ambos módulos.
 
-@dataclass
-class ConceptCreatedEvent(DomainEvent):
-    concept_id: UUID
-    concept_type: str # Debería ser un Enum
-    created_by: str
-    timestamp: datetime
+### Fase 1: Implementación del Marco de Gobernanza (Completada)
 
-@dataclass
-class SynthesisCompletedEvent(DomainEvent):
-    synthesis_id: UUID
-    level: str # Debería ser un Enum
-    input_concepts: List[UUID]
-    result_concept: UUID
-```
-</details>
+*   **Transición de Licencia:** Reemplazo de la licencia Apache 2.0 por la **AUEPL (Aletheia Unificada Ethical Public License)**, una licencia dual que combina Apache 2.0 con un addendum ético y comercial.
+*   **Actualización de Documentación:** Reflejo del nuevo marco de licenciamiento en todos los archivos `README.md` y `NOTICE`.
+*   **Creación de `CONTRIBUTING.md`:** Documentación de las nuevas directrices para contribuidores bajo la AUEPL.
+*   **Etiquetado de Versión:** Creación del tag de Git `v4.2.0-apache-final` para marcar la última versión puramente Apache 2.0.
 
-### 2.3 Flujo de Datos del Sistema
+### Fase 2: Integración de la Crítica y la Optimización (En Progreso)
 
-El siguiente diagrama de secuencia ilustra un flujo típico de ingesta y procesamiento asíncrono.
+*   **Tarea `TASK-SYNTHESIS-P2-001`:**
+    *   **Creación del Paquete `mdl_synthesis`:** Crear la estructura de directorios `Aletheia_v3/core/mdl_synthesis/` y `Aletheia_v3/application/mdl_synthesis_use_cases.py`. Portar los componentes de `aletheia_omega` (entidades, servicios de complejidad y coste).
+    *   **Implementación de `LikelihoodService`:** Implementar una nueva `LikelihoodService` en `Aletheia_v3` que defina la función `L(D|M)` para, como mínimo, la probabilidad de un conjunto de UCMs dado un modelo de clúster `L(UCMs | Cluster)` y la probabilidad de un conjunto de proposiciones dada una mini-teoría `L(Proposiciones | Mini-Teoría)`. La implementación debe ser robusta y estar documentada.
+    *   **Refactorización de Casos de Uso del Eje Y:** Modificar `FormClustersUseCase`, `DerivePropositionsUseCase`, etc., para que generen un conjunto de modelos candidatos y utilicen el `FindOptimalModelUseCase` para seleccionar el mejor candidato según el coste MDL.
+    *   **Almacenamiento de Metadatos MDL:** Cuando un `ScientificConcept` es creado vía optimización MDL, sus `properties` deben ser enriquecidas con los detalles de la optimización (`complexity`, `log_likelihood`, `mdl_cost`, etc.).
+    *   **Pruebas de Validación:** Crear una nueva suite de pruebas en `Aletheia_v3/tests/core/mdl_synthesis/` y actualizar las pruebas de integración existentes para el Eje Y para validar el nuevo flujo basado en MDL.
 
-```mermaid
-sequenceDiagram
-    participant User as Usuario/Investigador
-    participant API as API Gateway (FastAPI)
-    participant Auth as Servicio de Auth (JWT)
-    participant Core as Aletheia Core
-    participant Queue as Message Queue (RabbitMQ)
-    participant Worker as Worker de Cómputo (Celery)
-    participant ML as MLflow Tracking
-    participant DB as PostgreSQL
-    participant Cache as Redis
+### Fase 3: Integración del Motor de Aprendizaje Adaptativo (Q2 2025)
 
-    User->>+API: POST /eje-x/ingest-document
-    API->>+Auth: Validar Token JWT
-    Auth-->>-API: Usuario Autorizado
+*   **Reemplazo del Motor de Descubrimiento:** El `IntelligentSearchUseCase` de Aletheia será reemplazado por una interfaz que delega las tareas de descubrimiento al motor **AGIHD**.
+*   **Implementación del Bucle de Retroalimentación:** Conectar la salida del Motor Dialéctico de Carlota (análisis de sesgos y estabilidad) con el `MetaPlasticityController` de AGIHD para permitir que el agente ajuste sus propias estrategias de aprendizaje.
 
-    API->>+Core: IngestDocumentUseCase.execute()
-    Core->>+DB: Almacenar Concepto de Documento
-    DB-->>-Core: Document ID
+### Fase 4: Integración del Cómputo Pluralista y Despliegue Alfa (Q3-Q4 2025)
 
-    Core->>+Queue: Encolar Tarea de Extracción de UCMs
-    Queue-->>-Core: ID de Tarea
-    Core->>API: Respuesta con ID de Tarea
-    API-->>-User: 202 Accepted
+*   **Integración del Núcleo Plaskitcs:** Implementar en Aletheia un despachador de tareas que pueda enrutar ciertos tipos de problemas (ej. satisfacción de restricciones) al motor de cómputo emergente.
+*   **Gobernanza Ética Activa:** Implementar los "ganchos" inhibitorios para que el orquestador de Aletheia pueda vetar computacionalmente tareas que violen las directivas éticas.
+*   **Versión Alfa de Aletheia Unificada:** Desplegar una primera versión del sistema unificado completo en un entorno de staging en Kubernetes para pruebas y validación a gran escala.
 
-    Queue->>+Worker: Procesar Tarea de Extracción
-    Worker->>+Core: ExtractUCMsUseCase.execute()
-    Core->>DB: Almacenar UCMs y Relaciones
-    Core->>+ML: Registrar Métricas de Extracción (Precisión, Recall)
-    ML-->>-Core: Run ID
+## 4. Componentes Clave del Ecosistema Unificado
 
-    Worker->>Cache: Actualizar Progreso de Tarea
-    Worker-->>-Queue: Tarea Completada
+La arquitectura unificada se apoya en los siguientes componentes de software y tecnológicos:
 
-    User->>API: GET /tasks/{task_id}/status
-    API->>Cache: Consultar Progreso
-    Cache-->>API: Estado de la Tarea
-    API-->>-User: Tarea Completada + Resultados
-```
-## 5. Visualizaciones y Dashboards
+| Componente                | Tecnología Principal          | Propósito en el Ecosistema Unificado                                                  |
+| ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------- |
+| Orquestador y API         | FastAPI, Python 3.11+         | Proporciona la interfaz principal con el mundo y coordina los motores cognitivos.     |
+| Bases de Conocimiento     | PostgreSQL 15+, SQLAlchemy 2.0 | Almacena el grafo de conocimiento (`scientific_concepts`), datos de investigadores, etc. |
+| Motor de Aprendizaje      | PyTorch 2.2+                  | Implementa las redes neuronales con plasticidad y meta-plasticidad del motor AGIHD.   |
+| Procesamiento Asíncrono   | Celery, Redis                 | Gestiona las tareas de descubrimiento y síntesis de larga duración.                   |
+| Seguimiento de Experimentos | MLflow                        | Registra cada trayectoria de investigación, garantizando la reproducibilidad (Axioma MDU). |
+| Visualización             | Streamlit                     | Proporciona dashboards interactivos para explorar el grafo de conocimiento y los resultados. |
+| Despliegue                | Docker, Kubernetes            | Asegura la escalabilidad, resiliencia y gestión declarativa del sistema completo.    |
 
-Aletheia no solo procesa datos, sino que los transforma en conocimiento interpretable a través de un conjunto de dashboards interactivos.
+## 5. Gobernanza: Principios del MDU y Licenciamiento Ético
 
-### 5.1 Dashboard de Exploración ABC
-#### 5.1.1 Análisis de Convergencia de la Optimización Bayesiana
+El desarrollo de Aletheia Unificada se rige por dos documentos fundacionales:
 
-Visualización clave para entender cómo el algoritmo de búsqueda explora el espacio de soluciones y explota regiones prometedoras.
+*   **`MDU_CORE_PRINCIPLES.md`:** La constitución técnica del proyecto. Define los estándares no negociables de calidad, rigor científico, arquitectura y reproducibilidad.
+*   **`LICENSE`:** La licencia **AUEPL**, que establece el marco legal y ético. Garantiza la apertura para la investigación y la colaboración, mientras implementa restricciones de uso vinculantes y reserva los derechos comerciales. Incluye una cláusula de no responsabilidad explícita.
 
-<img src="https://github.com/user-attachments/assets/5c378e9c-8f3e-4346-b60b-8d5f30e01736" alt="Convergencia de Optimización Bayesiana" width="800"/>
+## 6. Instalación y Estado Actual
 
-#### 5.1.2 Proyección 2D del Espacio de Búsqueda y Tripletas Notables
+El proyecto se encuentra actualmente en la **Fase 2** de la hoja de ruta de unificación. La base de código ha sido consolidada y el marco de gobernanza legal ha sido implementado.
 
-El gráfico muestra la relación entre log(c) y log(rad(abc)). Según la conjetura, los puntos deben estar por debajo de la línea y=x. Las tripletas de alta calidad son aquellas que se acercan más a esta línea.
+Para ejecutar el estado actual del proyecto (Aletheia v5.0-dev):
 
-<img src="https://github.com/user-attachments/assets/74ac59de-1f29-4d69-be53-535eb07d0f98" alt="Proyección 2D del Espacio de Búsqueda ABC" width="800"/>
-
-
-**Tabla de Tripletas Notables (Resultados de Simulación):**
-| Rango | Calidad (Q) | a | b | c | log(c) | log(rad(abc)) |
-| :---: | :---------: | :-: | :-: | :-: | :----: | :-----------: |
-| 1 | 1.6489 | 78,125 | 158,559 | 236,684 | 12.37 | 7.50 |
-| 2 | 1.6412 | 68,582 | 808,183 | 876,765 | 13.68 | 8.34 |
-| 3 | 1.6355 | 9,129 | 482,536 | 491,665 | 13.10 | 8.01 |
-| 4 | 1.6301 | 2,187 | 371,293 | 373,480 | 12.83 | 7.87 |
-| 5 | 1.6258 | 82,231 | 912,414 | 994,645 | 13.81 | 8.50 |
-
-### 5.2 Dashboard del Grafo de Conocimiento
-#### 5.2.1 Visualización de la Estructura del Conocimiento Sintetizado
-
-El grafo de conocimiento es el artefacto central del Eje X y Y. Su visualización permite a los investigadores entender las relaciones jerárquicas entre conceptos.
-
-```mermaid
-graph TD
-    A[Documento Fuente] --> B1(UCM: Conjetura ABC)
-    A --> B2(UCM: Teoría de Números)
-    A --> B3(UCM: Radical de entero)
-    A --> B4(UCM: Tripletas coprimas)
-
-    B1 & B3 & B4 --> C1{Cluster: Componentes ABC}
-    B2 --> C2{Cluster: Dominio Matemático}
-
-    C1 --> D[Proposición: Relación Aditiva-Multiplicativa]
-    C2 --> D
-
-    D --> E((Mini-Teoría: Fundamentos de ABC))
-
-    classDef source fill:#ffcdd2,stroke:#b71c1c
-    classDef ucm fill:#c8e6c9,stroke:#1b5e20
-    classDef cluster fill:#bbdefb,stroke:#0d47a1
-    classDef proposition fill:#fff9c4,stroke:#f57f17
-    classDef theory fill:#f3e5f5,stroke:#4a148c
-
-    class A source
-    class B1,B2,B3,B4 ucm
-    class C1,C2 cluster
-    class D proposition
-    class E theory
-```
-#### 5.2.2 Análisis Estructural del Grafo: Centralidad y Comunidades
-
-El análisis cuantitativo del grafo revela los conceptos más influyentes y la estructura comunitaria del conocimiento.
-
-| Concepto | PageRank | Centralidad de Intermediación | Comunidad (Louvain) | Descripción del Rol |
-| :--- | :---: | :---: | :---: | :--- |
-| Proposición: Relación Aditiva-Multiplicativa | 0.35 | 0.42 | 1 | Concepto Puente: Conecta los componentes de la conjetura con el dominio matemático general. Es el nodo más crítico. |
-| Cluster: Componentes ABC | 0.18 | 0.15 | 1 | Hub Temático: Agrega las unidades fundamentales de la conjetura. Alta influencia local. |
-| UCM: Conjetura ABC | 0.09 | 0.0 | 1 | Nodo de Entrada: Punto de partida importante, pero su influencia es mediada por el clúster. |
-| Cluster: Dominio Matemático | 0.15 | 0.08 | 2 | Hub Contextual: Proporciona el marco teórico más amplio para la proposición. |
-| Mini-Teoría: Fundamentos de ABC | 0.05 | 0.0 | 1 | Nodo Terminal: Representa la culminación de esta línea de síntesis. |
-
-### 5.3 Dashboard de Análisis Estadístico
-#### 5.3.1 Visualización Completa de Resultados de Prueba T
-
-El dashboard de `aletheia_stats` presenta un resumen visual completo para una interpretación robusta del resultado estadístico.
-
-<img src="https://github.com/user-attachments/assets/b22f7eb9-6e3e-450f-a494-b108190772f4" alt="Análisis Estadístico Completo" width="900"/>
-
-## 6. Sistema de Benchmarking y Evaluación
-
-Aletheia integra un riguroso framework de benchmarking para la evaluación continua tanto del rendimiento computacional como de la calidad científica de los resultados.
-
-### 6.1 Resultados de Benchmarks Computacionales
-#### 6.1.1 Rendimiento del Cálculo del Radical (PARI/GP)
-
-El cálculo del radical es una operación crítica para la búsqueda ABC. La integración con PARI/GP es esencial para la eficiencia.
-
-<img src="https://github.com/user-attachments/assets/f44f6f7b-9993-4e4f-b6bd-209fae48b8b9" alt="Rendimiento del Cálculo de Radicales" width="800"/>
-
-#### 6.1.2 Métricas de Calidad de Síntesis de Conocimiento
-
-Evalúa la calidad de los conceptos generados por el pipeline del Eje Y.
-
-| Métrica | Puntuación | Descripción | Método de Evaluación |
-| :--- | :---: | :--- | :--- |
-| Coherencia Semántica | 0.82 | Grado en que los conceptos dentro de una teoría sintetizada están relacionados temáticamente. | Similitud coseno promedio entre embeddings de conceptos (Sentence-BERT). |
-| Completitud | 0.78 | Proporción de conceptos clave de un dominio (ground-truth) que fueron identificados y sintetizados. | Comparación con ontologías de referencia (e.g., Math-Net). |
-| Novedad | 0.65 | Capacidad del sistema para generar proposiciones o relaciones no explícitas en los documentos de entrada. | Medida de la distancia semántica a los conceptos fuente. |
-| Validez Lógica | 100% | Porcentaje de teorías sintetizadas que no contienen contradicciones lógicas internas. | Verificación formal utilizando un solucionador SMT (Z3). |
-
-### 6.2 Evaluación Comparativa de Métodos de Búsqueda ABC
-
-Compara el rendimiento del método de búsqueda personalizado de Aletheia contra algoritmos baseline en una búsqueda de 1 hora.
-
-<img src="https://github.com/user-attachments/assets/b83a00cc-40b9-4d64-9ca5-f98728b7e2cc" alt="Comparativa de Rendimiento de Búsqueda ABC" width="900"/>
-
-
-**Análisis de Resultados:** El método Aletheia (Custom) logra la mayor calidad de descubrimiento, demostrando una estrategia de búsqueda más inteligente que compensa su mayor coste computacional por evaluación.
-
-## 7. Demostración Práctica Completa
-<details>
-<summary>Haga clic para expandir la demostración End-to-End</summary>
-<br>
-
-Este escenario demuestra el flujo de trabajo completo, desde la configuración del entorno hasta la ejecución de los diferentes análisis que ofrece Aletheia.
-
-### 7.1 Preparación del Entorno
 ```bash
-# 1. Clonar el repositorio y navegar al directorio
+# 1. Clonar el repositorio
 git clone https://github.com/SunNeurotron/Aletheia.git
 cd Aletheia
 
-# 2. Configurar variables de entorno (copiar de ejemplos)
-cp .env.example .env
-for module in Aletheia_v3 aletheia_stats aletheia_omega; do
-    cp $module/.env.example $module/.env
-done
-# NOTA: Edite los archivos .env para ajustarlos a su configuración (ej. claves secretas).
+# 2. Configurar variables de entorno
+# Copie .env.example en Aletheia_v3/ y aletheia_stats/ y ajústelos si es necesario.
+# Por ejemplo:
+cp Aletheia_v3/.env.example Aletheia_v3/.env
+cp aletheia_stats/.env.example aletheia_stats/.env
 
-# 3. Construir e iniciar todos los servicios en modo detached
+# 3. Construir e iniciar todos los servicios con Docker Compose
 cd Aletheia_v3
 docker-compose up --build -d
 
-# 4. Verificar que todos los contenedores estén activos y saludables
+# 4. Verificar el estado de los servicios
 docker-compose ps
-
-# 5. Aplicar migraciones de base de datos (se ejecuta automáticamente si está configurado en el entrypoint)
-# Para ejecutar manualmente:
-# docker-compose run --rm alembic_migrate
 ```
-### 7.2 Demo 1: Búsqueda de Tripletas ABC
 
-Ejecución de un job de búsqueda, monitoreo y recuperación de resultados.
+Los servicios estarán disponibles en los puertos definidos en `docker-compose.yml` (API en 8000, Dashboard de Conocimiento en 8502, etc.).
+
+## 7. Demostración Práctica Completa
+
+Esta sección proporciona un escenario end-to-end para demostrar las capacidades actuales de Aletheia Unificada. Se ejecutará una secuencia de operaciones que incluyen la búsqueda de tripletas ABC, la síntesis de conocimiento a partir de un documento y el análisis estadístico.
+
+### 7.1. Escenario de Demostración End-to-End
+
+Primero, asegúrese de que todos los servicios estén en ejecución siguiendo los pasos de instalación anteriores. Las migraciones de la base de datos se aplican automáticamente al iniciar los servicios con Docker Compose.
+
+Luego, puede ejecutar el siguiente script Python para ver el sistema en acción:
 
 ```python
-# Fichero: demos/demo_abc_search.py
+# run_all_demos.py
 import asyncio
 import httpx
+import numpy as np
+from datetime import datetime
+import json
+import time # For monitoring job status more cleanly
 
-async def run_abc_search_demo():
-    """Demostración completa de la funcionalidad de búsqueda ABC."""
-    BASE_URL = "http://localhost:8000"
+async def demo_abc_search(client: httpx.AsyncClient, headers: dict):
+    """
+    Demostración completa de búsqueda ABC.
+    """
+    base_url = "http://localhost:8000"
+    print("Iniciando búsqueda ABC...")
+    search_params = {
+        "search_space": {
+            "a_min": 1,
+            "a_max": 10000,
+            "b_min": 1,
+            "b_max": 10000
+        },
+        "optimization_params": {
+            "n_calls": 100,
+            "n_initial_points": 20,
+            "acq_func": "custom_ei_with_bonus"
+        },
+        "quality_threshold": 1.4
+    }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # 1. Autenticación (asumiendo credenciales de demo)
-        print("Autenticando...")
-        auth_resp = await client.post(f"{BASE_URL}/token", data={"username": "demo_researcher", "password": "demo_password"})
-        token = auth_resp.json()["access_token"]
-        headers = {"Authorization": f"Bearer {token}"}
+    job_response = await client.post(
+        f"{base_url}/api/abc/search",
+        json=search_params,
+        headers=headers
+    )
+    job_id = job_response.json()["job_id"]
+    print(f"Búsqueda ABC iniciada, Job ID: {job_id}")
 
-        # 2. Iniciar nuevo job de búsqueda
-        print("Iniciando job de búsqueda ABC...")
-        search_payload = {
-            "search_space": {"a_min": 1, "a_max": 10000, "b_min": 1, "b_max": 10000},
-            "optimization_params": {"n_calls": 100, "acq_func": "aletheia_custom"},
-            "quality_threshold": 1.4
+    print(f"Monitoreando job {job_id}...")
+    while True:
+        status_response = await client.get(
+            f"{base_url}/api/jobs/{job_id}",
+            headers=headers
+        )
+        status = status_response.json()
+
+        print(f"   Estado: {status['status']}, "
+              f"Progreso: {status['progress']}%, "
+              f"Mejores tripletas encontradas: {status['best_triples_count']}")
+
+        if status['status'] in ['completed', 'failed']:
+            break
+        await asyncio.sleep(5)
+
+    print("Recuperando resultados...")
+    results_response = await client.get(
+        f"{base_url}/api/abc/results/{job_id}",
+        headers=headers
+    )
+    results = results_response.json()
+
+    print("Mejores tripletas encontradas:")
+    for i, triple in enumerate(results['best_triples'][:10]):
+        print(f"   {i+1}. ({triple['a']}, {triple['b']}, {triple['c']}) "
+              f"- Calidad: {triple['quality']:.4f}")
+    print(f"Visualización disponible en: http://localhost:8501 (para dashboard de búsqueda)")
+    return results
+
+async def demo_knowledge_synthesis(client: httpx.AsyncClient, headers: dict):
+    """
+    Demostración del pipeline completo de síntesis de conocimiento.
+    """
+    base_url = "http://localhost:8000"
+    print("Ingiriendo documento científico...")
+    document_text = """
+    The ABC conjecture is one of the most important open problems in number theory.
+    It relates the prime factorization of integers to their additive properties.
+    Recent computational approaches have found interesting examples of ABC triples
+    with high quality metrics, suggesting patterns in their distribution.
+    """
+
+    ingest_response = await client.post(
+        f"{base_url}/api/eje-x/ingest-document",
+        json={
+            "title": "ABC Conjecture Computational Approaches",
+            "content": document_text,
+            "metadata": {
+                "author": "Demo Author",
+                "year": 2024,
+                "domain": "Number Theory"
+            }
+        },
+        headers=headers
+    )
+    document_id = ingest_response.json()["document_id"]
+    print(f"Documento ingerido, Document ID: {document_id}")
+
+    print("Esperando extracción de UCMs (puede tomar un momento)...")
+    await asyncio.sleep(10) # Give time for asynchronous UCM extraction
+
+    ucms_response = await client.get(
+        f"{base_url}/api/eje-x/concepts?concept_type=UCM&limit=50",
+        headers=headers
+    )
+    ucms = ucms_response.json()["concepts"]
+    print(f"   UCMs extraídas: {len(ucms)}")
+
+    print("Formando clusters de conceptos...")
+    cluster_response = await client.post(
+        f"{base_url}/api/eje-y/cluster-formation",
+        json={
+            "ucm_ids": [ucm["id"] for ucm in ucms],
+            "clustering_params": {
+                "method": "mdl_hierarchical",
+                "max_clusters": 5
+            }
+        },
+        headers=headers
+    )
+    clusters = cluster_response.json()["clusters"]
+    print(f"   Clusters formados: {len(clusters)}")
+
+    print("Derivando proposiciones...")
+    propositions = []
+    for cluster in clusters:
+        prop_response = await client.post(
+            f"{base_url}/api/eje-y/derive-propositions",
+            json={
+                "cluster_id": cluster["id"],
+                "generation_params": {
+                    "method": "mdl_optimization",
+                    "num_candidates": 10
+                }
+            },
+            headers=headers
+        )
+        propositions.extend(prop_response.json()["propositions"])
+    print(f"   Proposiciones derivadas: {len(propositions)}")
+
+    print("Construyendo mini-teorías...")
+    theory_response = await client.post(
+        f"{base_url}/api/eje-y/mini-theory-construction",
+        json={
+            "proposition_ids": [p["id"] for p in propositions],
+            "synthesis_params": {
+                "coherence_threshold": 0.7,
+                "min_propositions": 2
+            }
+        },
+        headers=headers
+    )
+    mini_theories = theory_response.json()["mini_theories"]
+    print(f"   Mini-teorías construidas: {len(mini_theories)}")
+
+    print(f"Grafo de conocimiento disponible en: http://localhost:8502 (para dashboard de conocimiento)")
+
+    print("Jerarquía de síntesis:")
+    print(f"   Documento → {len(ucms)} UCMs")
+    print(f"   UCMs → {len(clusters)} Clusters")
+    print(f"   Clusters → {len(propositions)} Proposiciones")
+    print(f"   Proposiciones → {len(mini_theories)} Mini-teorías")
+
+    return {
+        "document_id": document_id,
+        "synthesis_hierarchy": {
+            "ucms": len(ucms),
+            "clusters": len(clusters),
+            "propositions": len(propositions),
+            "mini_theories": len(mini_theories)
         }
-        job_resp = await client.post(f"{BASE_URL}/api/abc/search", json=search_payload, headers=headers)
-        job_id = job_resp.json()["job_id"]
+    }
 
-        # 3. Monitorear progreso
-        print(f"Monitoreando job: {job_id}...")
-        while True:
-            status_resp = await client.get(f"{BASE_URL}/api/jobs/{job_id}", headers=headers)
-            status = status_resp.json()
-            print(f"  -> Estado: {status['status']}, Progreso: {status['progress']:.1f}%")
-            if status['status'] == 'completed': break
-            await asyncio.sleep(5)
+async def demo_statistical_analysis(client: httpx.AsyncClient, headers: dict):
+    """
+    Demostración de análisis estadístico con MLflow.
+    """
+    stats_url = "http://localhost:8001"
+    print("Generando datos experimentales sintéticos...")
+    np.random.seed(42)
 
-        # 4. Obtener y mostrar resultados
-        print("Recuperando y mostrando resultados...")
-        results_resp = await client.get(f"{BASE_URL}/api/abc/results/{job_id}", headers=headers)
-        for i, triple in enumerate(results_resp.json()['best_triples'][:5]):
-            print(f"  {i+1}. Q={triple['quality']:.4f} | (a={triple['a']}, b={triple['b']}, c={triple['c']})")
+    control_group = np.random.normal(100, 15, 50)
+    treatment_group = np.random.normal(110, 15, 50)
+
+    print("Ejecutando prueba t...")
+    analysis_response = await client.post(
+        f"{stats_url}/api/v1/analyze/ttest",
+        json={
+            "experiment_name": "Demo Drug Efficacy Study",
+            "group_a_data": control_group.tolist(),
+            "group_b_data": treatment_group.tolist(),
+            "group_a_name": "Control",
+            "group_b_name": "Treatment",
+            "alpha": 0.05,
+            "metadata": {
+                "study_type": "randomized_controlled_trial",
+                "domain": "pharmacology",
+                "date": datetime.now().isoformat()
+            }
+        },
+        headers=headers
+    )
+
+    results = analysis_response.json()
+
+    print("Resultados del análisis:")
+    print(f"   Estadístico t: {results['t_statistic']:.4f}")
+    print(f"   Valor p: {results['p_value']:.4f}")
+    print(f"   Tamaño del efecto (d de Cohen): {results['cohens_d']:.4f}")
+    print(f"   Intervalo de confianza: [{results['ci_lower']:.2f}, {results['ci_upper']:.2f}]")
+    print(f"Experimento registrado en MLflow (Run ID: {results['mlflow_run_id']})")
+    print(f"Ver en: http://localhost:5000/#/experiments/{results['mlflow_experiment_id']}")
+
+    print("Realizando análisis de potencia...")
+    power_response = await client.post(
+        f"{stats_url}/api/v1/analyze/power",
+        json={
+            "effect_size": results['cohens_d'],
+            "sample_size": 50,
+            "alpha": 0.05,
+            "test_type": "two_sample_ttest"
+        },
+        headers=headers
+    )
+
+    power_results = power_response.json()
+    print(f"   Potencia estadística: {power_results['power']:.2%}")
+
+    return results
+
+async def run_all_demos():
+    base_url = "http://localhost:8000"
+
+    print("Iniciando demostraciones de Aletheia Unificada...\n")
+
+    async with httpx.AsyncClient(timeout=60.0) as client: # Increased timeout for long-running jobs
+        # 1. Autenticación global para todas las demos
+        print("1. Autenticando usuario para todas las demostraciones...")
+        try:
+            auth_response = await client.post(
+                f"{base_url}/token",
+                data={
+                    "username": "demo_researcher",
+                    "password": "demo_password"
+                }
+            )
+            auth_response.raise_for_status() # Raise an exception for bad status codes
+            token = auth_response.json()["access_token"]
+            headers = {"Authorization": f"Bearer {token}"}
+            print("   Autenticación exitosa.\n")
+        except httpx.HTTPStatusError as e:
+            print(f"   Error de autenticación: {e.response.status_code} - {e.response.text}")
+            print("   Asegúrese de que el servicio de API esté corriendo y las credenciales sean correctas.")
+            return
+        except httpx.RequestError as e:
+            print(f"   Error de conexión durante la autenticación: {e}")
+            print("   Asegúrese de que el servicio de API esté corriendo en http://localhost:8000.")
+            return
+
+        # 2. Demostración de Búsqueda ABC
+        print("\n--- INICIANDO DEMOSTRACIÓN DE BÚSQUEDA ABC ---")
+        try:
+            await demo_abc_search(client, headers)
+        except Exception as e:
+            print(f"   Ocurrió un error durante la demostración de búsqueda ABC: {e}")
+            print("   Continuando con la siguiente demostración...")
+        print("--- DEMOSTRACIÓN DE BÚSQUEDA ABC COMPLETADA ---\n")
+
+        # 3. Demostración de Síntesis de Conocimiento
+        print("\n--- INICIANDO DEMOSTRACIÓN DE SÍNTESIS DE CONOCIMIENTO ---")
+        try:
+            await demo_knowledge_synthesis(client, headers)
+        except Exception as e:
+            print(f"   Ocurrió un error durante la demostración de síntesis de conocimiento: {e}")
+            print("   Continuando con la siguiente demostración...")
+        print("--- DEMOSTRACIÓN DE SÍNTESIS DE CONOCIMIENTO COMPLETADA ---\n")
+
+        # 4. Demostración de Análisis Estadístico
+        print("\n--- INICIANDO DEMOSTRACIÓN DE ANÁLISIS ESTADÍSTICO ---")
+        try:
+            await demo_statistical_analysis(client, headers)
+        except Exception as e:
+            print(f"   Ocurrió un error durante la demostración de análisis estadístico: {e}")
+        print("--- DEMOSTRACIÓN DE ANÁLISIS ESTADÍSTICO COMPLETADA ---\n")
+
+    print("Todas las demostraciones principales han finalizado.")
 
 if __name__ == "__main__":
-    asyncio.run(run_abc_search_demo())
+    asyncio.run(run_all_demos())
 ```
-</details>
 
-## 8. Instalación y Configuración Detallada
-<details>
-<summary>Haga clic para expandir la guía de instalación</summary>
-<br>
+### 7.2. Resultados Esperados de la Demostración
 
-### 8.1 Requisitos del Sistema
+Estos son los puntos de referencia de rendimiento y las métricas de calidad que se esperan del sistema:
 
-*   **Hardware Recomendado:** 8+ Cores CPU, 32GB+ RAM, 100GB+ SSD, GPU NVIDIA (opcional para aceleración).
-*   **Software:** Docker (v24+), Docker Compose (v2.20+), Python (v3.9+ para desarrollo local), Git.
+```yaml
+Benchmarks de Rendimiento:
+  Cálculo de Radicales:
+    - Números < 10^6: < 1ms
+    - Números < 10^12: < 10ms
+    - Números < 10^18: < 100ms
 
-### 8.2 Instalación Paso a Paso
-```bash
-# 1. Instalar dependencias del sistema (ej. en Ubuntu/Debian)
-sudo apt-get update && sudo apt-get install -y build-essential python3.9-dev libpq-dev git curl
+  Extracción de UCMs:
+    - Throughput: > 1000 tokens/segundo
+    - Precisión: > 85%
+    - Recall: > 80%
 
-# 2. Instalar Docker y Docker Compose
-curl -fsSL https://get.docker.com | bash
-sudo usermod -aG docker $USER # Necesario reiniciar sesión o usar 'newgrp docker'
+  Operaciones de Grafo:
+    - Inserción de nodos: < 5ms
+    - Búsqueda BFS/DFS: O(V+E)
+    - Cálculo de centralidad: < 1s para grafos < 10k nodos
 
-# 3. Clonar el repositorio
-git clone https://github.com/SunNeurotron/Aletheia.git
-cd Aletheia
-
-# 4. Configurar el entorno virtual para desarrollo (opcional)
-python3.9 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-
-# 5. Configurar variables de entorno y secretos
-# Copie y edite los archivos .env.example como se muestra en la sección de demo
-cp Aletheia_v3/.env.example Aletheia_v3/.env
-# ... etc.
-
-# 6. Iniciar el stack de producción con Docker Compose
-cd Aletheia_v3/
-docker-compose up --build -d
+  API Latency (p95):
+    - Endpoints de lectura: < 100ms
+    - Endpoints de escritura: < 200ms
+    - Análisis complejos: < 5s
 ```
-</details>
 
-## 9. API y Endpoints
-<details>
-<summary>Haga clic para expandir la referencia de la API</summary>
-<br>
+```yaml
+Métricas de Calidad:
+  Síntesis de Conocimiento:
+    - Coherencia semántica: > 0.75
+    - Completitud: > 0.70
+    - Validez lógica: 100%
 
-La API RESTful es el punto de entrada principal para interactuar con Aletheia. Está documentada automáticamente a través de OpenAPI.
+  Búsqueda ABC:
+    - Tripletas de calidad > 1.4: > 50 en 1 hora
+    - Mejora vs búsqueda aleatoria: > 10x
+    - Convergencia: < 500 evaluaciones
+
+  Análisis Estadístico:
+    - Error Tipo I controlado: α = 0.05
+    - Potencia para d=0.8: > 0.80
+    - Cobertura de IC: 95% ± 1%
+```
+
+## 8. API y Endpoints
+
+### 8.1. Documentación OpenAPI
+
+La documentación completa de la API está disponible en formato OpenAPI/Swagger:
 
 *   **Swagger UI:** `http://localhost:8000/docs`
 *   **ReDoc:** `http://localhost:8000/redoc`
+*   **OpenAPI JSON:** `http://localhost:8000/openapi.json`
 
-### Principales Endpoints
-#### Eje X - Gestión Ontológica
+### 8.2. Autenticación y Autorización
 
-*   `POST /api/eje-x/ingest-document`: Ingiere un documento para su procesamiento.
-*   `GET /api/eje-x/concepts`: Lista y filtra conceptos en el grafo de conocimiento.
+```http
+POST /token
+Content-Type: application/x-www-form-urlencoded
 
-#### Eje Y - Síntesis de Conocimiento
+username=researcher@example.com&password=secure_password&grant_type=password
 
-*   `POST /api/eje-y/cluster-formation`: Agrupa UCMs en clusters de nivel superior.
-*   `POST /api/eje-y/construct-theories`: Ejecuta el pipeline de síntesis para construir mini-teorías.
-
-#### Búsqueda y Análisis
-
-*   `POST /api/abc/search`: Inicia un job de búsqueda de tripletas ABC.
-*   `GET /api/abc/results/{job_id}`: Recupera los resultados de un job de búsqueda.
-*   `POST /api/v1/analyze/ttest`: (Servicio `aletheia_stats`) Ejecuta una prueba t con registro en MLflow.
-
-</details>
-
-## 10. Testing y Calidad del Código
-<details>
-<summary>Haga clic para expandir la estrategia de calidad</summary>
-<br>
-
-Mantenemos un alto estándar de calidad a través de una estrategia de testing multi-capa y herramientas de análisis estático.
-
-### 10.1 Pirámide de Testing
-```mermaid
-graph TD
-    subgraph "Pirámide de Testing de Aletheia"
-        direction TB
-        E2E["<b>Tests E2E (5%)</b><br><i>(Playwright, Pytest)</i><br>Flujos de usuario completos"]
-        INT["<b>Tests de Integración (25%)</b><br><i>(Pytest, Docker)</i><br>API ↔ Servicio ↔ BD"]
-        UNIT["<b>Tests Unitarios (70%)</b><br><i>(Pytest, Hypothesis)</i><br>Lógica de Dominio, Casos de Uso"]
-    end
-    E2E --> INT --> UNIT
+Response:
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
 ```
-### 10.2 Cobertura y Análisis Estático
 
-*   **Cobertura de Código:** Nuestro objetivo es >90%. Se mide en cada commit a través del pipeline de CI.
-*   **Linting y Formateo:** Se fuerza el uso de `Black`, `isort` y `flake8` a través de hooks de pre-commit.
-*   **Tipado Estático:** Se utiliza `mypy` en modo estricto para asegurar la robustez del código.
+```http
+GET /api/v1/protected-endpoint
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
 
-### 10.3 CI/CD Pipeline con GitHub Actions
+### 8.3. Endpoints Principales por Módulo
 
-El pipeline `.github/workflows/ci.yml` automatiza el proceso de validación:
+```yaml
+Ingesta de Documentos:
+  POST /api/eje-x/ingest-document:
+    description: Ingiere un documento y extrae UCMs
+    request_body:
+      title: string
+      content: string
+      metadata: object
+    responses:
+      202:
+        document_id: uuid
+        task_id: uuid
+    roles_required: [researcher]
 
-1.  **Lint & Format:** Verifica el estilo y formato del código.
-2.  **Unit & Integration Tests:** Ejecuta la suite de tests completa contra servicios reales.
-3.  **Build & Scan:** Construye las imágenes Docker y las escanea en busca de vulnerabilidades con `Trivy`.
-4.  **Upload Coverage:** Sube el reporte de cobertura a Codecov.
+Gestión de Conceptos:
+  GET /api/eje-x/concepts:
+    description: Lista conceptos con filtros
+    query_params:
+      concept_type: ConceptType
+      skip: int = 0
+      limit: int = 100
+      search: string
+    responses:
+      200:
+        concepts: List[ScientificConcept]
+        total: int
+    roles_required: [viewer]
 
-</details>
+  POST /api/eje-x/concepts:
+    description: Crea un nuevo concepto
+    request_body:
+      name: string
+      description: string
+      concept_type: ConceptType
+      properties: object
+    responses:
+      201:
+        concept: ScientificConcept
+    roles_required: [researcher]
 
-## 11. Publicaciones y Referencias Académicas
-<details>
-<summary>Haga clic para expandir las referencias</summary>
-<br>
+Relaciones:
+  POST /api/eje-x/relationships:
+    description: Crea relación entre conceptos
+    request_body:
+      source_id: uuid
+      target_id: uuid
+      relationship_type: string
+      properties: object
+    responses:
+      201:
+        relationship: DirectedRelationship
+    roles_required: [researcher]
 
-### 11.1 Publicaciones del Proyecto (Ejemplos)
+Formación de Clusters:
+  POST /api/eje-y/cluster-formation:
+    description: Forma clusters a partir de UCMs
+    request_body:
+      ucm_ids: List[uuid]
+      clustering_params:
+        method: string = "mdl_hierarchical"
+        max_clusters: int = 10
+        similarity_threshold: float = 0.7
+    responses:
+      201:
+        clusters: List[Cluster]
+        mdl_scores: object
+    roles_required: [analyst]
+
+Derivación de Proposiciones:
+  POST /api/eje-y/derive-propositions:
+    description: Deriva proposiciones de clusters
+    request_body:
+      cluster_ids: List[uuid]
+      generation_params:
+        method: string = "mdl_optimization"
+        num_candidates: int = 20
+        coherence_weight: float = 0.5
+    responses:
+      201:
+        propositions: List[Proposition]
+    roles_required: [analyst]
+
+Construcción de Teorías:
+  POST /api/eje-y/construct-theories:
+    description: Pipeline completo de síntesis
+    request_body:
+      starting_concepts: List[uuid]
+      synthesis_levels: List[string]
+      optimization_params: object
+    responses:
+      202:
+        job_id: uuid
+        estimated_time: int
+    roles_required: [analyst]
+
+Análisis Cúbico:
+  POST /api/mdu/cubic-analysis:
+    description: Ejecuta análisis MDU completo
+    request_body:
+      x_dimension:  # Modelado
+        concepts: List[uuid]
+        ontology_rules: object
+      y_dimension:  # Descubrimiento
+        search_space: object
+        optimization_method: string
+      z_dimension:  # Comprensión
+        visualization_params: object
+        explainability_level: string
+    responses:
+      202:
+        analysis_id: uuid
+        cube_state: object
+    roles_required: [admin]
+
+Búsqueda ABC:
+  POST /api/abc/search:
+    description: Inicia búsqueda de tripletas ABC
+    request_body:
+      search_space:
+        a_range: [int, int]
+        b_range: [int, int]
+      optimization_params:
+        n_calls: int = 1000
+        acq_func: string = "custom_ei"
+      constraints:
+        min_quality: float = 1.4
+        time_limit: int = 3600
+    responses:
+      202:
+        job_id: uuid
+    roles_required: [researcher]
+
+  GET /api/abc/results/{job_id}:
+    description: Obtiene resultados de búsqueda
+    responses:
+      200:
+        status: string
+        best_triples: List[ABCTriple]
+        optimization_trace: object
+        mlflow_run_id: string
+    roles_required: [researcher]
+
+Prueba T:
+  POST /api/v1/analyze/ttest:
+    description: Realiza prueba t con validaciones
+    request_body:
+      experiment_name: string
+      group_a_data: List[float]
+      group_b_data: List[float]
+      alpha: float = 0.05
+      alternative: string = "two-sided"
+      metadata: object
+    responses:
+      200:
+        t_statistic: float
+        p_value: float
+        degrees_of_freedom: float
+        confidence_interval: [float, float]
+        effect_size: object
+        normality_tests: object
+        mlflow_run_id: string
+    roles_required: [analyst]
+
+ANOVA:
+  POST /api/v1/analyze/anova:
+    description: ANOVA de una vía
+    request_body:
+      groups: List[List[float]]
+      group_names: List[string]
+      alpha: float = 0.05
+      post_hoc: string = "tukey"
+    responses:
+      200:
+        f_statistic: float
+        p_value: float
+        eta_squared: float
+        post_hoc_results: object
+    roles_required: [analyst]
+```
+
+### 8.4. WebSocket para Actualizaciones en Tiempo Real
+
+```python
+# Cliente WebSocket ejemplo
+import asyncio
+import websockets
+import json
+
+async def monitor_job(job_id: str, token: str):
+    uri = f"ws://localhost:8000/ws/jobs/{job_id}"
+    headers = {"Authorization": f"Bearer {token}"}
+
+    async with websockets.connect(uri, extra_headers=headers) as websocket:
+        while True:
+            message = await websocket.recv()
+            data = json.loads(message)
+
+            print(f"Estado: {data['status']}")
+            print(f"Progreso: {data['progress']}%")
+
+            if data['status'] in ['completed', 'failed']:
+                break
+
+if __name__ == "__main__":
+    # Este es un ejemplo. Deberías obtener un token de autenticación válido primero.
+    # Por ejemplo, ejecutando la demo completa y extrayendo el token.
+    # asyncio.run(monitor_job("your_job_id_here", "your_auth_token_here"))
+    print("Para ejecutar este ejemplo, reemplace 'your_job_id_here' y 'your_auth_token_here' con valores reales.")
+```
+
+## 9. Testing y Calidad del Código
+
+### 9.1. Estrategia de Testing
+
+```mermaid
+graph TB
+    subgraph "Pirámide de Testing"
+        E2E[Tests E2E<br/>5%]
+        INT[Tests de Integración<br/>20%]
+        UNIT[Tests Unitarios<br/>75%]
+
+        E2E --> INT --> UNIT
+    end
+
+    subgraph "Tipos de Tests"
+        U1[Domain Logic]
+        U2[Use Cases]
+        U3[Utilities]
+
+        I1[API Endpoints]
+        I2[Database]
+        I3[External Services]
+
+        E1[User Workflows]
+        E2[System Integration]
+    end
+
+    UNIT --> U1 & U2 & U3
+    INT --> I1 & I2 & I3
+    E2E --> E1 & E2
+```
+
+```python
+# tests/test_domain.py
+import pytest
+from hypothesis import given, strategies as st
+from aletheia_v3.core.domain import _radical, abc_quality_metric
+
+class TestDomainLogic:
+    """Tests para lógica de dominio central."""
+
+    @pytest.mark.parametrize("n,expected", [
+        (1, 1),
+        (6, 6),      # 2 * 3
+        (30, 30),    # 2 * 3 * 5
+        (210, 210),  # 2 * 3 * 5 * 7
+        (2**10, 2),  # Solo un primo
+    ])
+    def test_radical_calculation(self, n, expected):
+        """Test cálculo de radical con casos conocidos."""
+        assert _radical(n) == expected
+
+    @given(
+        a=st.integers(min_value=1, max_value=10**6),
+        b=st.integers(min_value=1, max_value=10**6)
+    )
+    def test_radical_properties(self, a, b):
+        """Test propiedades del radical usando Hypothesis."""
+        # Propiedad: rad(ab) <= rad(a) * rad(b)
+        rad_ab = _radical(a * b)
+        rad_a_times_rad_b = _radical(a) * _radical(b)
+        assert rad_ab <= rad_a_times_rad_b
+
+    def test_abc_quality_edge_cases(self):
+        """Test casos límite para métrica de calidad ABC."""
+        # Caso inválido: a + b != c
+        assert abc_quality_metric(1, 2, 4) == 0.0
+
+        # Caso inválido: gcd(a,b) != 1
+        assert abc_quality_metric(2, 4, 6) == 0.0
+
+        # Caso válido conocido
+        quality = abc_quality_metric(1, 8, 9)
+        assert 1.0 < quality < 1.5
+```
+
+```python
+# tests/test_api_integration.py
+import pytest
+import asyncio
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession # Assuming this fixture is provided by pytest config
+
+@pytest.mark.asyncio
+class TestAPIIntegration:
+    """Tests de integración para endpoints API."""
+
+    async def test_knowledge_synthesis_pipeline(
+        self,
+        async_client: AsyncClient,
+        async_session: AsyncSession,
+        auth_headers: dict
+    ):
+        """Test pipeline completo de síntesis."""
+        # 1. Ingerir documento
+        response = await async_client.post(
+            "/api/eje-x/ingest-document",
+            json={
+                "title": "Test Document",
+                "content": "Prime numbers and their properties..."
+            },
+            headers=auth_headers
+        )
+        assert response.status_code == 202
+        document_id = response.json()["document_id"]
+
+        # 2. Esperar procesamiento
+        await asyncio.sleep(5) # Give time for asynchronous processing
+
+        # 3. Verificar UCMs extraídas
+        response = await async_client.get(
+            f"/api/eje-x/concepts?source_document={document_id}",
+            headers=auth_headers
+        )
+        assert response.status_code == 200
+        ucms = response.json()["concepts"]
+        assert len(ucms) > 0
+
+        # 4. Formar clusters
+        response = await async_client.post(
+            "/api/eje-y/cluster-formation",
+            json={"ucm_ids": [u["id"] for u in ucms]},
+            headers=auth_headers
+        )
+        assert response.status_code == 201
+
+        # 5. Verificar en base de datos
+        result = await async_session.execute(
+            "SELECT COUNT(*) FROM scientific_concepts WHERE concept_type = 'CLUSTER'"
+        )
+        cluster_count = result.scalar()
+        assert cluster_count > 0
+```
+
+```python
+# tests/test_performance.py
+import pytest
+import time
+from aletheia_v3.core.domain import _radical
+from httpx import Client # Assuming Client fixture for sync calls or AsyncClient for async
+
+class TestPerformance:
+    """Benchmarks de rendimiento."""
+
+    @pytest.mark.benchmark(group="radical")
+    def test_radical_performance_small(self, benchmark):
+        """Benchmark para números pequeños."""
+        result = benchmark(_radical, 1000)
+        assert result == 40  # 2³ × 5³
+
+    @pytest.mark.benchmark(group="radical")
+    def test_radical_performance_large(self, benchmark):
+        """Benchmark para números grandes."""
+        large_number = 2**50 - 1
+        result = benchmark(_radical, large_number)
+        assert result > 0
+
+    @pytest.mark.slow
+    def test_api_throughput(self, client: Client, auth_headers: dict):
+        """Test de throughput de API."""
+        start_time = time.time()
+        requests_count = 0
+
+        # Ensure the client is properly configured for the base URL if not a fixture
+        # For a simple test, assuming 'client' is an httpx.Client already pointed to the API
+        while time.time() - start_time < 10:  # 10 segundos
+            response = client.get(
+                "http://localhost:8000/api/health", # Explicitly using localhost for demo
+                headers=auth_headers
+            )
+            assert response.status_code == 200
+            requests_count += 1
+
+        rps = requests_count / 10
+        assert rps > 100  # Mínimo 100 req/s
+```
+
+### 9.2. Cobertura de Código
+
+```ini
+# .coveragerc
+[run]
+source = .
+omit =
+    */tests/*
+    */venv/*
+    */__pycache__/*
+    */migrations/*
+    setup.py
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov
+
+[xml]
+output = coverage.xml
+```
+
+Para ejecutar tests con cobertura:
+
+```bash
+pytest --cov=aletheia_v3 --cov=aletheia_stats \
+       --cov-report=term-missing \
+       --cov-report=html \
+       --cov-report=xml
+```
+
+Resultados esperados de ejemplo:
+
+```
+# Module                          Coverage
+# aletheia_v3.core.domain           95%
+# aletheia_v3.application           92%
+# aletheia_v3.api                   88%
+# aletheia_stats.domain             96%
+# Overall                           91%
+```
+
+### 9.3. Análisis Estático y Linting
+
+```ini
+# mypy.ini
+[mypy]
+python_version = 3.9
+warn_return_any = True
+warn_unused_configs = True
+disallow_untyped_defs = True
+disallow_incomplete_defs = True
+check_untyped_defs = True
+disallow_untyped_decorators = True
+no_implicit_optional = True
+warn_redundant_casts = True
+warn_unused_ignores = True
+warn_no_return = True
+warn_unreachable = True
+strict_equality = True
+
+[mypy-tests.*]
+ignore_errors = True
+
+[mypy-alembic.*]
+ignore_errors = True
+```
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/psf/black
+    rev: 24.4.2
+    hooks:
+      - id: black
+        args: [--line-length=88]
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.0
+    hooks:
+      - id: flake8
+        args: [--max-line-length=88, --extend-ignore=E203]
+        additional_dependencies: [flake8-docstrings, flake8-bugbear]
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-redis
+          - sqlalchemy[mypy]
+```
+
+### 9.4. CI/CD Pipeline
+
+```yaml
+# .github/workflows/ci.yml
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.0
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://postgres:test_password@localhost/test_db
+          REDIS_URL: redis://localhost:6379
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+
+  build:
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build Docker images
+        run: |
+          docker-compose -f Aletheia_v3/docker-compose.yml build
+
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'aletheia/api:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+```
+
+## 10. Publicaciones y Referencias Fundamentales
+
+### 10.1. Publicaciones del Proyecto
+
 ```bibtex
 @article{aletheia2024,
   title={Aletheia: A Computational Platform for AI-Guided Scientific Discovery},
   author={Alant Research Team},
   journal={Journal of Computational Science},
+  volume={TBD},
+  pages={TBD},
   year={2024},
+  publisher={Elsevier}
 }
 
 @inproceedings{aletheia-mdl2024,
   title={Hierarchical Knowledge Synthesis using Minimum Description Length Optimization},
   author={Alant Research Team},
-  booktitle={Proceedings of the International Conference on Machine Learning (ICML)},
+  booktitle={Proceedings of the International Conference on Machine Learning},
+  pages={TBD},
   year={2024},
+  organization={PMLR}
+}
+
+@techreport{aletheia-abc2024,
+  title={Computational Approaches to the ABC Conjecture: A Bayesian Optimization Perspective},
+  author={Alant Research Team},
+  year={2024},
+  institution={Alant Research},
+  type={Technical Report}
 }
 ```
-### 11.2 Referencias Fundamentales
 
-*   **MDL:** Grünwald, P. D. (2007). *The Minimum Description Length Principle*. MIT Press.
-*   **Bayesian Optimization:** Snoek, J., et al. (2012). "Practical Bayesian optimization of machine learning algorithms." *Advances in Neural Information Processing Systems*.
-*   **ABC Conjecture:** Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." *Comptes Rendus de l'Académie des Sciences*.
-*   **Clean Architecture:** Martin, R. C. (2017). *Clean Architecture: A Craftsman's Guide to Software Structure and Design*. Prentice Hall.
+### 10.2. Referencias Fundamentales
 
-</details>
+*   Oesterlé, J., & Masser, D. (1985). "Pour une théorie de l'effectivité." *Comptes Rendus de l'Académie des Sciences*.
+*   Granville, A., & Stark, H. (2000). "ABC implies no Siegel zeros for L-functions of characters with negative discriminant." *Inventiones Mathematicae, 139*(3), 509-523.
+*   Stewart, C. L., & Yu, K. (2001). "On the abc conjecture II." *Duke Mathematical Journal, 108*(1), 169-181.
+*   Snoek, J., Larochelle, H., & Adams, R. P. (2012). "Practical Bayesian optimization of machine learning algorithms." *Advances in Neural Information Processing Systems, 25*.
+*   Shahriari, B., Swersky, K., Wang, Z., Adams, R. P., & De Freitas, N. (2015). "Taking the human out of the loop: A review of Bayesian optimization." *Proceedings of the IEEE, 104*(1), 148-175.
+*   Rissanen, J. (1978). "Modeling by shortest data description." *Automatica, 14*(5), 465-471.
+*   Grünwald, P. D. (2007). *The Minimum Description Length Principle*. MIT Press.
+*   Vitányi, P. M., & Li, M. (2000). "Minimum description length induction, Bayesianism, and Kolmogorov complexity." *IEEE Transactions on Information Theory, 46*(2), 446-464.
+*   Manning, C. D., & Schütze, H. (1999). *Foundations of Statistical Natural Language Processing*. MIT Press.
+*   Jurafsky, D., & Martin, J. H. (2020). *Speech and Language Processing* (3rd ed.). Pearson.
 
-## 12. Contribuciones y Licencia
+### 10.3. Contacto y Colaboración
 
-Este es un proyecto de investigación activo. Estamos abiertos a colaboraciones académicas e industriales. Para contribuir, por favor, consulte `CONTRIBUTING.md`.
+**Equipo de Investigación Aletheia**
 
-**Licencia:** Este proyecto está licenciado bajo la **Apache License 2.0**. Vea el archivo `LICENSE` para más detalles.
+Alant Research
 
----
-*Copyright © 2025 Alant Research*
+*   **Email:** `aletheia-research@alant.com`
+*   **GitHub:** `https://github.com/SunNeurotron/Aletheia`
+
+Para colaboraciones académicas:
+
+*   Propuestas de investigación conjunta
+*   Acceso a datasets de investigación
+*   Participación en benchmarks
+*   Contribuciones al código abierto
+
+**Licencia:** AUEPL
+**Copyright:** © 2025 Alant
 
 <div align="center">
-<p><strong>Aletheia v4.0 - Descubriendo la Verdad a través de la Computación</strong></p>
-<p><em>"Ἀλήθεια" - La Verdad Revelada</em></p>
+<p><strong>Aletheia Unificada v5.0 - La Verdad Revelada a través de la Cognición Computacional</strong></p>
+<p><em>"Nosce te ipsum" - Conócete a ti mismo</em></p>
 </div>

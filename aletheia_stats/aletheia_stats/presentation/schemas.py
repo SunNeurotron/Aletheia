@@ -5,16 +5,6 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 
-# --- Schemas para Autenticación ---
-# Reutilizando la estructura general, podrían estar en aletheia_common si son idénticos
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(BaseModel):
-    username: Optional[str] = None
-    # scopes: List[str] = [] # Si se usan scopes/roles en el token
 
 
 # --- Schemas para T-Test ---
@@ -98,17 +88,6 @@ class PaginatedExperimentResponse(BaseModel):
     items: List[ExperimentResponse]
 
 
-# --- Schema para Usuario ---
-# Similar a aletheia_common.auth.UserAuth, pero definido aquí para independencia si es necesario
-# o podría importarse directamente si aletheia_common es una dependencia instalable.
-class UserSchema(BaseModel):
-    username: str
-    roles: List[str] = []
-    # email: Optional[str] = None # Ajustar según lo que devuelva get_current_active_user
-    # full_name: Optional[str] = None
-
-    class Config:
-        orm_mode = True
 
 
 # --- Schema para Health Check ---

@@ -1,6 +1,6 @@
 # Copyright 2025 Alant
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
+# Licensed under the Aletheia Unificada Ethical Public License (AUEPL);
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -116,93 +116,12 @@ class JobResponse(JobBase):
         orm_mode = True  # Allows Pydantic to work with SQLAlchemy models
 
 
-# --- Token Schemas (for Authentication) ---
-
-
-class Token(BaseModel):
-    """Schema for the JWT access token."""
-
-    access_token: str
-    token_type: str = "bearer"
-
-
-class TokenData(BaseModel):
-    """Schema for data embedded within the JWT token (the 'sub' field)."""
-
-    username: Optional[str] = None
-
-
-# --- User Schemas (for Authentication examples) ---
-# These are simplified for the example. In a real app, you might have more fields.
-
-
-class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=50)
-    email: Optional[str] = (
-        None  # EmailStr can be used for validation: from pydantic import EmailStr
-    )
-    full_name: Optional[str] = None
-
-
-class UserCreate(UserBase):
-    password: str = Field(
-        ..., min_length=8, description="User's password (will be hashed)."
-    )
-
-
-class UserResponse(UserBase):
-    """Schema for returning user information (without password)."""
-
-    disabled: Optional[bool] = None
-
-    class Config:
-        orm_mode = True
-
-
 # --- Health Check Schema ---
 class HealthCheckResponse(BaseModel):
     status: str = "OK"
     message: str = "API is healthy"
     version: Optional[str] = None  # Could be dynamically populated
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-
-# --- Researcher Schemas ---
-class ResearcherBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=100)
-    full_name: Optional[str] = Field(None, max_length=255)
-    email: str = Field(
-        ..., max_length=255
-    )  # Should use EmailStr for validation: from pydantic import EmailStr
-    orcid: Optional[str] = Field(
-        None, max_length=50, description="ORCID iD, e.g., 0000-0000-0000-0000"
-    )
-
-
-class ResearcherCreate(ResearcherBase):
-    password: str = Field(
-        ...,
-        min_length=8,
-        description="Researcher's password (will be hashed upon creation)",
-    )
-
-
-class ResearcherUpdate(BaseModel):
-    full_name: Optional[str] = Field(None, max_length=255)
-    email: Optional[str] = Field(None, max_length=255)  # Should use EmailStr
-    orcid: Optional[str] = Field(None, max_length=50)
-    # Password updates would typically be handled by a separate endpoint/schema
-
-
-class ResearcherResponse(ResearcherBase):
-    id: uuid_pkg.UUID  # Using uuid directly from uuid_pkg for response
-    created_at: datetime
-    updated_at: datetime
-    # submitted_jobs_count: Optional[int] = None # Example derived field
-    # proposed_conjectures_count: Optional[int] = None # Example derived field
-
-    class Config:
-        orm_mode = True
 
 
 # --- Discovery Attribution Schemas ---
